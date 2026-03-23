@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C.O.R.I.N.O. | Diretoria Florestal</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <h1 class="logo">🌲 DIFLOR</h1>
+            <p class="subtitle">Sistema da Diretoria Florestal</p>
+        </div>
+        <hr class="divider">
+        <nav class="menu" style="flex-grow: 1;">
+            <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta Geral</button>
+            <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">⏳ Em Andamento</button>
+            <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">🚨 Painel de Atrasados</button>
+            
+            <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')" style="display: none; margin-top: 15px; border-top: 1px dashed #333; padding-top: 15px; color: #ffa500;">📁 Respostas Anexadas</button>
+        </nav>
+        
+        <div class="user-profile-panel" style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--card-border);">
+            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">Sessão Ativa:</div>
+            <div id="user-display-name" style="font-size: 14px; font-weight: bold; color: var(--primary-green); margin-bottom: 15px; word-break: break-word;">Carregando...</div>
+            <button class="menu-btn" style="color: #ff4b4b; border: 1px solid rgba(255,75,75,0.3); text-align: center; justify-content: center;" onclick="fazerLogout()">
+                🚪 Sair do Sistema
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-content" id="mainContent">
+        <header class="top-header">
+            <div class="header-titles" style="display: flex; align-items: center; gap: 15px;">
+                <button class="btn-toggle" onclick="toggleSidebar()" title="Recolher/Expandir Menu">☰</button>
+                <h1>C.O.R.I.N.O. - Controle de Ofícios e Requisições de Informações de Natureza Operacional</h1>
+            </div>
+        </header>
+
+        <div id="aba-todos" class="tab-section">
+            <h2 class="page-title">🔍 Consulta Geral</h2>
+            <details class="advanced-filters" open>
+                <summary>🛠️ Filtros de Busca Avançada</summary>
+                <div class="filter-grid">
+                    <div class="filter-group"><label>NUP</label><input type="text" id="cgNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>CARMS</label><input type="text" id="cgCarms" placeholder="Ex: CARMS0000000" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>Gerência</label>
+                        <div class="custom-multiselect" id="ms-cgGerencia" data-placeholder="DIFLOR">
+                            <div class="ms-display" onclick="toggleDropdown('cgGerencia')"></div>
+                            <div class="ms-dropdown" id="dd-cgGerencia"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>Município</label>
+                        <div class="custom-multiselect" id="ms-cgMunicipio" data-placeholder="CAMPO GRANDE">
+                            <div class="ms-display" onclick="toggleDropdown('cgMunicipio')"></div>
+                            <div class="ms-dropdown" id="dd-cgMunicipio"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>Status</label>
+                        <div class="custom-multiselect" id="ms-cgStatus" data-placeholder="AGUARDANDO DISTRIBUIÇÃO">
+                            <div class="ms-display" onclick="toggleDropdown('cgStatus')"></div>
+                            <div class="ms-dropdown" id="dd-cgStatus"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>Técnico</label>
+                        <div class="custom-multiselect" id="ms-cgTecnico" data-placeholder="QUATITO">
+                            <div class="ms-display" onclick="toggleDropdown('cgTecnico')"></div>
+                            <div class="ms-dropdown" id="dd-cgTecnico"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div id="aba-andamento" class="tab-section" style="display: none;">
+            <h2 class="page-title">⏳ Processos em Andamento</h2>
+            <details class="advanced-filters" open>
+                <summary>🛠️ Filtros de Distribuição</summary>
+                <div class="filter-grid-3">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="andNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>👤 Filtrar por Técnico</label>
+                        <div class="custom-multiselect" id="ms-andTecnico" data-placeholder="QUATITO">
+                            <div class="ms-display" onclick="toggleDropdown('andTecnico')"></div>
+                            <div class="ms-dropdown" id="dd-andTecnico"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>📊 Filtrar por Status</label>
+                        <div class="custom-multiselect" id="ms-andStatus" data-placeholder="AGUARDANDO DISTRIBUIÇÃO">
+                            <div class="ms-display" onclick="toggleDropdown('andStatus')"></div>
+                            <div class="ms-dropdown" id="dd-andStatus"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            <div class="mini-tabs" id="mini-tabs-andamento">
+                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
+                <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
+                <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
+            </div>
+            <div id="alerta-andamento" class="alert-banner alert-info">ℹ️ Há 0 processos em andamento no sistema</div>
+        </div>
+
+        <div id="aba-atrasados" class="tab-section" style="display: none;">
+            <h2 class="page-title">🚨 Painel de Ofícios Atrasados</h2>
+            <details class="advanced-filters" open>
+                <summary>🛠️ Filtros de Atrasos</summary>
+                <div class="filter-grid-3">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="atrNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>👤 Filtrar por Técnico</label>
+                        <div class="custom-multiselect" id="ms-atrTecnico" data-placeholder="QUATITO">
+                            <div class="ms-display" onclick="toggleDropdown('atrTecnico')"></div>
+                            <div class="ms-dropdown" id="dd-atrTecnico"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>📊 Filtrar por Status</label>
+                        <div class="custom-multiselect" id="ms-atrStatus" data-placeholder="AGUARDANDO DISTRIBUIÇÃO">
+                            <div class="ms-display" onclick="toggleDropdown('atrStatus')"></div>
+                            <div class="ms-dropdown" id="dd-atrStatus"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            <div class="mini-tabs" id="mini-tabs-atrasados">
+                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
+                <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
+                <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
+            </div>
+            <div id="alerta-atrasados" class="alert-banner alert-danger">⚠️ Atenção - Há 0 processos em atraso no sistema</div>
+        </div>
+
+        <div id="aba-respondidos" class="tab-section" style="display: none;">
+            <h2 class="page-title" style="color: #ffa500;">📁 Respostas Anexadas</h2>
+            <details class="advanced-filters" open>
+                <summary>🛠️ Filtros de Revisão</summary>
+                <div class="filter-grid-3">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="respNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>👤 Filtrar por Técnico</label>
+                        <div class="custom-multiselect" id="ms-respTecnico" data-placeholder="QUATITO">
+                            <div class="ms-display" onclick="toggleDropdown('respTecnico')"></div>
+                            <div class="ms-dropdown" id="dd-respTecnico"></div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            <div id="alerta-respondidos" class="alert-banner alert-info" style="background-color: rgba(255, 165, 0, 0.1); border-color: rgba(255, 165, 0, 0.3); color: #ffa500;">
+                📁 Há 0 processos aguardando revisão da Diretoria.
+            </div>
+        </div>
+
+        <div id="export-section" style="display: none; margin-bottom: 40px;">
+            <button class="btn-export-full" id="btnExport" onclick="exportarCSV()">📥 Exportar lista filtrada (0 itens)</button>
+            <div id="contador-processos" class="results-count">Exibindo 0 resultados.</div>
+        </div>
+
+        <div id="loading" class="loading">A carregar dados do Google Sheets de forma segura...</div>
+        <div id="cards-container" class="grid-layout"></div>
+    </main>
+
+    <div id="detalhesModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="fecharModal()">&times;</span>
+            <div style="text-align: center; padding: 15px; border-bottom: 2px solid #006400; font-weight: bold; font-size: 18px;">📋 Detalhes Completos</div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <div id="previewModal" class="modal" style="z-index: 2000;"></div>
+
+    <script src="leitor.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

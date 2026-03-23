@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | C.O.R.I.N.O.</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="brand" style="text-align: center; margin-bottom: 30px;">
+            <h1 class="logo" style="font-size: 32px;">🌲 DIFLOR</h1>
+            <p class="subtitle">C.O.R.I.N.O.</p>
+        </div>
+        
+        <div class="filter-group" style="margin-bottom: 20px;">
+            <label>Utilizador</label>
+            <input type="text" id="username" placeholder="Digite o seu utilizador" onkeypress="verificarEnter(event)" style="text-align: left;">
+        </div>
+        
+        <div class="filter-group" style="margin-bottom: 30px;">
+            <label>Palavra-passe</label>
+            <input type="password" id="password" placeholder="••••••••" onkeypress="verificarEnter(event)" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none;">
+        </div>
+
+        <div id="login-error" style="color: #ff4b4b; font-size: 13px; text-align: center; margin-bottom: 15px; display: none;">
+            Utilizador ou palavra-passe incorretos.
+        </div>
+
+        <button class="btn-export-full" style="background-color: var(--primary-green); color: white; border: none;" onclick="fazerLogin()">
+            Entrar no Sistema
+        </button>
+    </div>
+
+    <script>
+        // BASE DE DADOS DE UTILIZADORES
+        const USUARIOS = {
+            // GERÊNCIA MESTRE (Vê todos os processos e todas as abas)
+            "diflor": { senha: "gonçaloalves", perfil: "gerencia", nomePlanilha: "DIRETORIA FLORESTAL" },
+            
+            // GERÊNCIA RESTRITA (Vê todos os processos, mas APENAS na aba Consulta Geral)
+            "geamb": { senha: "usop1", perfil: "gerencia_consulta", nomePlanilha: "GERÊNCIA DE ASSUNTOS AMBIENTAIS" },
+            
+            // TÉCNICOS (Vêem apenas a sua própria pauta em todas as abas permitidas)
+            "jhonatan": { senha: "dev1", perfil: "tecnico", nomePlanilha: "JHONATAN" },
+            "quatito": { senha: "123", perfil: "tecnico", nomePlanilha: "QUATITO" },
+            "joao": { senha: "123", perfil: "tecnico", nomePlanilha: "JOÃO" },
+            "maria": { senha: "123", perfil: "tecnico", nomePlanilha: "MARIA" }
+        };
+
+        function fazerLogin() {
+            const user = document.getElementById('username').value.toLowerCase().trim();
+            const pass = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('login-error');
+
+            if (USUARIOS[user] && USUARIOS[user].senha === pass) {
+                const dadosUsuario = {
+                    username: user,
+                    perfil: USUARIOS[user].perfil,
+                    nomePlanilha: USUARIOS[user].nomePlanilha
+                };
+                
+                sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
+                window.location.href = 'index.html'; 
+            } else {
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        function verificarEnter(event) {
+            if (event.key === "Enter") fazerLogin();
+        }
+    </script>
+</body>
+</html>
