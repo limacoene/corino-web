@@ -693,7 +693,7 @@ function abrirPreview(url, index) {
         <div class="preview-info-item">📄 <strong>Tipo:</strong> ${linha['TIPO']}</div>
         <div class="preview-info-item">📍 <strong>Município:</strong> ${linha['COMARCA']}</div>
         <div class="preview-info-item">📝 <strong>Referência:</strong> ${linha['REFERÊNCIA']}</div>
-        <div class="preview-info-item">⏳ <strong>Prazo:</strong> ${linha['DIAS RESTANTES'] || linha['PRAZO'] || '-'}</div>
+        <div class="preview-info-item">⏳ <strong>Prazo:</strong> ${linha['PRAZO'] || '-'}</div>
         <div class="preview-info-item">👤 <strong>Responsável:</strong> ${linha['TÉCNICO/ADMIN']}</div>
         <div class="preview-info-item">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA']}</div>
         <div class="preview-info-item">🆔 <strong>CAR:</strong> ${linha['CARMS']}</div>
