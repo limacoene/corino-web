@@ -19,29 +19,30 @@ function limparEPadronizarLinha(linha) {
     }
 
     let registro = {
-        DATA: linha['DATA'] || '-',
-        NUP: linha['NUP'] || '',
-        COMARCA: linha['COMARCA'] || '-',
-        'OFÍCIO N.': linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-',
+        DATA: linha['DATA'] || linha['DATA DE ENTRADA'] || '-',
+        NUP: linha['NUP'] || linha['PROCESSO'] || '',
+        COMARCA: linha['COMARCA'] || linha['MUNICÍPIO'] || linha['MUNICIPIO'] || '-',
+        'OFÍCIO N.': linha['OFÍCIO N.'] || linha['OFÍCIO'] || linha['OFICIO'] || linha['DOCUMENTO'] || '-',
         TIPO: tipo || '-',
-        REFERÊNCIA: linha['REFERÊNCIA'] || '-',
-        'DIAS RESTANTES': linha['VENCIMENTO'] || linha['-00 DIAS'] || linha['DIAS RESTANTES'] || '-',
-        CARMS: linha['CARMS'] || '-',
-        'STATUS DO CAR': linha['STATUS DO CAR'] || '-',
+        REFERÊNCIA: linha['REFERÊNCIA'] || linha['REFERENCIA'] || '-',
+        PRAZO: linha['PRAZO'] || linha['VENCIMENTO'] || linha['DATA VENCIMENTO'] || '-',
+        'DIAS RESTANTES': linha['DIAS RESTANTES'] || linha['-00 DIAS'] || linha['PRAZO (DIAS)'] || linha['DIAS'] || linha['VENCIMENTO'] || '-',
+        CARMS: linha['CARMS'] || linha['CAR'] || '-',
+        'STATUS DO CAR': linha['STATUS DO CAR'] || linha['STATUS CAR'] || '-',
         'TÉCNICO/ADMIN': tecnico,
         GERÊNCIA: gerencia,
-        STATUS: (linha['STATUS'] || '-').toUpperCase(),
-        'E-MS': linha['E-MS'] || '-',
+        STATUS: (linha['STATUS'] || linha['SITUAÇÃO'] || '-').toUpperCase(),
+        'E-MS': linha['E-MS'] || linha['EMS'] || '-',
         CBRS: linha['CBRS'] || '-',
-        OBSERVAÇÃO: linha['OBSERVAÇÃO'] || '-',
-        LINK_OFICIO: linha['LINK - OFÍCIO'] || linha['LINK_OFICIO'] || '',
+        OBSERVAÇÃO: linha['OBSERVAÇÃO'] || linha['OBSERVACAO'] || linha['OBS'] || '-',
+        LINK_OFICIO: linha['LINK - OFÍCIO'] || linha['LINK_OFICIO'] || linha['LINK OFÍCIO'] || linha['LINK DO OFÍCIO'] || '',
         
         // NOVA COLUNA PARA A ABA DE RESPOSTAS
-        LINK_RESPOSTA: linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || '',
+        LINK_RESPOSTA: linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || '',
         
-        OFICIO_INICIAL: linha[chaves[17]] || '',
-        NUP_INICIAL: linha[chaves[18]] || '',
-        LINK_INICIAL: linha[chaves[19]] || '',
+        OFICIO_INICIAL: linha['OFICIO_INICIAL'] || linha['OFÍCIO INICIAL'] || linha[chaves[17]] || '',
+        NUP_INICIAL: linha['NUP_INICIAL'] || linha['NUP INICIAL'] || linha[chaves[18]] || '',
+        LINK_INICIAL: linha['LINK_INICIAL'] || linha['LINK INICIAL'] || linha['LINK DO OFÍCIO INICIAL'] || linha[chaves[19]] || '',
         
         REITERACOES: []
     };
