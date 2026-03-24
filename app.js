@@ -349,7 +349,7 @@ function aplicarFiltros() {
         const termoBusca = document.getElementById('respNup').value.toLowerCase();
         const tecs = lerValoresMultiplosNativos('respTecnico');
 
-        filtrados = filtrados.filter(r => r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-');
+        filtrados = filtrados.filter(r => r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && r['STATUS'] !== 'TRAMITADO' && r['STATUS'] !== 'ARQUIVADO');
         
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
