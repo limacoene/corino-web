@@ -495,7 +495,12 @@ function anexarDocumento(event, nup) {
             });
 
             const nupLimpo = nup.replace(/[^a-zA-Z0-9]/g, '');
+            
+            // ==========================================
+            // ATENÇÃO AQUI: Adicionado acao: "upload"
+            // ==========================================
             const payload = {
+                acao: "upload", 
                 nup: nup, 
                 fileName: `Resposta_${nupLimpo}.pdf`,
                 base64: base64
