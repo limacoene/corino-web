@@ -79,7 +79,7 @@
                     sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
                     window.location.href = 'index.html'; 
                 } else {
-                    // Erro: Credenciais inválidas
+                    // Erro: Credenciais inválidas (recebido do servidor)
                     errorMsg.innerText = resultado.message || "Utilizador ou palavra-passe incorretos.";
                     errorMsg.style.display = 'block';
                     restaurarBotaoLogin(btnLogin);
