@@ -1,7 +1,4 @@
-const LINKS_PLANILHAS = [
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH-FB2y0K914aswDdtivgD5AJv6fpnUIPQpU2XmMHrIvXbRcDbgWdrv_VJBKLZesNueg9Q8AfNUXP2/pub?gid=166704597&single=true&output=csv",
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH-FB2y0K914aswDdtivgD5AJv6fpnUIPQpU2XmMHrIvXbRcDbgWdrv_VJBKLZesNueg9Q8AfNUXP2/pub?gid=1166060041&single=true&output=csv"
-];
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
 
 function limparEPadronizarLinha(linha) {
     const chaves = Object.keys(linha);
@@ -37,7 +34,6 @@ function limparEPadronizarLinha(linha) {
         OBSERVAÇÃO: linha['OBSERVAÇÃO'] || linha['OBSERVACAO'] || linha['OBS'] || '-',
         LINK_OFICIO: linha['LINK - OFÍCIO'] || linha['LINK_OFICIO'] || linha['LINK OFÍCIO'] || linha['LINK DO OFÍCIO'] || '',
         
-        // NOVA COLUNA PARA A ABA DE RESPOSTAS
         LINK_RESPOSTA: linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || '',
         
         OFICIO_INICIAL: linha['OFICIO_INICIAL'] || linha['OFÍCIO INICIAL'] || linha[chaves[17]] || '',
@@ -61,30 +57,20 @@ function limparEPadronizarLinha(linha) {
 
 async function buscarDadosGoogleSheets() {
     try {
-        const promessas = LINKS_PLANILHAS.map(url => new Promise((resolve, reject) => {
-            Papa.parse(url, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                complete: (resultados) => {
-                    resolve(resultados.data);
-                },
-                error: (erro) => {
-                    reject(erro);
-                }
-            });
-        }));
-
-        const arraysDeDados = await Promise.all(promessas);
-        const todosOsDados = [...arraysDeDados[0], ...arraysDeDados[1]];
+        const resposta = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ acao: "buscar_dados" })
+        });
         
-        const dadosLimpos = todosOsDados
-            .filter(linha => linha['NUP'])
-            .map(limparEPadronizarLinha);
-
-        return dadosLimpos;
+        const resultado = await resposta.json();
+        
+        if (resultado.status === 'success') {
+            return resultado.dados.map(limparEPadronizarLinha);
+        } else {
+            throw new Error(resultado.message);
+        }
     } catch (erro) {
-        console.error("Erro na leitura das planilhas:", erro);
+        console.error("Erro na leitura da API segura:", erro);
         throw erro;
     }
 }
