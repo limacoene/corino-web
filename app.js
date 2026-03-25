@@ -1,6 +1,3 @@
-// ============================================================================
-// VERIFICAÇÃO DE LOGIN, SESSÃO E UI IMEDIATA
-// ============================================================================
 const usuarioAtivo = JSON.parse(sessionStorage.getItem('corino_user'));
 
 if (!usuarioAtivo) {
@@ -19,9 +16,6 @@ function fazerLogout() {
     window.location.href = 'login.html';
 }
 
-// ============================================================================
-// VARIÁVEIS GLOBAIS E INICIALIZAÇÃO
-// ============================================================================
 let dadosCoringa = [];   
 let filtroAtivo = 'todos'; 
 let subAbaAtiva = 'Geral'; 
@@ -76,14 +70,11 @@ async function iniciarSistema() {
         popularTodosOsSelectsNativos(); 
         mudarAbaPrincipal('todos'); 
     } catch (erro) {
-        document.getElementById('loading').innerText = "Erro ao conectar com as planilhas. Verifique os links.";
+        document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
         console.error(erro);
     }
 }
 
-// ============================================================================
-// LÓGICA DOS MULTI-SELECTS NATIVOS
-// ============================================================================
 function popularTodosOsSelectsNativos() {
     const gerencias = [...new Set(dadosCoringa.map(d => d['GERÊNCIA']))].filter(x => x && x !== 'S/G').sort();
     const municipios = [...new Set(dadosCoringa.map(d => d['COMARCA']))].filter(x => x && x !== '-').sort();
@@ -124,22 +115,17 @@ function popularTodosOsSelectsNativos() {
     inicializar('cgMunicipio', municipios);
     inicializar('cgStatus', statusList);
     inicializar('cgTecnico', tecnicos);
-
     inicializar('andTecnico', tecnicos);
     inicializar('andStatus', statusList);
-
     inicializar('atrTecnico', tecnicos);
     inicializar('atrStatus', statusList);
-
     inicializar('respTecnico', tecnicos);
 }
 
 function atualizarDisplayNativo(idBase, placeholderText) {
     const display = document.getElementById(`ms-${idBase}`).querySelector('.ms-display');
     const valoresSelecionados = lerValoresMultiplosNativos(idBase);
-
     display.innerHTML = '';
-
     if (valoresSelecionados.length === 0) {
         display.innerHTML = `<span class="ms-placeholder">Ex: ${placeholderText}</span>`;
     } else {
@@ -183,13 +169,9 @@ function lerValoresMultiplosNativos(idBase) {
     return Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 }
 
-// ============================================================================
-// NAVEGAÇÃO E FILTROS
-// ============================================================================
 function mudarAbaPrincipal(tipo) {
     filtroAtivo = tipo;
     subAbaAtiva = 'Geral'; 
-    
     document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`btn-menu-${tipo}`).classList.add('active');
 
@@ -224,7 +206,6 @@ function limparInputsDeFiltro() {
         const el = document.getElementById(id);
         if(el) el.value = '';
     });
-
     const idsCustom = ['cgGerencia', 'cgMunicipio', 'cgStatus', 'cgTecnico', 'andTecnico', 'andStatus', 'atrTecnico', 'atrStatus', 'respTecnico'];
     idsCustom.forEach(idBase => {
         const dropdown = document.getElementById(`dd-${idBase}`);
@@ -269,7 +250,6 @@ function checarTermoBusca(r, termo) {
             }
         }
     }
-    
     return { match: false, info: null };
 }
 
@@ -279,9 +259,6 @@ function aplicarFiltros() {
     if (filtroAtivo === 'todos') {
         const termoBusca = document.getElementById('cgNup').value.toLowerCase().trim();
         const carms = document.getElementById('cgCarms').value.toLowerCase().trim();
-        
-        // CORREÇÃO AQUI: Em vez de filtrar a palavra "todos" antes de verificar se há filtros ativos,
-        // guardamos as seleções brutas. Assim, se clicar em "todos", o ecrã desperta!
         const gersRaw = lerValoresMultiplosNativos('cgGerencia');
         const munsRaw = lerValoresMultiplosNativos('cgMunicipio');
         const stssRaw = lerValoresMultiplosNativos('cgStatus');
@@ -363,13 +340,32 @@ function aplicarFiltros() {
     desenharCards(filtrados);
 }
 
+// ============================================================================
+// EXPORTAÇÃO CSV NATIVA (Sem biblioteca externa)
+// ============================================================================
 function exportarCSV() {
     if (dadosExibidos.length === 0) {
         alert("Não existem dados para exportar com o filtro atual.");
         return;
     }
-    const csv = Papa.unparse(dadosExibidos);
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: "text/csv;charset=utf-8;" });
+    
+    // Filtramos propriedades internas como "_matchInfo" ou arrays como "REITERACOES" 
+    const chaves = Object.keys(dadosExibidos[0]).filter(k => k !== 'REITERACOES' && k !== '_matchInfo');
+    
+    let csvContent = chaves.join(",") + "\n";
+    
+    dadosExibidos.forEach(linha => {
+        let valores = chaves.map(chave => {
+            let valor = linha[chave] === null || linha[chave] === undefined ? "" : String(linha[chave]);
+            if (valor.includes(",") || valor.includes('"') || valor.includes("\n")) {
+                valor = `"${valor.replace(/"/g, '""')}"`;
+            }
+            return valor;
+        });
+        csvContent += valores.join(",") + "\n";
+    });
+
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -378,9 +374,6 @@ function exportarCSV() {
     URL.revokeObjectURL(url);
 }
 
-// ============================================================================
-// DESENHO DA INTERFACE E UPLOAD
-// ============================================================================
 function desenharCards(dados, estadoInicialConsultaGeral = false) {
     dadosExibidos = dados; 
     const container = document.getElementById('cards-container');
@@ -495,10 +488,6 @@ function anexarDocumento(event, nup) {
             });
 
             const nupLimpo = nup.replace(/[^a-zA-Z0-9]/g, '');
-            
-            // ==========================================
-            // ATENÇÃO AQUI: Adicionado acao: "upload"
-            // ==========================================
             const payload = {
                 acao: "upload", 
                 nup: nup, 
@@ -546,24 +535,20 @@ function abrirModal(index) {
     const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
 
     let htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="modal-obs"><strong>Observação:</strong><br>${obs}</div>` : '';
-    
     let htmlPreviewIcon = '';
     let htmlLink = `<div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px;">🚫 Sem Link Vinculado</div>`;
-    
     let btnAnexar = '';
+    
     if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
         btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
     }
 
     if (linkRaw && linkRaw.startsWith('http')) {
         const fileId = extrairIdDrive(linkRaw);
-        
         if (fileId) {
             const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
             const linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
-            
             htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
-            
             htmlLink = `
                 <div class="modal-buttons">
                     <a href="${linkDownload}" class="btn-drive btn-download">⬇️ Download</a>
@@ -589,12 +574,10 @@ function abrirModal(index) {
     if (linkResposta && linkResposta.startsWith('http')) {
         const respId = extrairIdDrive(linkResposta);
         let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive" style="background-color: #ffa500; border-color: #cc8400;">🔗 Abrir Resposta no Drive</a>`;
-        
         if (respId) {
             const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
             botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive" style="background-color: #ffa500; border-color: #cc8400; border:none;">👁️ Pré-visualizar Resposta</button>`;
         }
-        
         htmlResposta = `
             <div style="margin: 20px 20px 0 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <div style="color: #ffa500; font-weight: bold; margin-bottom: 10px;">📁 Documento de Resposta Anexado:</div>
@@ -642,9 +625,7 @@ function abrirModal(index) {
     modal.style.display = 'flex';
 }
 
-function fecharModal() { 
-    document.getElementById('detalhesModal').style.display = 'none'; 
-}
+function fecharModal() { document.getElementById('detalhesModal').style.display = 'none'; }
 
 function abrirPreview(url, index) {
     const modal = document.getElementById('previewModal');
