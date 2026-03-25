@@ -34,51 +34,69 @@
     </div>
 
     <script>
-        // BASE DE DADOS DE UTILIZADORES
-        const USUARIOS = {
-            // GERÊNCIA MESTRE (Vê todos os processos e todas as abas)
-            "diflor": { senha: "gonçaloalves", perfil: "gerencia", nomePlanilha: "DIRETORIA FLORESTAL" },
-            
-            // GERÊNCIA RESTRITA (Vê todos os processos, mas APENAS na aba Consulta Geral)
-            "geamb": { senha: "usop1", perfil: "gerencia_consulta", nomePlanilha: "GERÊNCIA DE ASSUNTOS AMBIENTAIS" },
-            
-            // TÉCNICOS (Vêem apenas a sua própria pauta em todas as abas permitidas)
-            "jhonatan": { senha: "dev1", perfil: "tecnico", nomePlanilha: "JHONATAN" },
-            "rcosta": { senha: "mutumdev", perfil: "tecnico", nomePlanilha: "RODRIGO" },
-            "marianaopp": { senha: "marianaopp", perfil: "tecnico", nomePlanilha: "MARIANA OPP" },
-            "erafael": { senha: "epaulino", perfil: "tecnico", nomePlanilha: "ELERI" },
-            "mandressa": { senha: "mbrito", perfil: "tecnico", nomePlanilha: "MILKA" },
-            "jribeiro": { senha: "jferreira", perfil: "tecnico", nomePlanilha: "JOELTHON" },
-            "bcarneiro": { senha: "boliveira", perfil: "tecnico", nomePlanilha: "BEATRIZ" },
-            "aoliveira": { senha: "atavares", perfil: "tecnico", nomePlanilha: "ANDERSON" },
-            "hcrodrigues": { senha: "hcorrea", perfil: "tecnico", nomePlanilha: "HELEN CAROLINE" },
-            "mshinzato": { senha: "muemura", perfil: "tecnico", nomePlanilha: "MARIANA SH" },
-            "lpires": { senha: "lcarmo", perfil: "tecnico", nomePlanilha: "LARISSA" },
-            "adpaula": { senha: "adivino", perfil: "tecnico", nomePlanilha: "ALEXANDRE" },
-            "mruginski": { senha: "mmarochi", perfil: "tecnico", nomePlanilha: "MATEUS" },
-            "mgarcia": { senha: "mcorona", perfil: "tecnico", nomePlanilha: "MARIA" },
-            "maguirre": { senha: "mpereira", perfil: "tecnico", nomePlanilha: "MICHAEL" },
-            "fvasconcellos": { senha: "fananias", perfil: "tecnico", nomePlanilha: "FABIANA" },
-            "cfonseca": { senha: "csilva", perfil: "tecnico", nomePlanilha: "CARLOS JULIANO" }
-        };
+        // URL DO SEU GOOGLE APPS SCRIPT
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
 
-        function fazerLogin() {
+        async function fazerLogin() {
             const user = document.getElementById('username').value.toLowerCase().trim();
             const pass = document.getElementById('password').value.trim();
             const errorMsg = document.getElementById('login-error');
+            const btnLogin = document.querySelector('.btn-export-full');
 
-            if (USUARIOS[user] && USUARIOS[user].senha === pass) {
-                const dadosUsuario = {
-                    username: user,
-                    perfil: USUARIOS[user].perfil,
-                    nomePlanilha: USUARIOS[user].nomePlanilha
-                };
-                
-                sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
-                window.location.href = 'index.html'; 
-            } else {
+            if (!user || !pass) {
+                errorMsg.innerText = "Por favor, preencha o utilizador e a palavra-passe.";
                 errorMsg.style.display = 'block';
+                return;
             }
+
+            // Feedback visual de carregamento
+            btnLogin.innerText = "A validar credenciais...";
+            btnLogin.disabled = true;
+            btnLogin.style.opacity = '0.7';
+            errorMsg.style.display = 'none';
+
+            try {
+                // Envia os dados de login para o servidor (Google Apps Script)
+                const resposta = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        acao: "login", 
+                        username: user, 
+                        password: pass 
+                    })
+                });
+
+                const resultado = await resposta.json();
+
+                if (resultado.status === 'success') {
+                    // Login com sucesso: guarda os dados na sessão
+                    const dadosUsuario = {
+                        username: user,
+                        perfil: resultado.perfil,
+                        nomePlanilha: resultado.nomePlanilha
+                    };
+                    
+                    sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
+                    window.location.href = 'index.html'; 
+                } else {
+                    // Erro: Credenciais inválidas
+                    errorMsg.innerText = resultado.message || "Utilizador ou palavra-passe incorretos.";
+                    errorMsg.style.display = 'block';
+                    restaurarBotaoLogin(btnLogin);
+                }
+            } catch (erro) {
+                // Erro de falha na internet ou erro no servidor
+                console.error("Erro no login:", erro);
+                errorMsg.innerText = "Erro de comunicação com o servidor. Verifique a internet ou o link do script.";
+                errorMsg.style.display = 'block';
+                restaurarBotaoLogin(btnLogin);
+            }
+        }
+
+        function restaurarBotaoLogin(btn) {
+            btn.innerText = "Entrar no Sistema";
+            btn.disabled = false;
+            btn.style.opacity = '1';
         }
 
         function verificarEnter(event) {
