@@ -71,8 +71,12 @@ function obterStatusVisual(linha) {
     if (isNaN(numero)) return { texto: '⚪ SEM PRAZO', classe: 'status-gray' };
 
     if (numero < 0) return { texto: `⚠️ 🔴 ${Math.abs(numero)} DIAS DE ATRASO`, classe: 'status-red' };
-    return { texto: `🟢 ${numero} dias`, classe: 'status-green' };
+    if (numero === 0) return { texto: ' VENCE HOJE', classe: 'status-yellow' };
+    if (numero === 1) return { texto: `🟢 ${numero} dia`, classe: 'status-green' };
+    
+    return { texto: `🟢 ${numero} dias`, classe: 'status-green' }; // Para 2 ou mais dias
 }
+
 
 async function iniciarSistema() {
     try {
@@ -485,33 +489,52 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
         
         let percentual = 100;
-        let corBarra = '#aaaaaa';
+        let corClasse = ''; // Será 'green', 'orange' ou 'red'
         let pulsingClass = '';
         
+        const diasStr = (linha['DIAS RESTANTES'] || '').toString().trim();
+        const numeroDiasRestantes = parseInt(diasStr.replace(/[^0-9-]/g, ""));
+
+        // Define um prazo máximo para a escala visual da barra (ex: 30 dias)
+        // Isso ajuda a visualizar o progresso mesmo para prazos muito longos.
+        const MAX_PRAZO_VISUAL = 30; 
+
         if (statusVisual.texto.includes('FINALIZADO')) {
-            percentual = 100; corBarra = '#00fa9a'; 
-        } else if (statusVisual.texto.includes('SEM PRAZO')) {
-            percentual = 0; corBarra = '#333333'; 
-        } else if (statusVisual.texto.includes('ATRASO')) {
-            percentual = 100; corBarra = '#ff4b4b'; pulsingClass = 'pulse-bar'; 
-        } else {
-            const diasStr = (linha['DIAS RESTANTES'] || '').toString().trim();
-            const numero = parseInt(diasStr.replace(/[^0-9-]/g, ""));
-            if (!isNaN(numero)) {
-                // Preenche a barra simulando um prazo máximo "confortável" de 30 dias
-                percentual = Math.max(5, (numero / 30) * 100); 
-                if (numero <= 5) {
-                    corBarra = '#ffa500'; // Laranja alerta
+            percentual = 100; // Finalizado, barra cheia
+            corClasse = 'green'; // Cor verde para finalizado
+        } else if (isNaN(numeroDiasRestantes) || diasStr === '' || diasStr === '-') {
+            // Sem prazo definido ou inválido, barra vazia
+            percentual = 0;
+            // Nenhuma classe de cor específica para a barra, o background do container será visível
+        } else { // Processo em andamento ou atrasado
+            if (numeroDiasRestantes < 0) {
+                // Atrasado: barra 100% vermelha
+                percentual = 100;
+                corClasse = 'red';
+                pulsingClass = 'pulse-bar'; // Mantém o pulso para atrasados
+            } else {
+                // Prazo em andamento: calcular preenchimento progressivo
+                // Dias decorridos em relação ao prazo máximo visual
+                const diasDecorridosVisual = MAX_PRAZO_VISUAL - numeroDiasRestantes;
+                
+                // Garante que o percentual esteja entre 0 e 100
+                percentual = Math.min(Math.max(0, (diasDecorridosVisual / MAX_PRAZO_VISUAL) * 100), 99); // Limita a 99% antes de ficar vermelho (atrasado)
+
+                if (percentual < 70) { // Menos de 70% do prazo visual decorrido
+                    corClasse = 'green';
+                } else if (percentual < 95) { // Entre 70% e 95% do prazo visual decorrido
+                    corClasse = 'orange';
+                    pulsingClass = 'pulse-bar-warning'; // Pulso para alerta
+                } else { // Mais de 95% do prazo visual decorrido, muito perto do fim
+                    corClasse = 'red'; // Quase 100%, mas ainda não atrasado (dias restantes >= 0)
                     pulsingClass = 'pulse-bar-warning';
-                } else {
-                    corBarra = '#00fa9a'; // Verde OK
                 }
             }
         }
         
         let barraProgressoHtml = `
             <div class="progress-container" title="Indicador de Prazo">
-                <div class="progress-bar ${pulsingClass}" style="width: ${Math.min(percentual, 100)}%; background-color: ${corBarra};"></div>
+                <div class="progress-bar ${corClasse} ${pulsingClass}" style="width: ${percentual}%;"></div>
             </div>
         `;
 
@@ -530,6 +553,13 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
             <div class="card-status ${statusVisual.classe}">${statusVisual.texto}</div>
             ${barraProgressoHtml}
             ${htmlMatchInfo}
+            <!-- 
+                Lógica de Movimentação de Aba:
+                A "movimentação" de um ofício para a aba de "Ofícios Atrasados" é tratada pela função 'aplicarFiltros'.
+                Quando um ofício tem 'DIAS RESTANTES' negativo, 'obterStatusVisual' o marca como "ATRASO".
+                A função 'aplicarFiltros' para a aba 'andamento' exclui automaticamente ofícios com status "ATRASO",
+                enquanto a aba 'atrasados' os inclui. Assim, a mudança de aba ou a atualização dos filtros reflete essa "movimentação".
+            -->
             <div class="badge-nup">NUP: ${linha['NUP']}</div>
             <div class="badge-oficio">📜 OFÍCIO N.: ${oficioRaw}</div>
             <button class="btn-expander" onclick="abrirModal(${index})">📖 VER INFORMAÇÕES COMPLEMENTARES</button>
