@@ -130,8 +130,6 @@ body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color
 .preview-toolbar-buttons { display: flex; gap: 10px; }
 .btn-preview-action { background-color: #1a1a1a; color: white; border: 1px solid #333; border-radius: 6px; padding: 8px 15px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s; }
 .btn-preview-action:hover { background-color: #333; }
-.btn-download-preview { background-color: var(--primary-green); border-color: #1a6b1a; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
-.btn-download-preview:hover { background-color: #1a6b1a; border-color: #0f4d0f; color: white; }
 .btn-close-preview { background-color: rgba(255, 75, 75, 0.2); border-color: rgba(255, 75, 75, 0.5); color: #ff4b4b; }
 .btn-close-preview:hover { background-color: rgba(255, 75, 75, 0.4); color: white; }
 .preview-body { display: flex; flex: 1; overflow: hidden; }
