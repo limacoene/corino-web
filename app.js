@@ -58,6 +58,7 @@ function scrollToTop() {
 let dadosCoringa = [];   
 let filtroAtivo = 'todos'; 
 let subAbaAtiva = 'Geral'; 
+let incluirReiteracoes = false; // Nova variável para o toggle
 let dadosExibidos = [];  
 
 function obterStatusVisual(linha) {
@@ -77,6 +78,42 @@ function obterStatusVisual(linha) {
     return { texto: `🟢 ${numero} dias`, classe: 'status-green' }; // Para 2 ou mais dias
 }
 
+// Função auxiliar para calcular a formatação dinâmica (cores HSL, texto e ícone de bolinha)
+function obterInfoDinamicaStatus(linha) {
+    const statusVisual = obterStatusVisual(linha);
+    let percentual = 100;
+    let corFundo = 'transparent';
+    let pulsingClass = '';
+    
+    const diasStr = (linha['DIAS RESTANTES'] || '').toString().trim();
+    const numeroDiasRestantes = parseInt(diasStr.replace(/[^0-9-]/g, ""));
+    const MAX_PRAZO_VISUAL = 30; 
+
+    if (statusVisual.texto.includes('FINALIZADO')) {
+        percentual = 100; corFundo = '#00fa9a';
+    } else if (isNaN(numeroDiasRestantes) || diasStr === '' || diasStr === '-') {
+        percentual = 0; corFundo = 'transparent';
+    } else {
+        if (numeroDiasRestantes < 0) {
+            percentual = 100; corFundo = '#ff4b4b'; pulsingClass = 'pulse-bar';
+        } else {
+            const diasDecorridosVisual = MAX_PRAZO_VISUAL - numeroDiasRestantes;
+            percentual = Math.min(Math.max(0, (diasDecorridosVisual / MAX_PRAZO_VISUAL) * 100), 99);
+            const hue = 120 - (percentual * 1.2);
+            corFundo = `hsl(${hue}, 100%, 50%)`;
+            if (percentual >= 70) pulsingClass = 'pulse-bar-warning';
+        }
+    }
+    
+    let corTexto = corFundo === 'transparent' ? '#aaaaaa' : corFundo;
+    let textoStatusLimpo = statusVisual.texto.replace(/🟢|🟡|🔴|⚪|✅/g, '').trim();
+    
+    let iconeStatus = `<span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background-color: ${corTexto}; margin-right: 8px; flex-shrink: 0;"></span>`;
+    if (statusVisual.texto.includes('FINALIZADO')) iconeStatus = `<span style="margin-right: 6px; font-size: 16px;">✅</span>`;
+    else if (statusVisual.texto.includes('SEM PRAZO')) iconeStatus = `<span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background-color: transparent; border: 2px solid #aaaaaa; margin-right: 8px; flex-shrink: 0;"></span>`;
+
+    return { percentual, corFundo, pulsingClass, corTexto, textoStatusLimpo, iconeStatus };
+}
 
 async function iniciarSistema() {
     try {
@@ -111,6 +148,15 @@ async function iniciarSistema() {
         });
 
         popularTodosOsSelectsNativos(); 
+
+        // Event listener para o toggle de reiterações
+        const toggleReiteracoes = document.getElementById('toggleReiteracoes');
+        if (toggleReiteracoes) {
+            toggleReiteracoes.addEventListener('change', (event) => {
+                incluirReiteracoes = event.target.checked;
+                aplicarFiltros(); // Re-aplicar filtros para atualizar a contagem
+            });
+        }
         mudarAbaPrincipal('todos'); 
     } catch (erro) {
         document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
@@ -467,8 +513,18 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
     exportSection.style.display = 'block';
     const qtd = dados.length;
-    const textoItens = qtd === 1 ? '1 item' : `${qtd} itens`;
-    const textoResultados = qtd === 1 ? '1 resultado' : `${qtd} resultados`;
+    let totalItensContados = qtd; // Começa com os ofícios principais
+
+    // Se o filtro ativo for 'todos' e o toggle de reiterações estiver ligado, adiciona as reiterações à contagem
+    if (filtroAtivo === 'todos' && incluirReiteracoes) {
+        dados.forEach(linha => {
+            if (linha.REITERACOES && linha.REITERACOES.length > 0) {
+                totalItensContados += linha.REITERACOES.length;
+            }
+        });
+    }
+    const textoItens = totalItensContados === 1 ? '1 item' : `${totalItensContados} itens`;
+    const textoResultados = totalItensContados === 1 ? '1 resultado' : `${totalItensContados} resultados`;
     document.getElementById('btnExport').innerText = `📥 Exportar lista filtrada (${textoItens})`;
     
     const contadorProcessos = document.getElementById('contador-processos');
@@ -476,65 +532,21 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         contadorProcessos.style.display = 'block';
         contadorProcessos.innerText = `Exibindo ${textoResultados}.`;
     } else {
-        contadorProcessos.style.display = 'none';
+        contadorProcessos.style.display = 'none'; // Oculta o contador para outras abas
     }
 
-    if (dados.length === 0) { 
+    if (dados.length === 0) {
         container.innerHTML = '<h3 style="color: #666; width: 100%; grid-column: 1 / -1; animation: fadeInSlideUp 0.3s ease forwards;">Nenhum registo encontrado com estes critérios.</h3>'; 
         return; 
     }
 
     dados.forEach((linha, index) => {
-        const statusVisual = obterStatusVisual(linha);
         const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
-        
-        let percentual = 100;
-        let corClasse = ''; // Será 'green', 'orange' ou 'red'
-        let pulsingClass = '';
-        
-        const diasStr = (linha['DIAS RESTANTES'] || '').toString().trim();
-        const numeroDiasRestantes = parseInt(diasStr.replace(/[^0-9-]/g, ""));
+        const infoStatus = obterInfoDinamicaStatus(linha);
 
-        // Define um prazo máximo para a escala visual da barra (ex: 30 dias)
-        // Isso ajuda a visualizar o progresso mesmo para prazos muito longos.
-        const MAX_PRAZO_VISUAL = 30; 
-
-        if (statusVisual.texto.includes('FINALIZADO')) {
-            percentual = 100; // Finalizado, barra cheia
-            corClasse = 'green'; // Cor verde para finalizado
-        } else if (isNaN(numeroDiasRestantes) || diasStr === '' || diasStr === '-') {
-            // Sem prazo definido ou inválido, barra vazia
-            percentual = 0;
-            // Nenhuma classe de cor específica para a barra, o background do container será visível
-        } else { // Processo em andamento ou atrasado
-            if (numeroDiasRestantes < 0) {
-                // Atrasado: barra 100% vermelha
-                percentual = 100;
-                corClasse = 'red';
-                pulsingClass = 'pulse-bar'; // Mantém o pulso para atrasados
-            } else {
-                // Prazo em andamento: calcular preenchimento progressivo
-                // Dias decorridos em relação ao prazo máximo visual
-                const diasDecorridosVisual = MAX_PRAZO_VISUAL - numeroDiasRestantes;
-                
-                // Garante que o percentual esteja entre 0 e 100
-                percentual = Math.min(Math.max(0, (diasDecorridosVisual / MAX_PRAZO_VISUAL) * 100), 99); // Limita a 99% antes de ficar vermelho (atrasado)
-
-                if (percentual < 70) { // Menos de 70% do prazo visual decorrido
-                    corClasse = 'green';
-                } else if (percentual < 95) { // Entre 70% e 95% do prazo visual decorrido
-                    corClasse = 'orange';
-                    pulsingClass = 'pulse-bar-warning'; // Pulso para alerta
-                } else { // Mais de 95% do prazo visual decorrido, muito perto do fim
-                    corClasse = 'red'; // Quase 100%, mas ainda não atrasado (dias restantes >= 0)
-                    pulsingClass = 'pulse-bar-warning';
-                }
-            }
-        }
-        
         let barraProgressoHtml = `
             <div class="progress-container" title="Indicador de Prazo">
-                <div class="progress-bar ${corClasse} ${pulsingClass}" style="width: ${percentual}%;"></div>
+                <div class="progress-bar ${infoStatus.pulsingClass}" style="width: 100%; background-color: ${infoStatus.corFundo};"></div>
             </div>
         `;
 
@@ -550,7 +562,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         div.style.animationDelay = `${delay}s`;
 
         div.innerHTML = `
-            <div class="card-status ${statusVisual.classe}">${statusVisual.texto}</div>
+            <div class="card-status" style="color: ${infoStatus.corTexto}; display: flex; align-items: center;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</div>
             ${barraProgressoHtml}
             ${htmlMatchInfo}
             <!-- 
@@ -666,7 +678,7 @@ function abrirModal(index) {
     const linha = dadosExibidos[index];
     const modal = document.getElementById('detalhesModal');
     const modalBody = document.getElementById('modalBody');
-    const statusVisual = obterStatusVisual(linha);
+    const infoStatus = obterInfoDinamicaStatus(linha);
     const obs = (linha['OBSERVAÇÃO'] || '').trim();
     const linkRaw = linha['LINK_OFICIO'] || '';
     const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
@@ -751,7 +763,7 @@ function abrirModal(index) {
                 <div style="margin-bottom: 8px;">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA']}</div>
                 <div style="margin-bottom: 8px;">🔗 <strong>Status:</strong> ${linha['STATUS']}</div>
                 <div style="margin-bottom: 8px;">🆔 <strong>CAR:</strong> ${linha['CARMS']}</div>
-                <div style="margin-bottom: 8px;">🚦 <strong>Situação:</strong> <span class="${statusVisual.classe}">${statusVisual.texto}</span></div>
+                <div style="margin-bottom: 8px; display: flex; align-items: center;">🚦 <strong style="margin-right: 6px;">Situação:</strong> <span style="color: ${infoStatus.corTexto}; display: flex; align-items: center; font-weight: bold;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</span></div>
             </div>
         </div>
         ${htmlObs} 
@@ -803,7 +815,7 @@ function abrirPreview(url, index) {
     }
 
     const linha = dadosExibidos[index];
-    const statusVisual = obterStatusVisual(linha);
+    const infoStatus = obterInfoDinamicaStatus(linha);
     const obs = (linha['OBSERVAÇÃO'] || '').trim();
     const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
     const htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="preview-info-obs"><strong>Observação:</strong><br>${obs}</div>` : '';
@@ -831,7 +843,7 @@ function abrirPreview(url, index) {
         <div class="preview-info-item">👤 <strong>Responsável:</strong> ${linha['TÉCNICO/ADMIN']}</div>
         <div class="preview-info-item">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA']}</div>
         <div class="preview-info-item">🆔 <strong>CAR:</strong> ${linha['CARMS']}</div>
-        <div class="preview-info-item">🚦 <strong>Situação:</strong> <span class="${statusVisual.classe}">${statusVisual.texto}</span></div>
+        <div class="preview-info-item" style="display: flex; align-items: center;">🚦 <strong style="margin-right: 6px;">Situação:</strong> <span style="color: ${infoStatus.corTexto}; display: flex; align-items: center; font-weight: bold;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</span></div>
         ${htmlObs}
         ${htmlHistoricoPreview}
     `;

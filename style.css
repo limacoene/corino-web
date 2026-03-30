@@ -120,13 +120,63 @@ body {
     border-radius: 4px; 
     transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.8s ease; /* Adicionado background-color para transição suave */
 }
-/* Novas classes de cor para a barra de progresso (lógica crescente) */
-.progress-bar.green { background-color: #00fa9a; } /* Prazo longo */
-.progress-bar.orange { background-color: #ffa500; } /* Prazo a expirar */
-.progress-bar.yellow { background-color: #ffff00; } /* Vence Hoje */
-.progress-bar.red { background-color: #ff4b4b; } /* Prazo expirado / Atrasado */
 .pulse-bar { animation: pulseRed 1.5s infinite; }
 .pulse-bar-warning { animation: pulseOrange 2s infinite; }
+
+/* Toggle Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px; /* Adjusted width */
+    height: 24px; /* Adjusted height */
+    margin-top: 8px; /* Align with other inputs */
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 24px; /* Half of height for roundness */
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px; /* Adjusted height */
+    width: 16px; /* Adjusted width */
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-green);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--primary-green);
+}
+
+input:checked + .slider:before {
+    -webkit-transform: translateX(24px); /* Adjusted for new width */
+    -ms-transform: translateX(24px); /* Adjusted for new width */
+    transform: translateX(24px); /* Adjusted for new width */
+}
 
 /* MODAL E BOTÕES DO DRIVE */
 .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
@@ -266,3 +316,71 @@ body {
 
 @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+
+.badge-nup, .badge-oficio { background-color: var(--badge-gray); padding: 10px 15px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 12px; font-size: 22px; } /* Mantido para consistência */
+.card-status { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+.status-red { color: #ff4b4b; } .status-green { color: #00fa9a; } .status-gray { color: #aaaaaa; }
+.status-yellow { color: #ffff00; } /* Added for "VENCE HOJE" */
+.btn-expander:hover { border-color: #888; background-color: #1a1a1a; }
+
+/* BARRA DE PROGRESSO NO CARTÃO */
+.pulse-bar { animation: pulseRed 1.5s infinite; }
+.pulse-bar-warning { animation: pulseOrange 2s infinite; }
+
+/* Toggle Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px; /* Adjusted width */
+    height: 24px; /* Adjusted height */
+    margin-top: 8px; /* Align with other inputs */
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 24px; /* Half of height for roundness */
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px; /* Adjusted height */
+    width: 16px; /* Adjusted width */
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-green);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--primary-green);
+}
+
+input:checked + .slider:before {
+    -webkit-transform: translateX(24px); /* Adjusted for new width */
+    -ms-transform: translateX(24px); /* Adjusted for new width */
+    transform: translateX(24px); /* Adjusted for new width */
+}
+
+/* MODAL E BOTÕES DO DRIVE */
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
