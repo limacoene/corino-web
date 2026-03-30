@@ -747,6 +747,8 @@ function abrirPreview(url, index) {
                         ${iconeOlhoGrande} Pré-visualização de Documento
                     </div>
                     <div class="preview-toolbar-buttons">
+                        <a id="btn-download-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background-color: rgba(0, 250, 154, 0.1); border: 1px solid #00fa9a; color: #00fa9a;" title="Fazer download deste documento">⬇️ Baixar Documento</a>
+                        
                         <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                         <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
                     </div>
@@ -759,6 +761,15 @@ function abrirPreview(url, index) {
                 </div>
             </div>
         `;
+    }
+
+    // Atualiza o link do botão de download de acordo com o documento atualmente aberto
+    const btnDownload = document.getElementById('btn-download-preview');
+    const fileId = extrairIdDrive(url);
+    if (fileId) {
+        btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    } else {
+        btnDownload.href = url; // Fallback caso não seja um formato padrão do Drive
     }
 
     const linha = dadosExibidos[index];
