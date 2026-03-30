@@ -16,6 +16,45 @@ function fazerLogout() {
     window.location.href = 'login.html';
 }
 
+// TOAST NOTIFICATIONS
+function mostrarToast(mensagem, tipo = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${tipo}`;
+    const icon = tipo === 'success' ? '✅' : '❌';
+    toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-msg">${mensagem.replace(/\n/g, '<br>')}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.5s ease forwards';
+        setTimeout(() => toast.remove(), 500);
+    }, 5000);
+}
+
+// ============================================================================
+// LÓGICA DO BOTÃO "VOLTAR AO TOPO"
+// ============================================================================
+window.onscroll = function() { gerirBotaoTopo() };
+
+function gerirBotaoTopo() {
+    const btnTop = document.getElementById("btn-back-to-top");
+    if (!btnTop) return;
+    if (document.body.scrollTop > 400 || document.documentElement.scrollTop > 400) {
+        btnTop.style.display = "block";
+    } else {
+        btnTop.style.display = "none";
+    }
+}
+
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+// ============================================================================
+
+
 let dadosCoringa = [];   
 let filtroAtivo = 'todos'; 
 let subAbaAtiva = 'Geral'; 
@@ -183,12 +222,20 @@ function mudarAbaPrincipal(tipo) {
     atualizarVisualSubAbas();
     limparInputsDeFiltro();
     aplicarFiltros();
+    
+    // ==========================================
+    // ROLA A PÁGINA PARA O TOPO AO TROCAR DE ABA
+    // ==========================================
+    scrollToTop();
 }
 
 function setSubAba(aba) {
     subAbaAtiva = aba;
     atualizarVisualSubAbas();
     aplicarFiltros();
+    
+    // Opcional: Rolar para o topo ao trocar as sub-abas (DIFLOR, GCAR, etc) também
+    scrollToTop(); 
 }
 
 function atualizarVisualSubAbas() {
@@ -297,6 +344,34 @@ function aplicarFiltros() {
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']))
                 && (stss.length === 0 || stss.includes('todos') || stss.includes(r['STATUS']));
         });
+
+        filtrados.sort((a, b) => {
+            let diasA = parseInt((a['DIAS RESTANTES'] || '').toString().replace(/[^0-9-]/g, ""));
+            let diasB = parseInt((b['DIAS RESTANTES'] || '').toString().replace(/[^0-9-]/g, ""));
+            
+            let aTemPrazo = !isNaN(diasA);
+            let bTemPrazo = !isNaN(diasB);
+
+            if (aTemPrazo && bTemPrazo) {
+                if (diasA !== diasB) return diasA - diasB;
+            } else if (aTemPrazo && !bTemPrazo) {
+                return -1;
+            } else if (!aTemPrazo && bTemPrazo) {
+                return 1;
+            }
+
+            const converterDataBR = (str) => {
+                if (!str || str === '-') return Infinity; 
+                const partes = str.split('/');
+                if (partes.length === 3) {
+                    return new Date(partes[2], partes[1] - 1, partes[0]).getTime();
+                }
+                return new Date(str).getTime() || Infinity;
+            };
+
+            return converterDataBR(a['DATA']) - converterDataBR(b['DATA']);
+        });
+
         document.getElementById('alerta-andamento').innerText = `ℹ️ Há ${filtrados.length} processos em andamento ${obterNomeSetorFormatado(subAbaAtiva)}.`;
     } 
     else if (filtroAtivo === 'atrasados') {
@@ -340,16 +415,12 @@ function aplicarFiltros() {
     desenharCards(filtrados);
 }
 
-// ============================================================================
-// EXPORTAÇÃO CSV NATIVA (Sem biblioteca externa)
-// ============================================================================
 function exportarCSV() {
     if (dadosExibidos.length === 0) {
-        alert("Não existem dados para exportar com o filtro atual.");
+        mostrarToast("Não existem dados para exportar com o filtro atual.", "error");
         return;
     }
     
-    // Filtramos propriedades internas como "_matchInfo" ou arrays como "REITERACOES" 
     const chaves = Object.keys(dadosExibidos[0]).filter(k => k !== 'REITERACOES' && k !== '_matchInfo');
     
     let csvContent = chaves.join(",") + "\n";
@@ -383,7 +454,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     if (estadoInicialConsultaGeral) {
         exportSection.style.display = 'none';
         container.innerHTML = `
-            <div style="width: 100%; grid-column: 1 / -1; background-color: #0e1117; border: 1px solid #1a252f; border-radius: 8px; padding: 16px 20px; font-weight: bold; color: #ddd; font-size: 15px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 100%; grid-column: 1 / -1; background-color: #0e1117; border: 1px solid #1a252f; border-radius: 8px; padding: 16px 20px; font-weight: bold; color: #ddd; font-size: 15px; display: flex; align-items: center; gap: 10px; animation: fadeInSlideUp 0.3s ease-out forwards;">
                 👆 Utilize os filtros acima para localizar processos.
             </div>
         `;
@@ -405,7 +476,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     }
 
     if (dados.length === 0) { 
-        container.innerHTML = '<h3 style="color: #666; width: 100%; grid-column: 1 / -1;">Nenhum registo encontrado com estes critérios.</h3>'; 
+        container.innerHTML = '<h3 style="color: #666; width: 100%; grid-column: 1 / -1; animation: fadeInSlideUp 0.3s ease forwards;">Nenhum registo encontrado com estes critérios.</h3>'; 
         return; 
     }
 
@@ -413,6 +484,37 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         const statusVisual = obterStatusVisual(linha);
         const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
         
+        let percentual = 100;
+        let corBarra = '#aaaaaa';
+        let pulsingClass = '';
+        
+        if (statusVisual.texto.includes('FINALIZADO')) {
+            percentual = 100; corBarra = '#00fa9a'; 
+        } else if (statusVisual.texto.includes('SEM PRAZO')) {
+            percentual = 0; corBarra = '#333333'; 
+        } else if (statusVisual.texto.includes('ATRASO')) {
+            percentual = 100; corBarra = '#ff4b4b'; pulsingClass = 'pulse-bar'; 
+        } else {
+            const diasStr = (linha['DIAS RESTANTES'] || '').toString().trim();
+            const numero = parseInt(diasStr.replace(/[^0-9-]/g, ""));
+            if (!isNaN(numero)) {
+                // Preenche a barra simulando um prazo máximo "confortável" de 30 dias
+                percentual = Math.max(5, (numero / 30) * 100); 
+                if (numero <= 5) {
+                    corBarra = '#ffa500'; // Laranja alerta
+                    pulsingClass = 'pulse-bar-warning';
+                } else {
+                    corBarra = '#00fa9a'; // Verde OK
+                }
+            }
+        }
+        
+        let barraProgressoHtml = `
+            <div class="progress-container" title="Indicador de Prazo">
+                <div class="progress-bar ${pulsingClass}" style="width: ${Math.min(percentual, 100)}%; background-color: ${corBarra};"></div>
+            </div>
+        `;
+
         let htmlMatchInfo = '';
         if (linha._matchInfo) {
             htmlMatchInfo = `<div style="background-color: rgba(0, 250, 154, 0.1); border: 1px dashed rgba(0, 250, 154, 0.4); color: #00fa9a; padding: 6px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; text-align: center;">${linha._matchInfo}</div>`;
@@ -420,8 +522,13 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
         const div = document.createElement('div');
         div.className = 'card';
+        
+        const delay = Math.min(index * 0.05, 1.5); 
+        div.style.animationDelay = `${delay}s`;
+
         div.innerHTML = `
             <div class="card-status ${statusVisual.classe}">${statusVisual.texto}</div>
+            ${barraProgressoHtml}
             ${htmlMatchInfo}
             <div class="badge-nup">NUP: ${linha['NUP']}</div>
             <div class="badge-oficio">📜 OFÍCIO N.: ${oficioRaw}</div>
@@ -503,20 +610,20 @@ function anexarDocumento(event, nup) {
 
             const resultado = await resposta.json();
             if (resultado.status === 'success') {
-                alert('✅ Documento guardado e link registado na Planilha do Excel com sucesso!\n\nNota: Pode demorar até 5 minutos para que a aba da Diretoria atualize os dados.');
+                mostrarToast('Documento guardado com sucesso!\nPode demorar até 5 min para a Diretoria visualizar.', 'success');
                 btn.innerHTML = '✅ Concluído!';
                 btn.style.backgroundColor = '#228B22'; 
                 btn.style.borderColor = '#1a6b1a';
                 btn.style.opacity = '1';
             } else {
-                alert('❌ Erro no Servidor: ' + resultado.message);
+                mostrarToast('Erro no Servidor: ' + resultado.message, 'error');
                 btn.innerHTML = textoOriginal;
                 btn.disabled = false;
                 btn.style.opacity = '1';
             }
         } catch (error) {
             console.error(error);
-            alert('❌ Erro de comunicação. O ficheiro pode ser muito grande ou a internet falhou.');
+            mostrarToast('Erro de comunicação. O ficheiro pode ser muito grande ou a internet falhou.', 'error');
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
             btn.style.opacity = '1';
@@ -640,6 +747,7 @@ function abrirPreview(url, index) {
                         ${iconeOlhoGrande} Pré-visualização de Documento
                     </div>
                     <div class="preview-toolbar-buttons">
+                        <a id="btn-preview-download" href="#" target="_blank" class="btn-preview-action btn-download-preview">⬇️ Download</a>
                         <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                         <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
                     </div>
@@ -689,6 +797,21 @@ function abrirPreview(url, index) {
     `;
 
     document.getElementById('previewFrame').src = url;
+    
+    const btnDownload = document.getElementById('btn-preview-download');
+    if (btnDownload) {
+        const fileId = extrairIdDrive(url);
+        if (fileId) {
+            btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
+            btnDownload.style.display = 'inline-flex';
+        } else if (url && url.trim() !== '') {
+            btnDownload.href = url;
+            btnDownload.style.display = 'inline-flex';
+        } else {
+            btnDownload.style.display = 'none';
+        }
+    }
+    
     modal.style.display = 'flex';
 }
 
@@ -713,3 +836,46 @@ window.onclick = function(event) {
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); document.getElementById('mainContent').classList.toggle('expanded'); }
 
 iniciarSistema();
+
+// ============================================================================
+// SISTEMA KONAMI CODE (SANDBOX)
+// ============================================================================
+const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+let konamiPos = 0;
+
+document.addEventListener('keydown', (e) => {
+    // Ignora se estiver a escrever num input (pesquisa)
+    if (e.target.tagName === 'INPUT') return; 
+
+    if (e.key === konamiCode[konamiPos]) {
+        konamiPos++;
+        if (konamiPos === konamiCode.length) {
+            abrirStreetFighter();
+            konamiPos = 0;
+        }
+    } else {
+        konamiPos = 0;
+    }
+});
+
+function abrirStreetFighter() {
+    const modal = document.getElementById('sf-modal');
+    const iframe = document.getElementById('sf-iframe');
+    
+    if (modal && iframe) {
+        modal.style.display = 'flex';
+        // Só injeta o jogo quando a janela abre (poupa memória!)
+        iframe.src = 'game/jogo.html'; 
+    }
+}
+
+function fecharStreetFighter() {
+    const modal = document.getElementById('sf-modal');
+    const iframe = document.getElementById('sf-iframe');
+    
+    if (modal && iframe) {
+        modal.style.display = 'none';
+        // Arranca o jogo da memória e corta o som imediatamente
+        iframe.src = ''; 
+    }
+}
