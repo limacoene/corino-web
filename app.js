@@ -747,7 +747,6 @@ function abrirPreview(url, index) {
                         ${iconeOlhoGrande} Pré-visualização de Documento
                     </div>
                     <div class="preview-toolbar-buttons">
-                        <a id="btn-preview-download" href="#" target="_blank" class="btn-preview-action btn-download-preview">⬇️ Download</a>
                         <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                         <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
                     </div>
@@ -797,21 +796,6 @@ function abrirPreview(url, index) {
     `;
 
     document.getElementById('previewFrame').src = url;
-    
-    const btnDownload = document.getElementById('btn-preview-download');
-    if (btnDownload) {
-        const fileId = extrairIdDrive(url);
-        if (fileId) {
-            btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
-            btnDownload.style.display = 'inline-flex';
-        } else if (url && url.trim() !== '') {
-            btnDownload.href = url;
-            btnDownload.style.display = 'inline-flex';
-        } else {
-            btnDownload.style.display = 'none';
-        }
-    }
-    
     modal.style.display = 'flex';
 }
 
@@ -836,46 +820,3 @@ window.onclick = function(event) {
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); document.getElementById('mainContent').classList.toggle('expanded'); }
 
 iniciarSistema();
-
-// ============================================================================
-// SISTEMA KONAMI CODE (SANDBOX)
-// ============================================================================
-const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-let konamiPos = 0;
-
-document.addEventListener('keydown', (e) => {
-    // Ignora se estiver a escrever num input (pesquisa)
-    if (e.target.tagName === 'INPUT') return; 
-
-    if (e.key === konamiCode[konamiPos]) {
-        konamiPos++;
-        if (konamiPos === konamiCode.length) {
-            abrirStreetFighter();
-            konamiPos = 0;
-        }
-    } else {
-        konamiPos = 0;
-    }
-});
-
-function abrirStreetFighter() {
-    const modal = document.getElementById('sf-modal');
-    const iframe = document.getElementById('sf-iframe');
-    
-    if (modal && iframe) {
-        modal.style.display = 'flex';
-        // Só injeta o jogo quando a janela abre (poupa memória!)
-        iframe.src = 'game/jogo.html'; 
-    }
-}
-
-function fecharStreetFighter() {
-    const modal = document.getElementById('sf-modal');
-    const iframe = document.getElementById('sf-iframe');
-    
-    if (modal && iframe) {
-        modal.style.display = 'none';
-        // Arranca o jogo da memória e corta o som imediatamente
-        iframe.src = ''; 
-    }
-}
