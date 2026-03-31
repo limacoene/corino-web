@@ -674,6 +674,21 @@ function anexarDocumento(event, nup) {
     fileInput.click();
 }
 
+function feedbackDownload(btn) {
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ Baixando...';
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
+    
+    mostrarToast('O download foi iniciado. Aguarde um momento...', 'success');
+    
+    setTimeout(() => {
+        btn.innerHTML = textoOriginal;
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+    }, 3500);
+}
+
 function abrirModal(index) {
     const linha = dadosExibidos[index];
     const modal = document.getElementById('detalhesModal');
@@ -700,7 +715,7 @@ function abrirModal(index) {
             htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
             htmlLink = `
                 <div class="modal-buttons">
-                    <a href="${linkDownload}" class="btn-drive btn-download">⬇️ Download</a>
+                    <a href="${linkDownload}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download</a>
                     ${btnAnexar}
                 </div>
             `;
@@ -789,7 +804,7 @@ function abrirPreview(url, index) {
                         ${iconeOlhoGrande} Pré-visualização de Documento
                     </div>
                     <div class="preview-toolbar-buttons">
-                        <a id="btn-download-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background-color: rgba(0, 250, 154, 0.1); border: 1px solid #00fa9a; color: #00fa9a;" title="Fazer download deste documento">⬇️ Baixar Documento</a>
+                        <a id="btn-download-preview" href="#" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background-color: rgba(0, 250, 154, 0.1); border: 1px solid #00fa9a; color: #00fa9a;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
                         
                         <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                         <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
