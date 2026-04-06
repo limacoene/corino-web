@@ -123,7 +123,7 @@ async function iniciarSistema() {
             displayDiv.innerText = `${usuarioAtivo.nomePlanilha} (${textoPerfil})`;
         }
 
-        if (usuarioAtivo && usuarioAtivo.username === 'diflor') {
+        if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.perfil === 'tecnico')) {
             const btnResp = document.getElementById('btn-menu-respondidos');
             if (btnResp) btnResp.style.display = 'block';
         }
@@ -260,7 +260,7 @@ function lerValoresMultiplosNativos(idBase) {
 
 function mudarAbaPrincipal(tipo) {
     filtroAtivo = tipo;
-    subAbaAtiva = 'Geral'; 
+    subAbaAtiva = (tipo === 'respondidos') ? 'Pendentes' : 'Geral'; 
     document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`btn-menu-${tipo}`).classList.add('active');
 
@@ -364,27 +364,31 @@ function aplicarFiltros() {
         const temFiltroAtivo = termoBusca || carms || gersRaw.length > 0 || munsRaw.length > 0 || stssRaw.length > 0 || tecsRaw.length > 0;
         
         if (!temFiltroAtivo) { 
-            desenharCards([], true); 
-            return; 
+            if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+                filtrados = filtrados.filter(r => obterStatusVisual(r).texto.includes('FINALIZADO'));
+            } else {
+                desenharCards([], true); 
+                return; 
+            }
+        } else {
+            filtrados = filtrados.filter(r => {
+                const busca = checarTermoBusca(r, termoBusca);
+                r._matchInfo = busca.info; 
+                return busca.match
+                    && (!carms || (r['CARMS'] && r['CARMS'].toLowerCase().includes(carms)))
+                    && (gersRaw.length === 0 || gersRaw.includes('todos') || gersRaw.includes(r['GERÊNCIA']))
+                    && (munsRaw.length === 0 || munsRaw.includes('todos') || munsRaw.includes(r['COMARCA']))
+                    && (stssRaw.length === 0 || stssRaw.includes('todos') || stssRaw.includes(r['STATUS']))
+                    && (tecsRaw.length === 0 || tecsRaw.includes('todos') || tecsRaw.includes(r['TÉCNICO/ADMIN']));
+            });
         }
-        
-        filtrados = filtrados.filter(r => {
-            const busca = checarTermoBusca(r, termoBusca);
-            r._matchInfo = busca.info; 
-            return busca.match
-                && (!carms || (r['CARMS'] && r['CARMS'].toLowerCase().includes(carms)))
-                && (gersRaw.length === 0 || gersRaw.includes('todos') || gersRaw.includes(r['GERÊNCIA']))
-                && (munsRaw.length === 0 || munsRaw.includes('todos') || munsRaw.includes(r['COMARCA']))
-                && (stssRaw.length === 0 || stssRaw.includes('todos') || stssRaw.includes(r['STATUS']))
-                && (tecsRaw.length === 0 || tecsRaw.includes('todos') || tecsRaw.includes(r['TÉCNICO/ADMIN']));
-        });
     } 
     else if (filtroAtivo === 'andamento') {
         const termoBusca = document.getElementById('andNup').value.toLowerCase();
         const tecs = lerValoresMultiplosNativos('andTecnico');
         const stss = lerValoresMultiplosNativos('andStatus');
 
-        filtrados = filtrados.filter(r => !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO'));
+        filtrados = filtrados.filter(r => !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-'));
         
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
@@ -429,7 +433,7 @@ function aplicarFiltros() {
         const tecs = lerValoresMultiplosNativos('atrTecnico');
         const stss = lerValoresMultiplosNativos('atrStatus');
 
-        filtrados = filtrados.filter(r => obterStatusVisual(r).texto.includes('🔴'));
+        filtrados = filtrados.filter(r => obterStatusVisual(r).texto.includes('🔴') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-'));
         
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
@@ -456,10 +460,17 @@ function aplicarFiltros() {
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
             r._matchInfo = busca.info;
-            return busca.match
+            
+            let statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase();
+            let subAbaFiltro = true;
+            if (subAbaAtiva === 'Pendentes') subAbaFiltro = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
+            else if (subAbaAtiva === 'Aprovados') subAbaFiltro = (statusResp === 'APROVADO');
+            else if (subAbaAtiva === 'Reprovados') subAbaFiltro = (statusResp === 'REPROVADO');
+
+            return busca.match && subAbaFiltro
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']));
         });
-        document.getElementById('alerta-respondidos').innerText = `📁 Há ${filtrados.length} processos com respostas anexadas aguardando revisão.`;
+        document.getElementById('alerta-respondidos').innerText = `📁 Há ${filtrados.length} processos nesta aba.`;
     }
 
     desenharCards(filtrados);
@@ -561,7 +572,19 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         const delay = Math.min(index * 0.05, 1.5); 
         div.style.animationDelay = `${delay}s`;
 
+        const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
+        let badgeAvaliacao = '';
+        if (statusRespAval === 'APROVADO') {
+            badgeAvaliacao = `<div style="background-color: rgba(39, 174, 96, 0.15); border: 1px solid #27ae60; color: #2ecc71; text-align: center; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 13px; margin-bottom: 12px;">✅ MANIFESTAÇÃO APROVADA</div>`;
+        } else if (statusRespAval === 'REPROVADO') {
+            badgeAvaliacao = `<div style="background-color: rgba(192, 57, 43, 0.15); border: 1px solid #c0392b; color: #e74c3c; text-align: center; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 13px; margin-bottom: 12px; animation: pulseRed 2s infinite;">❌ MANIFESTAÇÃO REPROVADA</div>`;
+            if (linha['MOTIVO_AVALIACAO']) {
+                badgeAvaliacao += `<div style="background-color: rgba(192, 57, 43, 0.05); color: #e74c3c; font-size: 13px; text-align: left; padding: 10px; border-left: 3px solid #c0392b; margin-top: -5px; margin-bottom: 12px; line-height: 1.4;"><strong>📝 Motivo da Reprovação:</strong><br>${linha['MOTIVO_AVALIACAO']}</div>`;
+            }
+        }
+
         div.innerHTML = `
+            ${badgeAvaliacao}
             <div class="card-status" style="color: ${infoStatus.corTexto}; display: flex; align-items: center;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</div>
             ${barraProgressoHtml}
             ${htmlMatchInfo}
@@ -657,6 +680,16 @@ function anexarDocumento(event, nup) {
                 btn.style.backgroundColor = '#228B22'; 
                 btn.style.borderColor = '#1a6b1a';
                 btn.style.opacity = '1';
+                
+                const target = dadosCoringa.find(r => r['NUP'] === nup);
+                if (target) {
+                    target['LINK_RESPOSTA'] = resultado.url || "-";
+                    target['STATUS'] = "FAZER CI";
+                    target['STATUS_RESPOSTA'] = "";
+                    target['MOTIVO_AVALIACAO'] = "";
+                }
+                fecharModal();
+                aplicarFiltros();
             } else {
                 mostrarToast('Erro no Servidor: ' + resultado.message, 'error');
                 btn.innerHTML = textoOriginal;
@@ -672,6 +705,203 @@ function anexarDocumento(event, nup) {
         }
     };
     fileInput.click();
+}
+
+function mostrarConfirmacao(mensagem, options = {}) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        document.getElementById('confirmMessage').innerText = mensagem;
+        const btnYes = document.getElementById('btnConfirmYes');
+        const btnCancel = document.getElementById('btnConfirmCancel');
+        
+        const titleEl = document.getElementById('confirmTitle');
+        const iconEl = document.getElementById('confirmIcon');
+        const modalContent = modal.querySelector('.modal-content');
+        
+        if (titleEl) titleEl.innerText = options.titulo || 'Confirmar Ação';
+        if (btnYes) {
+            btnYes.innerHTML = options.textoBotao || 'Confirmar';
+            btnYes.style.backgroundColor = options.corBotao || '#c0392b';
+            btnYes.style.borderColor = options.corBorda || '#a93226';
+        }
+        if (iconEl) {
+            iconEl.innerHTML = options.icone || '⚠️';
+            iconEl.style.animation = options.animacao || 'none';
+        }
+        if (modalContent) {
+            modalContent.style.borderTopColor = options.corBordaTop || '#ff4b4b';
+        }
+        
+        const inputContainer = document.getElementById('confirmInputContainer');
+        const inputText = document.getElementById('confirmInputText');
+        if (options.exigeMotivo) {
+            inputContainer.style.display = 'block';
+            inputText.value = '';
+            inputText.style.border = '1px solid #c0392b';
+        } else {
+            inputContainer.style.display = 'none';
+            inputText.value = '';
+        }
+        
+        // Remove listeners antigos
+        const newBtnYes = btnYes.cloneNode(true);
+        const newBtnCancel = btnCancel.cloneNode(true);
+        btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+        btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+        
+        modal.style.display = 'flex';
+        
+        newBtnYes.onclick = () => { 
+            if (options.exigeMotivo && inputText.value.trim() === '') {
+                inputText.style.border = '2px solid #ff4b4b';
+                inputText.focus();
+                return;
+            }
+            modal.style.display = 'none'; 
+            resolve({ confirmou: true, motivo: inputText.value.trim() }); 
+        };
+        newBtnCancel.onclick = () => { 
+            modal.style.display = 'none'; 
+            resolve({ confirmou: false, motivo: '' }); 
+        };
+    });
+}
+
+async function removerDocumento(event, nup) {
+    const btn = event.currentTarget; // Guarda elemento antes de ir async
+    const result = await mostrarConfirmacao('Tem certeza de que deseja desvincular a resposta deste NUP?\n\nO link será apagado e o status voltará para Aguardando Manifestação Técnica.', {
+        titulo: 'Confirmar Remoção',
+        textoBotao: '🗑️ Sim, Remover',
+        corBotao: '#c0392b',
+        corBorda: '#a93226',
+        icone: '⚠️',
+        animacao: 'pulseRed 1.5s infinite',
+        corBordaTop: '#ff4b4b',
+        exigeMotivo: false
+    });
+    if (!result.confirmou) return;
+    
+    const textoOriginal = btn.innerHTML;
+    
+    btn.innerHTML = '⏳ A remover...';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
+    try {
+        const payload = {
+            acao: "remover_resposta", 
+            nup: nup
+        };
+
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Documento desvinculado com sucesso!', 'success');
+            btn.innerHTML = '✅ Removido!';
+            btn.style.backgroundColor = '#228B22'; 
+            btn.style.borderColor = '#1a6b1a';
+            btn.style.opacity = '1';
+
+            const target = dadosCoringa.find(r => r['NUP'] === nup);
+            if (target) {
+                target['LINK_RESPOSTA'] = "";
+                target['STATUS'] = "AGUARDANDO MANIFESTAÇÃO TÉCNICA";
+                target['STATUS_RESPOSTA'] = "";
+                target['MOTIVO_AVALIACAO'] = "";
+            }
+            fecharModal();
+            aplicarFiltros();
+        } else {
+            mostrarToast('Erro do Servidor: ' + resultado.message, 'error');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    } catch (error) {
+        console.error(error);
+        mostrarToast('Erro de comunicação. A internet pode ter falhado.', 'error');
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
+async function avaliarResposta(event, nup, decisao) {
+    const btn = event.currentTarget;
+    let config = {};
+    if (decisao === 'APROVADO') {
+        config = {
+            titulo: 'Confirmar Aprovação',
+            textoBotao: '✅ Sim, Aprovar',
+            corBotao: '#27ae60',
+            corBorda: '#1e8449',
+            icone: '✅',
+            animacao: 'pulseAlert 1.5s infinite',
+            corBordaTop: '#27ae60',
+            exigeMotivo: false
+        };
+    } else {
+        config = {
+            titulo: 'Confirmar Reprovação',
+            textoBotao: '❌ Sim, Reprovar',
+            corBotao: '#c0392b',
+            corBorda: '#a93226',
+            icone: '❌',
+            animacao: 'pulseRed 1.5s infinite',
+            corBordaTop: '#ff4b4b',
+            exigeMotivo: true
+        };
+    }
+    
+    const result = await mostrarConfirmacao(`Tem certeza de que deseja ${decisao === 'APROVADO' ? 'APROVAR' : 'REPROVAR'} a resposta deste NUP?`, config);
+    if (!result.confirmou) return;
+    
+    const textoOriginal = btn.innerHTML;
+    
+    btn.innerHTML = '⏳ A processar...';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
+    try {
+        const payload = { acao: "avaliar_resposta", nup: nup, decisao: decisao, motivo: result.motivo };
+
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast(`Processo ${decisao.toLowerCase()} com sucesso!`, 'success');
+            btn.innerHTML = `✅ ${decisao}`;
+            
+            const target = dadosCoringa.find(r => r['NUP'] === nup);
+            if (target) {
+                target['STATUS_RESPOSTA'] = decisao;
+                target['MOTIVO_AVALIACAO'] = result.motivo || "";
+            }
+            fecharPreview();
+            fecharModal();
+            aplicarFiltros();
+        } else {
+            mostrarToast('Erro do Servidor: ' + resultado.message, 'error');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    } catch (error) {
+        console.error(error);
+        mostrarToast('Erro de comunicação. A internet pode ter falhado.', 'error');
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
 }
 
 function feedbackDownload(btn) {
@@ -702,9 +932,15 @@ function abrirModal(index) {
     let htmlPreviewIcon = '';
     let htmlLink = `<div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px;">🚫 Sem Link Vinculado</div>`;
     let btnAnexar = '';
+    const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
+    const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
     
     if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
-        btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
+        if (temRespostaVinculada) {
+            btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; color: white;">🗑️ Retirar Resposta</button>`;
+        } else {
+            btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
+        }
     }
 
     if (linkRaw && linkRaw.startsWith('http')) {
@@ -742,6 +978,7 @@ function abrirModal(index) {
             const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
             botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive" style="background-color: #ffa500; border-color: #cc8400; border:none;">👁️ Pré-visualizar Resposta</button>`;
         }
+        
         htmlResposta = `
             <div style="margin: 20px 20px 0 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <div style="color: #ffa500; font-weight: bold; margin-bottom: 10px;">📁 Documento de Resposta Anexado:</div>
@@ -862,6 +1099,49 @@ function abrirPreview(url, index) {
         ${htmlObs}
         ${htmlHistoricoPreview}
     `;
+
+    // Botões Toggles
+    const linkResposta = linha['LINK_RESPOSTA'];
+    let respPreviewUrl = '';
+    if (linkResposta && linkResposta.startsWith('http')) {
+        const respId = extrairIdDrive(linkResposta);
+        if (respId) respPreviewUrl = `https://drive.google.com/file/d/${respId}/preview`;
+    }
+
+    const linkOficio = linha['LINK_OFICIO'];
+    let oficioPreviewUrl = '';
+    if (linkOficio && linkOficio.startsWith('http')) {
+        const ofId = extrairIdDrive(linkOficio);
+        if (ofId) oficioPreviewUrl = `https://drive.google.com/file/d/${ofId}/preview`;
+    }
+
+    let toggleBtn = '';
+    if (respPreviewUrl && oficioPreviewUrl) {
+         toggleBtn = `
+             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                 <button onclick="document.getElementById('previewFrame').src='${oficioPreviewUrl}'" class="btn-drive" style="flex: 1; padding: 10px; background-color: #1a252f; border-color: #2c3e50; font-size: 12px;">📜 Ver Ofício</button>
+                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'" class="btn-drive" style="flex: 1; padding: 10px; background-color: #ffa500; border-color: #cc8400; font-size: 12px; color: white;">📁 Ver Resposta</button>
+             </div>
+         `;
+    }
+
+    // Botões Avaliar (DIFLOR)
+    let acoesDiflorPreview = '';
+    const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
+    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO') {
+        acoesDiflorPreview = `
+            <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
+                <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
+                <div style="display: flex; gap: 10px; flex-direction: column;">
+                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive" style="background-color: #27ae60; border-color: #1e8449;">✅ Aprovar Manifestação</button>
+                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive" style="background-color: #c0392b; border-color: #a93226;">❌ Reprovar Manifestação</button>
+                </div>
+            </div>
+        `;
+    }
+
+    const contentDiv = document.getElementById('previewInfoContent');
+    contentDiv.innerHTML = toggleBtn + contentDiv.innerHTML + acoesDiflorPreview;
 
     document.getElementById('previewFrame').src = url;
     modal.style.display = 'flex';
