@@ -128,6 +128,13 @@ async function iniciarSistema() {
             if (btnResp) btnResp.style.display = 'block';
         }
 
+        if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+            ['btn-tab-aprovados', 'btn-tab-reprovados', 'btn-tab-todos'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+        }
+
         const dadosBrutos = await buscarDadosGoogleSheets(); 
         
         if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
@@ -157,6 +164,7 @@ async function iniciarSistema() {
                 aplicarFiltros(); // Re-aplicar filtros para atualizar a contagem
             });
         }
+        atualizarBadgesNotificacao(dadosCoringa);
         mudarAbaPrincipal('todos'); 
     } catch (erro) {
         document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
@@ -388,7 +396,7 @@ function aplicarFiltros() {
         const tecs = lerValoresMultiplosNativos('andTecnico');
         const stss = lerValoresMultiplosNativos('andStatus');
 
-        filtrados = filtrados.filter(r => !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-'));
+        filtrados = filtrados.filter(r => !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && (r['STATUS_RESPOSTA'] || '').toUpperCase() !== 'REPROVADO') && (r['STATUS'] || '').toUpperCase() !== 'REVISÃO');
         
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
@@ -433,7 +441,7 @@ function aplicarFiltros() {
         const tecs = lerValoresMultiplosNativos('atrTecnico');
         const stss = lerValoresMultiplosNativos('atrStatus');
 
-        filtrados = filtrados.filter(r => obterStatusVisual(r).texto.includes('🔴') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-'));
+        filtrados = filtrados.filter(r => obterStatusVisual(r).texto.includes('🔴') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && (r['STATUS_RESPOSTA'] || '').toUpperCase() !== 'REPROVADO') && (r['STATUS'] || '').toUpperCase() !== 'REVISÃO');
         
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
@@ -455,17 +463,23 @@ function aplicarFiltros() {
         const termoBusca = document.getElementById('respNup').value.toLowerCase();
         const tecs = lerValoresMultiplosNativos('respTecnico');
 
-        filtrados = filtrados.filter(r => r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && r['STATUS'] !== 'TRAMITADO' && r['STATUS'] !== 'ARQUIVADO');
+        filtrados = filtrados.filter(r => ( (r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-') || (r['STATUS'] || '').toUpperCase() === 'REVISÃO' ) && r['STATUS'] !== 'TRAMITADO' && r['STATUS'] !== 'ARQUIVADO');
         
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca);
             r._matchInfo = busca.info;
             
             let statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase();
+            let statusGeral = (r['STATUS'] || '').toUpperCase();
             let subAbaFiltro = true;
-            if (subAbaAtiva === 'Pendentes') subAbaFiltro = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
-            else if (subAbaAtiva === 'Aprovados') subAbaFiltro = (statusResp === 'APROVADO');
-            else if (subAbaAtiva === 'Reprovados') subAbaFiltro = (statusResp === 'REPROVADO');
+            
+            if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+                subAbaFiltro = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && statusGeral === 'REVISÃO');
+            } else {
+                if (subAbaAtiva === 'Pendentes') subAbaFiltro = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && statusGeral === 'REVISÃO');
+                else if (subAbaAtiva === 'Aprovados') subAbaFiltro = (statusResp === 'APROVADO');
+                else if (subAbaAtiva === 'Reprovados') subAbaFiltro = (statusResp === 'REPROVADO');
+            }
 
             return busca.match && subAbaFiltro
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']));
@@ -684,10 +698,11 @@ function anexarDocumento(event, nup) {
                 const target = dadosCoringa.find(r => r['NUP'] === nup);
                 if (target) {
                     target['LINK_RESPOSTA'] = resultado.url || "-";
-                    target['STATUS'] = "FAZER CI";
+                    target['STATUS'] = "REVISÃO";
                     target['STATUS_RESPOSTA'] = "";
                     target['MOTIVO_AVALIACAO'] = "";
                 }
+                atualizarBadgesNotificacao(dadosCoringa);
                 fecharModal();
                 aplicarFiltros();
             } else {
@@ -814,6 +829,7 @@ async function removerDocumento(event, nup) {
                 target['STATUS_RESPOSTA'] = "";
                 target['MOTIVO_AVALIACAO'] = "";
             }
+            atualizarBadgesNotificacao(dadosCoringa);
             fecharModal();
             aplicarFiltros();
         } else {
@@ -885,7 +901,13 @@ async function avaliarResposta(event, nup, decisao) {
             if (target) {
                 target['STATUS_RESPOSTA'] = decisao;
                 target['MOTIVO_AVALIACAO'] = result.motivo || "";
+                if (decisao === 'APROVADO') {
+                    target['STATUS'] = "FAZER CI";
+                } else if (decisao === 'REPROVADO') {
+                    target['STATUS'] = "AGUARDANDO MANIFESTAÇÃO TÉCNICA";
+                }
             }
+            atualizarBadgesNotificacao(dadosCoringa);
             fecharPreview();
             fecharModal();
             aplicarFiltros();
@@ -935,10 +957,23 @@ function abrirModal(index) {
     const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
     const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
     
-    if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+    if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
         if (temRespostaVinculada) {
-            btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; color: white;">🗑️ Retirar Resposta</button>`;
-        } else {
+             const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
+             const isFazerCI = (linha['STATUS'] || '').toUpperCase() === 'FAZER CI';
+             const isGestor = usuarioAtivo.perfil === 'gerencia';
+
+             let blockRemoval = false;
+             if (!isGestor && (isAprovadoBackend || isFazerCI)) {
+                 blockRemoval = true;
+             }
+
+             if (blockRemoval) {
+                 btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px;">🔒 Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
+             } else {
+                 btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; color: white;">🗑️ Retirar Resposta</button>`;
+             }
+        } else if (usuarioAtivo.perfil === 'tecnico') {
             btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
         }
     }
@@ -1103,24 +1138,29 @@ function abrirPreview(url, index) {
     // Botões Toggles
     const linkResposta = linha['LINK_RESPOSTA'];
     let respPreviewUrl = '';
+    let respId = null;
     if (linkResposta && linkResposta.startsWith('http')) {
-        const respId = extrairIdDrive(linkResposta);
+        respId = extrairIdDrive(linkResposta);
         if (respId) respPreviewUrl = `https://drive.google.com/file/d/${respId}/preview`;
     }
 
     const linkOficio = linha['LINK_OFICIO'];
     let oficioPreviewUrl = '';
+    let ofId = null;
     if (linkOficio && linkOficio.startsWith('http')) {
-        const ofId = extrairIdDrive(linkOficio);
+        ofId = extrairIdDrive(linkOficio);
         if (ofId) oficioPreviewUrl = `https://drive.google.com/file/d/${ofId}/preview`;
     }
 
     let toggleBtn = '';
     if (respPreviewUrl && oficioPreviewUrl) {
+         let downloadOficioUrlFull = ofId ? `https://drive.google.com/uc?export=download&id=${ofId}` : linkOficio;
+         let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
+
          toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="document.getElementById('previewFrame').src='${oficioPreviewUrl}'" class="btn-drive" style="flex: 1; padding: 10px; background-color: #1a252f; border-color: #2c3e50; font-size: 12px;">📜 Ver Ofício</button>
-                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'" class="btn-drive" style="flex: 1; padding: 10px; background-color: #ffa500; border-color: #cc8400; font-size: 12px; color: white;">📁 Ver Resposta</button>
+                 <button onclick="document.getElementById('previewFrame').src='${oficioPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadOficioUrlFull}';" class="btn-drive" style="flex: 1; padding: 10px; background-color: #1a252f; border-color: #2c3e50; font-size: 12px;">📜 Ver Ofício</button>
+                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive" style="flex: 1; padding: 10px; background-color: #ffa500; border-color: #cc8400; font-size: 12px; color: white;">📁 Ver Resposta</button>
              </div>
          `;
     }
@@ -1128,7 +1168,8 @@ function abrirPreview(url, index) {
     // Botões Avaliar (DIFLOR)
     let acoesDiflorPreview = '';
     const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
-    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO') {
+    const isLinkRespostaValido = linha['LINK_RESPOSTA'] && linha['LINK_RESPOSTA'].trim() !== '' && linha['LINK_RESPOSTA'].trim() !== '-';
+    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && isLinkRespostaValido) {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
@@ -1166,5 +1207,78 @@ window.onclick = function(event) {
 }
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); document.getElementById('mainContent').classList.toggle('expanded'); }
+
+// ============================================================================
+// BADGES DE NOTIFICAÇÃO
+// ============================================================================
+function atualizarBadgesNotificacao(dados) {
+    if (!usuarioAtivo) return;
+
+    let totalAndamento = 0;
+    let totalAtrasados = 0;
+    let totalRespReprovados = 0;
+    let totalRespPendentes = 0;
+
+    if (usuarioAtivo.perfil === 'tecnico') {
+        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
+        const dadosTecnico = dados.filter(r => (r['TÉCNICO/ADMIN'] || '').toUpperCase().trim() === tecnicoLogado);
+
+        totalAndamento = dadosTecnico.filter(r => {
+            const hasResponse = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+            const isReprovado = (r['STATUS_RESPOSTA'] || '').toUpperCase() === 'REPROVADO';
+            const isRevisao = (r['STATUS'] || '').toUpperCase() === 'REVISÃO';
+            return !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO') && (!hasResponse || isReprovado) && !isRevisao;
+        }).length;
+
+        totalAtrasados = dadosTecnico.filter(r => {
+            const hasResponse = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+            const isReprovado = (r['STATUS_RESPOSTA'] || '').toUpperCase() === 'REPROVADO';
+            const isRevisao = (r['STATUS'] || '').toUpperCase() === 'REVISÃO';
+            return obterStatusVisual(r).texto.includes('🔴') && (!hasResponse || isReprovado) && !isRevisao;
+        }).length;
+
+        totalRespPendentes = dadosTecnico.filter(r => {
+            const hasResponse = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+            const isAprovado = (r['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
+            const isReprovado = (r['STATUS_RESPOSTA'] || '').toUpperCase() === 'REPROVADO';
+            const isRevisao = (r['STATUS'] || '').toUpperCase() === 'REVISÃO';
+            return (hasResponse || isRevisao) && !isAprovado && !isReprovado && r['STATUS'] !== 'TRAMITADO' && r['STATUS'] !== 'ARQUIVADO';
+        }).length;
+
+        atualizarBadgeDOM('badge-menu-respondidos', totalRespPendentes);
+        atualizarBadgeDOM('badge-menu-andamento', totalAndamento);
+        atualizarBadgeDOM('badge-menu-atrasados', totalAtrasados);
+
+    } else if (usuarioAtivo.username === 'diflor') {
+        totalRespPendentes = dados.filter(r => {
+            const linkResposta = r['LINK_RESPOSTA'];
+            const temLink = linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-';
+            const statusResposta = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+            const statusGeral = (r['STATUS'] || '').toUpperCase().trim();
+            
+            return (temLink || statusGeral === 'REVISÃO') && 
+                   statusGeral === 'REVISÃO' &&
+                   statusGeral !== 'TRAMITADO' && 
+                   statusGeral !== 'ARQUIVADO' && 
+                   statusResposta !== 'APROVADO' && 
+                   statusResposta !== 'REPROVADO';
+        }).length;
+
+        atualizarBadgeDOM('badge-menu-respondidos', totalRespPendentes);
+        atualizarBadgeDOM('badge-tab-pendentes', totalRespPendentes);
+    }
+}
+
+function atualizarBadgeDOM(id, count) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (count > 0) {
+        el.innerText = count;
+        el.style.display = 'inline-flex';
+    } else {
+        el.style.display = 'none';
+        el.innerText = '0';
+    }
+}
 
 iniciarSistema();

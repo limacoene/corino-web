@@ -16,10 +16,22 @@
         <hr class="divider">
         <nav class="menu" style="flex-grow: 1;">
             <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta Geral</button>
-            <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">⏳ Em Andamento</button>
-            <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">🚨 Painel de Atrasados</button>
+            <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge" style="display: none;">0</span>
+                </div>
+            </button>
+            <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>🚨 Painel de Atrasados</span> <span id="badge-menu-atrasados" class="notification-badge" style="display: none;">0</span>
+                </div>
+            </button>
             
-            <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')" style="display: none; margin-top: 15px; border-top: 1px dashed #333; padding-top: 15px; color: #ffa500;">📁 Aguardando Revisão</button>
+            <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')" style="display: none; margin-top: 15px; border-top: 1px dashed #333; padding-top: 15px; color: #ffa500;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos" class="notification-badge" style="display: none;">0</span>
+                </div>
+            </button>
         </nav>
         
         <div class="user-profile-panel" style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--card-border);">
@@ -154,10 +166,10 @@
                 </div>
             </details>
             <div class="mini-tabs" id="mini-tabs-respondidos">
-                <button class="mini-tab active" onclick="setSubAba('Pendentes')">Pendentes</button>
-                <button class="mini-tab" onclick="setSubAba('Aprovados')">Aprovados</button>
-                <button class="mini-tab" onclick="setSubAba('Reprovados')">Reprovados</button>
-                <button class="mini-tab" onclick="setSubAba('Geral')">Todos</button>
+                <button id="btn-tab-pendentes" class="mini-tab active" onclick="setSubAba('Pendentes')">Pendentes <span id="badge-tab-pendentes" class="notification-badge mini-badge" style="display: none;">0</span></button>
+                <button id="btn-tab-aprovados" class="mini-tab" onclick="setSubAba('Aprovados')">Aprovados</button>
+                <button id="btn-tab-reprovados" class="mini-tab" onclick="setSubAba('Reprovados')">Reprovados <span id="badge-tab-reprovados" class="notification-badge mini-badge" style="display: none;">0</span></button>
+                <button id="btn-tab-todos" class="mini-tab" onclick="setSubAba('Geral')">Todos</button>
             </div>
             <div id="alerta-respondidos" class="alert-banner alert-info" style="background-color: rgba(255, 165, 0, 0.1); border-color: rgba(255, 165, 0, 0.3); color: #ffa500;">
                 📁 Há 0 processos aguardando revisão.

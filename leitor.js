@@ -28,7 +28,7 @@ function limparEPadronizarLinha(linha) {
         'STATUS DO CAR': linha['STATUS DO CAR'] || linha['STATUS CAR'] || '-',
         'TÉCNICO/ADMIN': tecnico,
         GERÊNCIA: gerencia,
-        STATUS: (linha['STATUS'] || linha['SITUAÇÃO'] || '-').toUpperCase(),
+        STATUS: (linha['STATUS'] || linha['SITUAÇÃO'] || '-').toUpperCase().trim(),
         STATUS_RESPOSTA: (linha['STATUS DA RESPOSTA'] || linha['STATUS RESPOSTA'] || '').toUpperCase().trim(),
         MOTIVO_AVALIACAO: (linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || '').trim(),
         'E-MS': linha['E-MS'] || linha['EMS'] || '-',
