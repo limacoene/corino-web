@@ -926,6 +926,61 @@ async function avaliarResposta(event, nup, decisao) {
     }
 }
 
+async function atualizarStatusCI(event, nup, novoStatus) {
+    const btn = event.currentTarget;
+    const textoOriginal = btn.innerHTML;
+    
+    btn.innerHTML = '⏳ A processar...';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
+    try {
+        const payload = { 
+            acao: "atualizar_status_ci", 
+            nup: nup, 
+            novoStatus: novoStatus,
+            username: usuarioAtivo.username || ''
+        };
+
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status atualizado com sucesso!', 'success');
+            
+            const target = dadosCoringa.find(r => r['NUP'] === nup);
+            if (target) {
+                target['STATUS'] = novoStatus;
+            }
+            atualizarBadgesNotificacao(dadosCoringa);
+            aplicarFiltros();
+            
+            // Manter a janela de detalhes aberta com o estado visual atualizado sem recarregar e crer em travamentos
+            const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
+            if (newIndex !== -1) {
+                abrirModal(newIndex);
+            } else {
+                fecharModal();
+            }
+        } else {
+            mostrarToast('Operação Cancelada ou Sem Permissão: ' + (resultado.message || 'Erro Desconhecido'), 'error');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    } catch (error) {
+        console.error(error);
+        mostrarToast('Erro de comunicação. A internet pode ter falhado.', 'error');
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+
 function feedbackDownload(btn) {
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '⏳ Baixando...';
@@ -1003,6 +1058,18 @@ function abrirModal(index) {
             htmlLink += `<div class="modal-buttons" style="margin-top: 15px;">${btnAnexar}</div>`;
         }
     }
+    
+    let htmlDiretoriaBotoes = '';
+    const isGestorFinalidade = usuarioAtivo.perfil === 'gerencia';
+    const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
+
+    if (isGestorFinalidade) {
+        if (statusGeralAtualizado === 'FAZER CI') {
+            htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
+        } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
+            htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
+        }
+    }
 
     let htmlResposta = '';
     const linkResposta = linha['LINK_RESPOSTA'];
@@ -1056,7 +1123,10 @@ function abrirModal(index) {
         ${htmlObs} 
         ${htmlResposta}
         ${htmlHistorico}
-        <div class="modal-footer" style="padding-top: 20px;">${htmlLink}</div>
+        <div class="modal-footer" style="padding-top: 20px;">
+            ${htmlLink}
+            ${htmlDiretoriaBotoes}
+        </div>
     `;
     modal.style.display = 'flex';
 }
