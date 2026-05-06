@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>C.O.R.I.N.O. | Diretoria Florestal</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
+
 <body>
     <aside class="sidebar" id="sidebar">
         <div class="brand">
@@ -15,29 +18,58 @@
         </div>
         <hr class="divider">
         <nav class="menu" style="flex-grow: 1;">
-            <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta Geral</button>
-            <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge" style="display: none;">0</span>
+            <div class="module-section">
+                <div class="module-header" id="header-mod-oficios" onclick="toggleModule('mod-oficios')">
+                    <span>📁 Ofícios</span>
+                    <span class="icon-chevron">▼</span>
                 </div>
-            </button>
-            <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <span>🚨 Painel de Atrasados</span> <span id="badge-menu-atrasados" class="notification-badge" style="display: none;">0</span>
+                <div class="module-content" id="mod-oficios">
+                    <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta
+                        Geral</button>
+                    <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge"
+                                style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>🚨 Painel de Atrasados</span> <span id="badge-menu-atrasados"
+                                class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+
+                    <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')"
+                        style="display: none; margin-top: 5px; color: #ffa500;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos"
+                                class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
                 </div>
-            </button>
-            
-            <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')" style="display: none; margin-top: 15px; border-top: 1px dashed #333; padding-top: 15px; color: #ffa500;">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos" class="notification-badge" style="display: none;">0</span>
+            </div>
+
+            <div class="module-section">
+                <div class="module-header collapsed" id="header-mod-autos" onclick="toggleModule('mod-autos')">
+                    <span>⚖️ Autos de Infração</span>
+                    <span class="icon-chevron">▼</span>
                 </div>
-            </button>
+                <div class="module-content collapsed" id="mod-autos">
+                    <button class="menu-btn" id="btn-menu-autos" onclick="mudarAbaPrincipal('autos')">📋 Controle de
+                        Autos</button>
+                </div>
+            </div>
         </nav>
-        
-        <div class="user-profile-panel" style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--card-border);">
+
+        <div class="user-profile-panel"
+            style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--card-border);">
             <div style="font-size: 12px; color: #888; margin-bottom: 5px;">Sessão Ativa:</div>
-            <div id="user-display-name" style="font-size: 14px; font-weight: bold; color: var(--primary-green); margin-bottom: 15px; word-break: break-word;">Carregando...</div>
-            <button class="menu-btn" style="color: #ff4b4b; border: 1px solid rgba(255,75,75,0.3); text-align: center; justify-content: center;" onclick="fazerLogout()">
+            <div id="user-display-name"
+                style="font-size: 14px; font-weight: bold; color: var(--primary-green); margin-bottom: 15px; word-break: break-word;">
+                Carregando...</div>
+            <button class="menu-btn"
+                style="color: #ff4b4b; border: 1px solid rgba(255,75,75,0.3); text-align: center; justify-content: center;"
+                onclick="fazerLogout()">
                 🚪 Sair do Sistema
             </button>
         </div>
@@ -52,12 +84,18 @@
         </header>
 
         <div id="aba-todos" class="tab-section">
-            <h2 class="page-title">🔍 Consulta Geral</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 class="page-title" style="margin-bottom: 0;">🔍 Consulta Geral</h2>
+            </div>
             <details class="advanced-filters" open>
                 <summary>🛠️ Filtros de Busca Avançada</summary>
                 <div class="filter-grid">
-                    <div class="filter-group"><label>NUP</label><input type="text" id="cgNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
-                    <div class="filter-group"><label>CARMS</label><input type="text" id="cgCarms" placeholder="Ex: CARMS0000000" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>NUP</label><input type="text" id="cgNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
+                    <div class="filter-group"><label>Nº Ofício</label><input type="text" id="cgOficio"
+                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
+                    <div class="filter-group"><label>CARMS</label><input type="text" id="cgCarms"
+                            placeholder="Ex: CARMS0000000" oninput="aplicarFiltros()"></div>
                     <div class="filter-group"><label>Gerência</label>
                         <div class="custom-multiselect" id="ms-cgGerencia" data-placeholder="DIFLOR">
                             <div class="ms-display" onclick="toggleDropdown('cgGerencia')"></div>
@@ -91,14 +129,19 @@
                     </div>
                 </div>
             </details>
+            <button class="fab-button" onclick="abrirModalCadastro()" title="Cadastrar Novo Ofício">➕ Novo
+                Ofício</button>
         </div>
 
         <div id="aba-andamento" class="tab-section" style="display: none;">
             <h2 class="page-title">⏳ Processos em Andamento</h2>
             <details class="advanced-filters" open>
                 <summary>🛠️ Filtros de Distribuição</summary>
-                <div class="filter-grid-3">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="andNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                <div class="filter-grid">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="andNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
+                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="andOficio"
+                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
                     <div class="filter-group"><label>👤 Filtrar por Técnico</label>
                         <div class="custom-multiselect" id="ms-andTecnico" data-placeholder="QUATITO">
                             <div class="ms-display" onclick="toggleDropdown('andTecnico')"></div>
@@ -126,8 +169,11 @@
             <h2 class="page-title">🚨 Painel de Ofícios Atrasados</h2>
             <details class="advanced-filters" open>
                 <summary>🛠️ Filtros de Atrasos</summary>
-                <div class="filter-grid-3">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="atrNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                <div class="filter-grid">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="atrNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
+                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="atrOficio"
+                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
                     <div class="filter-group"><label>👤 Filtrar por Técnico</label>
                         <div class="custom-multiselect" id="ms-atrTecnico" data-placeholder="QUATITO">
                             <div class="ms-display" onclick="toggleDropdown('atrTecnico')"></div>
@@ -148,15 +194,19 @@
                 <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
                 <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
             </div>
-            <div id="alerta-atrasados" class="alert-banner alert-danger">⚠️ Atenção - Há 0 processos em atraso no sistema</div>
+            <div id="alerta-atrasados" class="alert-banner alert-danger">⚠️ Atenção - Há 0 processos em atraso no
+                sistema</div>
         </div>
 
         <div id="aba-respondidos" class="tab-section" style="display: none;">
             <h2 class="page-title" style="color: #ffa500;">📁 Aguardando Revisão</h2>
             <details class="advanced-filters" open>
                 <summary>🛠️ Filtros de Revisão</summary>
-                <div class="filter-grid-3">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="respNup" placeholder="Ex: 83.000.000-20XX" oninput="aplicarFiltros()"></div>
+                <div class="filter-grid">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="respNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
+                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="respOficio"
+                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
                     <div class="filter-group"><label>👤 Filtrar por Técnico</label>
                         <div class="custom-multiselect" id="ms-respTecnico" data-placeholder="QUATITO">
                             <div class="ms-display" onclick="toggleDropdown('respTecnico')"></div>
@@ -166,18 +216,88 @@
                 </div>
             </details>
             <div class="mini-tabs" id="mini-tabs-respondidos">
-                <button id="btn-tab-pendentes" class="mini-tab active" onclick="setSubAba('Pendentes')">Pendentes <span id="badge-tab-pendentes" class="notification-badge mini-badge" style="display: none;">0</span></button>
+                <button id="btn-tab-pendentes" class="mini-tab active" onclick="setSubAba('Pendentes')">Pendentes <span
+                        id="badge-tab-pendentes" class="notification-badge mini-badge"
+                        style="display: none;">0</span></button>
                 <button id="btn-tab-aprovados" class="mini-tab" onclick="setSubAba('Aprovados')">Aprovados</button>
-                <button id="btn-tab-reprovados" class="mini-tab" onclick="setSubAba('Reprovados')">Reprovados <span id="badge-tab-reprovados" class="notification-badge mini-badge" style="display: none;">0</span></button>
+                <button id="btn-tab-reprovados" class="mini-tab" onclick="setSubAba('Reprovados')">Reprovados <span
+                        id="badge-tab-reprovados" class="notification-badge mini-badge"
+                        style="display: none;">0</span></button>
                 <button id="btn-tab-todos" class="mini-tab" onclick="setSubAba('Geral')">Todos</button>
             </div>
-            <div id="alerta-respondidos" class="alert-banner alert-info" style="background-color: rgba(255, 165, 0, 0.1); border-color: rgba(255, 165, 0, 0.3); color: #ffa500;">
+            <div id="alerta-respondidos" class="alert-banner alert-info"
+                style="background-color: rgba(255, 165, 0, 0.1); border-color: rgba(255, 165, 0, 0.3); color: #ffa500;">
                 📁 Há 0 processos aguardando revisão.
             </div>
         </div>
 
+        <div id="aba-autos" class="tab-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 class="page-title" style="margin-bottom: 0;">⚖️ Autos de Infração</h2>
+            </div>
+            <div class="card" style="padding: 20px; color: white; margin-bottom: 20px;">
+                <div class="filter-grid" style="gap: 15px;">
+                    <div class="filter-group"><label>NUP</label><input type="text" id="filtro-auto-nup"
+                            placeholder="Ex: 83.000..." oninput="maskNUP(event); filtrarAutos()"></div>
+                    <div class="filter-group"><label>Requerente</label><input type="text" id="filtro-auto-req"
+                            placeholder="Ex: João Silva" oninput="filtrarAutos()"></div>
+                    <div class="filter-group"><label>Auto de Infração</label><input type="text" id="filtro-auto-inf"
+                            placeholder="Nº do Auto" oninput="filtrarAutos()"></div>
+                    <div class="filter-group"><label>Laudo Constatação</label><input type="text" id="filtro-auto-laudo"
+                            placeholder="Nº do Laudo" oninput="filtrarAutos()"></div>
+                    <div class="filter-group"><label>Notificação</label><input type="text" id="filtro-auto-notif"
+                            placeholder="Nº Notificação" oninput="filtrarAutos()"></div>
+                    <div class="filter-group"><label>Setor</label>
+                        <div class="custom-multiselect" id="ms-autoSetor" data-placeholder="-- Todos --">
+                            <div class="ms-display" onclick="toggleDropdown('autoSetor')"></div>
+                            <div class="ms-dropdown" id="dd-autoSetor"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>Técnico</label>
+                        <div class="custom-multiselect" id="ms-autoTecnico" data-placeholder="-- Todos --">
+                            <div class="ms-display" onclick="toggleDropdown('autoTecnico')"></div>
+                            <div class="ms-dropdown" id="dd-autoTecnico"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group"><label>Status</label>
+                        <div class="custom-multiselect" id="ms-autoStatus" data-placeholder="-- Todos --">
+                            <div class="ms-display" onclick="toggleDropdown('autoStatus')"></div>
+                            <div class="ms-dropdown" id="dd-autoStatus"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading-autos" style="text-align: center; color: #aaa; margin: 20px 0; display: none;">A carregar
+                autos de infração...</div>
+            <div id="tabela-autos-container"
+                style="overflow-x: auto; background-color: #1a1a1a; border-radius: 8px; border: 1px solid var(--card-border);">
+                <table style="width: 100%; border-collapse: collapse; color: #fff; text-align: left; font-size: 14px;">
+                    <thead>
+                        <tr style="background-color: #262626; border-bottom: 2px solid var(--primary-green);">
+                            <th style="padding: 12px;">NUP</th>
+                            <th style="padding: 12px;">Requerente</th>
+                            <th style="padding: 12px;">Auto de Infração</th>
+                            <th style="padding: 12px;">Laudo / Notificação</th>
+                            <th style="padding: 12px;">Data de Repasse</th>
+                            <th style="padding: 12px;">Setor / Tipo</th>
+                            <th style="padding: 12px;">Status</th>
+                            <th style="padding: 12px;">Técnico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-autos-body">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="contador-autos" class="results-count" style="margin-top: 15px;">Exibindo 0 resultados.</div>
+            <button class="fab-button" onclick="abrirModalCadastroAuto()" title="Cadastrar Novo Auto">➕ Novo
+                Auto</button>
+        </div>
+
         <div id="export-section" style="display: none; margin-bottom: 40px;">
-            <button class="btn-export-full" id="btnExport" onclick="exportarCSV()">📥 Exportar lista filtrada (0 itens)</button>
+            <button class="btn-export-full" id="btnExport" onclick="exportarCSV()">📥 Exportar lista filtrada (0
+                itens)</button>
             <div id="contador-processos" class="results-count">Exibindo 0 resultados.</div>
         </div>
 
@@ -185,10 +305,167 @@
         <div id="cards-container" class="grid-layout"></div>
     </main>
 
+    <div id="atribuirTecnicoModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <span class="close-btn" onclick="fecharModalAtribuirTecnico()">&times;</span>
+            <div
+                style="padding: 15px; border-bottom: 2px solid #3498db; font-weight: bold; font-size: 18px; color: #3498db;">
+                Atribuir Técnico</div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="atrAutoNup">
+                <label style="display: block; margin-bottom: 10px; text-align: left; color: #aaa;">Selecione o Técnico
+                    Responsável:</label>
+                <select id="atrAutoTecnico"
+                    style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn-preview-action" onclick="fecharModalAtribuirTecnico()"
+                        style="padding: 10px 15px;">Cancelar</button>
+                    <button id="btnSalvarAtribuicao" class="btn-drive btn-download" onclick="salvarAtribuicaoTecnico()"
+                        style="width: auto; padding: 10px 15px; font-weight: bold;">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cadastroAutoModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close-btn" onclick="fecharModalCadastroAuto()">&times;</span>
+            <div
+                style="text-align: center; padding: 15px; border-bottom: 2px solid #27ae60; font-weight: bold; font-size: 18px; color: #2ecc71;">
+                ⚖️ Cadastrar Novo Auto de Infração</div>
+            <div id="cadastroAutoBody" style="padding: 15px 20px;">
+                <div class="filter-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="filter-group"><label>NUP *</label><input type="text" id="cadAutoNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event)"></div>
+                    <div class="filter-group"><label>Requerente *</label><input type="text" id="cadAutoRequerente"
+                            placeholder="Nome do Requerente"></div>
+                    <div class="filter-group"><label>Auto de Infração</label><input type="text" id="cadAutoInfracao"
+                            placeholder="Nº do Auto"></div>
+                    <div class="filter-group"><label>Laudo de Constatação</label><input type="text" id="cadAutoLaudo"
+                            placeholder="Nº do Laudo"></div>
+                    <div class="filter-group"><label>Notificação</label><input type="text" id="cadAutoNotificacao"
+                            placeholder="Nº da Notificação"></div>
+                    <div class="filter-group"><label>Data de Repasse</label><input type="text" id="cadAutoData"
+                            placeholder="Selecionar data..."
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif; cursor: pointer;">
+                    </div>
+                    <div class="filter-group"><label>Setor</label><select id="cadAutoSetor"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                    </div>
+                    <div class="filter-group"><label>Status Atual</label><select id="cadAutoStatus"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                    </div>
+                    <div class="filter-group"><label>Formato (FÍSICO/E-MS)</label>
+                        <select id="cadAutoFisicoEms"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
+                            <option value="">-- Opcional --</option>
+                            <option value="FÍSICO">FÍSICO (Impresso)</option>
+                            <option value="E-MS">E-MS (Digital)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Tipo</label><select id="cadAutoTipo"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                    </div>
+                    <div class="filter-group"><label>Técnico</label><select id="cadAutoTecnico"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                    </div>
+                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Anexar Documento (PDF)</label>
+                        <div class="custom-file-upload">
+                            <input type="file" id="cadAutoArquivo" accept="application/pdf" style="display: none;"
+                                onchange="updateFileName(this)">
+                            <label for="cadAutoArquivo" class="file-upload-label" id="cadAutoArquivoLabel">
+                                <span class="upload-icon">📄</span>
+                                <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 15px;">
+                    <button class="btn-preview-action" onclick="fecharModalCadastroAuto()"
+                        style="padding: 10px 20px;">Cancelar</button>
+                    <button id="btnSalvarCadastroAuto" class="btn-pill-gray" onclick="salvarNovoAuto()">💾 Salvar
+                        Auto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cadastroModal" class="modal">
+        <div class="modal-content" style="max-width: 650px;">
+            <span class="close-btn" onclick="fecharModalCadastro()">&times;</span>
+            <div
+                style="text-align: center; padding: 15px; border-bottom: 2px solid #27ae60; font-weight: bold; font-size: 18px; color: #2ecc71;">
+                ➕ Cadastrar Novo Ofício</div>
+            <div id="cadastroBody" style="padding: 20px;">
+                <div class="filter-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="filter-group" style="grid-column: 1 / -1;">
+                        <label>Aba de Destino na Planilha *</label>
+                        <select id="cadAbaDestino" onchange="atualizarOpcoesTipo()"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
+                            <option value="0">Primeira Aba</option>
+                            <option value="1">Segunda Aba</option>
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>NUP *</label><input type="text" id="cadNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event)"></div>
+                    <div class="filter-group"><label>Ofício N. *</label><input type="text" id="cadOficioN"
+                            placeholder="Ex: 123/2026/DIFLOR"></div>
+                    <div class="filter-group"><label>Data</label><input type="text" id="cadData"
+                            placeholder="Selecionar data..."
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif; cursor: pointer;">
+                    </div>
+                    <div class="filter-group">
+                        <label>Prazo (Dias)</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="cadPrazo" placeholder="Ex: 15" style="flex: 1; min-width: 0;"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                            <select id="cadTipoPrazo"
+                                style="flex: 1; min-width: 0; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
+                                <option value="corridos">Corridos</option>
+                                <option value="uteis">Úteis</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Tipo *</label>
+                        <select id="cadTipo"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
+                            <!-- Preenchido via JS -->
+                        </select>
+                    </div>
+                    <div class="filter-group"><label>Município</label><input type="text" id="cadComarca"
+                            placeholder="Ex: CAMPO GRANDE"></div>
+                    <div class="filter-group"><label>Técnico/Admin</label><input type="text" id="cadTecnico"
+                            placeholder="Ex: QUATITO"></div>
+                    <div class="filter-group"><label>Gerência</label><input type="text" id="cadGerencia"
+                            placeholder="Ex: DIFLOR"></div>
+                    <div class="filter-group" style="grid-column: 1 / -1;"><label>CARMS</label><input type="text"
+                            id="cadCarms" placeholder="Ex: MS-500..."></div>
+                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Referência</label><textarea
+                            id="cadReferencia" rows="2"
+                            style="width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 10px; font-family: 'Inter', sans-serif;"
+                            placeholder="Assunto ou Referência do Ofício..."></textarea></div>
+                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Observação</label><textarea
+                            id="cadObservacao" rows="2"
+                            style="width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 10px; font-family: 'Inter', sans-serif;"
+                            placeholder="Observações adicionais..."></textarea></div>
+                </div>
+                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 15px;">
+                    <button class="btn-preview-action" onclick="fecharModalCadastro()"
+                        style="padding: 10px 20px;">Cancelar</button>
+                    <button id="btnSalvarCadastro" class="btn-pill-gray" onclick="salvarNovoOficio()">💾 Salvar
+                        Ofício</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="detalhesModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="fecharModal()">&times;</span>
-            <div style="text-align: center; padding: 15px; border-bottom: 2px solid #006400; font-weight: bold; font-size: 18px;">📋 Detalhes Completos</div>
+            <div
+                style="text-align: center; padding: 15px; border-bottom: 2px solid #006400; font-weight: bold; font-size: 18px;">
+                📋 Detalhes Completos</div>
             <div id="modalBody"></div>
         </div>
     </div>
@@ -196,30 +473,43 @@
     <div id="previewModal" class="modal" style="z-index: 2000;"></div>
 
     <div id="confirmModal" class="modal" style="z-index: 3000;">
-        <div class="modal-content" style="max-width: 400px; text-align: center; border-top-color: #ff4b4b; padding: 30px;">
-            <div id="confirmIcon" style="font-size: 40px; margin-bottom: 15px; animation: pulseRed 1.5s infinite;">⚠️</div>
+        <div class="modal-content"
+            style="max-width: 400px; text-align: center; border-top-color: #ff4b4b; padding: 30px;">
+            <div id="confirmIcon" style="font-size: 40px; margin-bottom: 15px; animation: pulseRed 1.5s infinite;">⚠️
+            </div>
             <h3 id="confirmTitle" style="color: white; margin-bottom: 15px; font-size: 20px;">Confirmar Remoção</h3>
             <p id="confirmMessage" style="color: #ccc; margin-bottom: 25px; font-size: 14px; line-height: 1.5;"></p>
             <div id="confirmInputContainer" style="display: none; margin-bottom: 25px; text-align: left;">
-                <label style="color: #ddd; font-size: 14px; display: block; margin-bottom: 8px;">Por que você está reprovando este documento?</label>
-                <textarea id="confirmInputText" rows="3" style="width: 100%; border-radius: 4px; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #c0392b; font-family: inherit; font-size: 14px; resize: none;" placeholder="Digite o motivo aqui para que o técnico possa corrigir..."></textarea>
+                <label style="color: #ddd; font-size: 14px; display: block; margin-bottom: 8px;">Por que você está
+                    reprovando este documento?</label>
+                <textarea id="confirmInputText" rows="3"
+                    style="width: 100%; border-radius: 4px; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #c0392b; font-family: inherit; font-size: 14px; resize: none;"
+                    placeholder="Digite o motivo aqui para que o técnico possa corrigir..."></textarea>
             </div>
             <div style="display: flex; gap: 15px; justify-content: center;">
-                <button id="btnConfirmCancel" class="btn-preview-action" style="flex: 1; padding: 12px; font-size: 15px;">Cancelar</button>
-                <button id="btnConfirmYes" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; flex: 1; padding: 12px; font-size: 15px; cursor: pointer; color: white;">🗑️ Sim, Remover</button>
+                <button id="btnConfirmCancel" class="btn-preview-action"
+                    style="flex: 1; padding: 12px; font-size: 15px;">Cancelar</button>
+                <button id="btnConfirmYes" class="btn-drive btn-upload"
+                    style="background-color: #c0392b; border-color: #a93226; flex: 1; padding: 12px; font-size: 15px; cursor: pointer; color: white;">🗑️
+                    Sim, Remover</button>
             </div>
         </div>
     </div>
 
     <button id="btn-back-to-top" onclick="scrollToTop()" title="Voltar ao topo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 15l-6-6-6 6"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 15l-6-6-6 6" />
         </svg>
     </button>
 
     <div id="toast-container"></div>
 
     <script src="leitor.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
+    <script src="utils.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>
