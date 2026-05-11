@@ -435,10 +435,12 @@
                     </div>
                     <div class="filter-group"><label>Município</label><input type="text" id="cadComarca"
                             placeholder="Ex: CAMPO GRANDE"></div>
-                    <div class="filter-group"><label>Técnico/Admin</label><input type="text" id="cadTecnico"
-                            placeholder="Ex: QUATITO"></div>
-                    <div class="filter-group"><label>Gerência</label><input type="text" id="cadGerencia"
-                            placeholder="Ex: DIFLOR"></div>
+                    <div class="filter-group"><label>Técnico/Admin</label><select id="cadTecnico"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                    </div>
+                    <div class="filter-group"><label>Gerência</label><select id="cadGerencia"
+                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                    </div>
                     <div class="filter-group" style="grid-column: 1 / -1;"><label>CARMS</label><input type="text"
                             id="cadCarms" placeholder="Ex: MS-500..."></div>
                     <div class="filter-group" style="grid-column: 1 / -1;"><label>Referência</label><textarea
@@ -449,6 +451,16 @@
                             id="cadObservacao" rows="2"
                             style="width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 10px; font-family: 'Inter', sans-serif;"
                             placeholder="Observações adicionais..."></textarea></div>
+                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Anexar Documento Inicial (PDF)</label>
+                        <div class="custom-file-upload">
+                            <input type="file" id="cadOficioArquivo" accept="application/pdf" style="display: none;"
+                                onchange="updateFileNameOficio(this)">
+                            <label for="cadOficioArquivo" class="file-upload-label" id="cadOficioArquivoLabel">
+                                <span class="upload-icon">📄</span>
+                                <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 15px;">
                     <button class="btn-preview-action" onclick="fecharModalCadastro()"
