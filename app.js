@@ -1442,6 +1442,25 @@ const opcoesTipoAba1 = [
     "CARTA CONSULTA"
 ];
 
+const opcoesAutoTecnico = [
+    "ALLAN", "ALEXANDRE", "ANDERSON", "ADRIANA", "BEATRIZ", "CRISTIANE",
+    "CARLA", "CARLOS JULIANO", "DIANESSA", "ELERI", "ELEN MARA", "ETEVALDO",
+    "FABIANA", "FRANCIELLY", "GABRIELA", "HELLEN", "HERUS", "HELEN CAROLINE",
+    "HILBATY", "HENRIQUE", "JOSÉ RENATO", "JOELTHON", "JONIEL", "JEAN",
+    "LIVYA", "LARISSA", "MAX SANDER", "MARIA", "MARIANA OPP", "MARIANA SH",
+    "MICHAEL", "MILKA", "MATEUS", "NETO", "RHOANDER", "RODRIGO", "JHONATAN",
+    "SUZIELLY"
+];
+
+const opcoesGerencia = [
+    "DIFLOR",
+    "GCAR",
+    "GEAA",
+    "GEAMB",
+    "DIPRE",
+    "DIBIO"
+];
+
 function atualizarOpcoesTipo() {
     const aba = document.getElementById('cadAbaDestino').value;
     const selectTipo = document.getElementById('cadTipo');
@@ -1464,6 +1483,30 @@ function abrirModalCadastro() {
     document.getElementById('cadAbaDestino').value = '0';
     atualizarOpcoesTipo();
 
+    const selectTecnico = document.getElementById('cadTecnico');
+    if (selectTecnico && selectTecnico.options.length === 0) {
+        const elBlank = document.createElement('option');
+        elBlank.value = ''; elBlank.textContent = '-- Selecione o Técnico --';
+        selectTecnico.appendChild(elBlank);
+        opcoesAutoTecnico.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt; el.textContent = opt;
+            selectTecnico.appendChild(el);
+        });
+    }
+
+    const selectGerencia = document.getElementById('cadGerencia');
+    if (selectGerencia && selectGerencia.options.length === 0) {
+        const elBlank = document.createElement('option');
+        elBlank.value = ''; elBlank.textContent = '-- Selecione a Gerência --';
+        selectGerencia.appendChild(elBlank);
+        opcoesGerencia.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt; el.textContent = opt;
+            selectGerencia.appendChild(el);
+        });
+    }
+
     if (!dataPicker) {
         dataPicker = flatpickr("#cadData", {
             locale: "pt",
@@ -1477,11 +1520,31 @@ function abrirModalCadastro() {
 function fecharModalCadastro() {
     document.getElementById('cadastroModal').style.display = 'none';
     // Limpar os campos
-    ['cadNup', 'cadOficioN', 'cadData', 'cadPrazo', 'cadComarca', 'cadTecnico', 'cadGerencia', 'cadCarms', 'cadReferencia', 'cadObservacao'].forEach(id => {
-        document.getElementById(id).value = '';
+    ['cadNup', 'cadOficioN', 'cadData', 'cadPrazo', 'cadComarca', 'cadTecnico', 'cadGerencia', 'cadCarms', 'cadReferencia', 'cadObservacao', 'cadOficioArquivo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
     });
     document.getElementById('cadAbaDestino').value = '0';
     document.getElementById('cadTipoPrazo').value = 'corridos';
+
+    const label = document.getElementById('cadOficioArquivoLabel');
+    if (label) {
+        label.classList.remove('has-file');
+        const textSpan = label.querySelector('.upload-text');
+        if (textSpan) textSpan.innerText = 'Clique para selecionar ou arraste o ficheiro PDF';
+    }
+}
+
+function updateFileNameOficio(input) {
+    const label = document.getElementById('cadOficioArquivoLabel');
+    const textSpan = label.querySelector('.upload-text');
+    if (input.files && input.files.length > 0) {
+        textSpan.innerHTML = `<strong>Ficheiro selecionado:</strong><br>${input.files[0].name}`;
+        label.classList.add('has-file');
+    } else {
+        textSpan.innerText = 'Clique para selecionar ou arraste o ficheiro PDF';
+        label.classList.remove('has-file');
+    }
 }
 
 async function salvarNovoOficio() {
@@ -1503,11 +1566,48 @@ async function salvarNovoOficio() {
 
     const numPrazo = document.getElementById('cadPrazo').value;
     const tipoPrazo = document.getElementById('cadTipoPrazo').value;
-    const prazoFinal = numPrazo ? `${numPrazo} ${tipoPrazo}` : "";
+    const prazoFinal = numPrazo ? (tipoPrazo === "uteis" ? `${numPrazo} DIAS UTEIS` : `${numPrazo} DIAS`) : "";
+
+    const abaDestino = document.getElementById('cadAbaDestino').value;
+    const fileInput = document.getElementById('cadOficioArquivo');
+    let base64File = null;
+    let fileName = null;
+
+    if (fileInput && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        if (file.size > 15 * 1024 * 1024) {
+            mostrarToast('Erro: O arquivo deve ter no máximo 15MB', 'error');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            return;
+        }
+
+        const nupFormatado = nup;
+        const oficioFormatado = oficioN.replace(/\//g, '-');
+
+        // Lógica de renomeação de acordo com a Aba de Destino
+        fileName = (abaDestino === "1") ? `${oficioFormatado}.pdf` : `${nupFormatado}.pdf`;
+
+        try {
+            base64File = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                reader.onerror = (e) => reject(e);
+                reader.readAsDataURL(file);
+            });
+        } catch (e) {
+            mostrarToast('Erro ao ler o arquivo', 'error');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            return;
+        }
+    }
 
     const payload = {
         acao: "cadastrar_oficio",
-        aba_destino: document.getElementById('cadAbaDestino').value,
+        aba_destino: abaDestino,
         nup: nup,
         oficio_n: oficioN,
         data_oficio: dataBr,
@@ -1518,7 +1618,9 @@ async function salvarNovoOficio() {
         gerencia: document.getElementById('cadGerencia').value,
         carms: document.getElementById('cadCarms').value,
         referencia: document.getElementById('cadReferencia').value,
-        observacao: document.getElementById('cadObservacao').value
+        observacao: document.getElementById('cadObservacao').value,
+        base64: base64File,
+        fileName: fileName
     };
 
     // OPTIMISTIC UPDATE: Atualiza a interface instantaneamente
@@ -1585,15 +1687,6 @@ const opcoesAutoStatus = [
     "CONCLUIDO"
 ];
 const opcoesAutoTipo = ["CONTRADITA", "MANIFESTAÇÃO"];
-const opcoesAutoTecnico = [
-    "ALLAN", "ALEXANDRE", "ANDERSON", "ADRIANA", "BEATRIZ", "CRISTIANE",
-    "CARLA", "CARLOS JULIANO", "DIANESSA", "ELERI", "ELEN MARA", "ETEVALDO",
-    "FABIANA", "FRANCIELLY", "GABRIELA", "HELLEN", "HERUS", "HELEN CAROLINE",
-    "HILBATY", "HENRIQUE", "JOSÉ RENATO", "JOELTHON", "JONIEL", "JEAN",
-    "LIVYA", "LARISSA", "MAX SANDER", "MARIA", "MARIANA OPP", "MARIANA SH",
-    "MICHAEL", "MILKA", "MATEUS", "NETO", "RHOANDER", "RODRIGO", "JHONATAN",
-    "SUZIELLY"
-];
 
 let dadosAutosGlobais = [];
 let autosPicker = null;
@@ -1707,9 +1800,15 @@ function renderTabelaAutos(dados) {
 
     cont.innerText = `Exibindo ${dados.length} resultados.`;
 
-    dados.forEach(r => {
+    dados.forEach((r, index) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid #333';
+
+        // Aplicação da animação suave idêntica aos Ofícios
+        tr.style.opacity = '0';
+        tr.style.animation = 'fadeInSlideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+        const delay = Math.min(index * 0.05, 1.5);
+        tr.style.animationDelay = `${delay}s`;
 
         const displayTecnico = r['TÉCNICO']
             ? r['TÉCNICO']
@@ -2075,4 +2174,57 @@ async function salvarNovoAuto() {
     }
 }
 
+// ============================================================================
+// DRAG AND DROP - ARRASTAR E SOLTAR ARQUIVOS
+// ============================================================================
+function configurarDragAndDrop() {
+    const arrastarESoltar = (inputId, labelId, updateCallback) => {
+        const input = document.getElementById(inputId);
+        const label = document.getElementById(labelId);
+
+        if (!input || !label) return;
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            label.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            label.addEventListener(eventName, () => {
+                label.style.backgroundColor = 'rgba(46, 160, 67, 0.2)';
+                label.style.borderColor = '#3fb950';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            label.addEventListener(eventName, () => {
+                label.style.backgroundColor = '';
+                label.style.borderColor = '';
+            }, false);
+        });
+
+        label.addEventListener('drop', (e) => {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+
+            if (files && files.length > 0) {
+                if (files[0].type !== 'application/pdf' && !files[0].name.toLowerCase().endsWith('.pdf')) {
+                    mostrarToast('Apenas ficheiros PDF são permitidos.', 'error');
+                    return;
+                }
+                input.files = files;
+                updateCallback(input);
+            }
+        }, false);
+    };
+
+    arrastarESoltar('cadOficioArquivo', 'cadOficioArquivoLabel', updateFileNameOficio);
+    arrastarESoltar('cadAutoArquivo', 'cadAutoArquivoLabel', updateFileName);
+}
+
+configurarDragAndDrop();
 iniciarSistema();
