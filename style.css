@@ -104,7 +104,7 @@ body {
 
 /* FILTROS */
 .page-title { margin-bottom: 20px; font-size: 24px; display: flex; align-items: center; gap: 10px; }
-.advanced-filters { background-color: rgba(14, 17, 23, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; margin-bottom: 25px; }
+.advanced-filters { background-color: rgba(14, 17, 23, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; margin-bottom: 25px; position: relative; z-index: 10; }
 .advanced-filters summary { padding: 15px; font-weight: bold; cursor: pointer; outline: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .advanced-filters summary:hover { background-color: rgba(255,255,255,0.05); }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 20px; }
