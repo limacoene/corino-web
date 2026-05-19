@@ -26,6 +26,12 @@
                 <div class="module-content" id="mod-oficios">
                     <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta
                         Geral</button>
+                    <button class="menu-btn" id="btn-menu-distribuicao" onclick="mudarAbaPrincipal('distribuicao')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-distribuicao"
+                                class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
                     <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge"
@@ -129,8 +135,19 @@
                     </div>
                 </div>
             </details>
-            <button class="fab-button" onclick="abrirModalCadastro()" title="Cadastrar Novo Ofício">➕ Novo
-                Ofício</button>
+        </div>
+
+        <div id="aba-distribuicao" class="tab-section" style="display: none;">
+            <h2 class="page-title">📥 Aguardando Distribuição</h2>
+            <details class="advanced-filters" open>
+                <summary>🛠️ Filtros de Distribuição</summary>
+                <div class="filter-grid">
+                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="distNup"
+                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
+                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="distOficio"
+                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
+                </div>
+            </details>
         </div>
 
         <div id="aba-andamento" class="tab-section" style="display: none;">
@@ -235,7 +252,8 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 class="page-title" style="margin-bottom: 0;">⚖️ Autos de Infração</h2>
             </div>
-            <div class="card" style="padding: 20px; color: white; margin-bottom: 20px; position: relative; z-index: 10;">
+            <div class="card"
+                style="padding: 20px; color: white; margin-bottom: 20px; position: relative; z-index: 10;">
                 <div class="filter-grid" style="gap: 15px;">
                     <div class="filter-group"><label>NUP</label><input type="text" id="filtro-auto-nup"
                             placeholder="Ex: 83.000..." oninput="maskNUP(event); filtrarAutos()"></div>
@@ -270,29 +288,10 @@
 
             <div id="loading-autos" style="text-align: center; color: #aaa; margin: 20px 0; display: none;">A carregar
                 autos de infração...</div>
-            <div id="tabela-autos-container"
-                style="overflow-x: auto; background-color: #1a1a1a; border-radius: 8px; border: 1px solid var(--card-border);">
-                <table style="width: 100%; border-collapse: collapse; color: #fff; text-align: left; font-size: 14px;">
-                    <thead>
-                        <tr style="background-color: #262626; border-bottom: 2px solid var(--primary-green);">
-                            <th style="padding: 12px;">NUP</th>
-                            <th style="padding: 12px;">Requerente</th>
-                            <th style="padding: 12px;">Auto de Infração</th>
-                            <th style="padding: 12px;">Laudo / Notificação</th>
-                            <th style="padding: 12px;">Data de Repasse</th>
-                            <th style="padding: 12px;">Setor / Tipo</th>
-                            <th style="padding: 12px;">Status</th>
-                            <th style="padding: 12px;">Técnico</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-autos-body">
-                        <!-- Preenchido via JS -->
-                    </tbody>
-                </table>
+            <div id="lista-autos-container" style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- Preenchido via JS com o Layout A -->
             </div>
             <div id="contador-autos" class="results-count" style="margin-top: 15px;">Exibindo 0 resultados.</div>
-            <button class="fab-button" onclick="abrirModalCadastroAuto()" title="Cadastrar Novo Auto">➕ Novo
-                Auto</button>
         </div>
 
         <div id="export-section" style="display: none; margin-bottom: 40px;">
@@ -303,6 +302,11 @@
 
         <div id="loading" class="loading">A carregar dados do sistema central de forma segura...</div>
         <div id="cards-container" class="grid-layout"></div>
+
+        <button id="fab-novo-oficio" class="fab-button" onclick="abrirModalCadastro()" title="Cadastrar Novo Ofício"
+            style="display: none;">➕ Novo Ofício</button>
+        <button id="fab-novo-auto" class="fab-button" onclick="abrirModalCadastroAuto()" title="Cadastrar Novo Auto"
+            style="display: none;">➕ Novo Auto</button>
     </main>
 
     <div id="atribuirTecnicoModal" class="modal">
@@ -522,6 +526,7 @@
     <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
     <script src="utils.js"></script>
     <script src="app.js"></script>
+    <script src="autos.js"></script>
 </body>
 
 </html>

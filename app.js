@@ -82,9 +82,9 @@ function obterStatusVisual(linha) {
 
     if (numero < 0) return { texto: `⚠️ 🔴 ${Math.abs(numero)} DIAS DE ATRASO`, classe: 'status-red' };
     if (numero === 0) return { texto: ' VENCE HOJE', classe: 'status-yellow' };
-    if (numero === 1) return { texto: `🟢 ${numero} dia`, classe: 'status-green' };
+    if (numero === 1) return { texto: `🟢 ${numero} DIA RESTANTE`, classe: 'status-green' };
 
-    return { texto: `🟢 ${numero} dias`, classe: 'status-green' }; // Para 2 ou mais dias
+    return { texto: `🟢 ${numero} DIAS RESTANTES`, classe: 'status-green' }; // Para 2 ou mais dias
 }
 
 // Função auxiliar para calcular a formatação dinâmica (cores HSL, texto e ícone de bolinha)
@@ -141,9 +141,6 @@ async function iniciarSistema() {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
-            document.querySelectorAll('.fab-button').forEach(btn => {
-                btn.style.display = 'none';
-            });
         }
 
         const dadosBrutos = await buscarDadosGoogleSheets();
@@ -152,7 +149,7 @@ async function iniciarSistema() {
             dadosCoringa = dadosBrutos.filter(linha => {
                 const tecnicoLinha = (linha['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
                 const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                return tecnicoLinha === tecnicoLogado;
+                return tecnicoLinha === tecnicoLogado || tecnicoLinha === '' || tecnicoLinha === '-' || tecnicoLinha === 'S/T';
             });
         } else {
             dadosCoringa = dadosBrutos;
@@ -292,10 +289,32 @@ function mudarAbaPrincipal(tipo) {
     document.getElementById(`btn-menu-${tipo}`).classList.add('active');
 
     document.getElementById('aba-todos').style.display = (tipo === 'todos') ? 'block' : 'none';
+    document.getElementById('aba-distribuicao').style.display = (tipo === 'distribuicao') ? 'block' : 'none';
     document.getElementById('aba-andamento').style.display = (tipo === 'andamento') ? 'block' : 'none';
     document.getElementById('aba-atrasados').style.display = (tipo === 'atrasados') ? 'block' : 'none';
     document.getElementById('aba-respondidos').style.display = (tipo === 'respondidos') ? 'block' : 'none';
     document.getElementById('aba-autos').style.display = (tipo === 'autos') ? 'block' : 'none';
+
+    // Gerenciar a visibilidade dos botões flutuantes (FABs)
+    const fabOficio = document.getElementById('fab-novo-oficio');
+    const fabAuto = document.getElementById('fab-novo-auto');
+
+    // Esconder por padrão
+    if (fabOficio) fabOficio.style.display = 'none';
+    if (fabAuto) fabAuto.style.display = 'none';
+
+    // Apenas mostrar botões se o perfil não for 'tecnico'
+    if (usuarioAtivo && usuarioAtivo.perfil !== 'tecnico') {
+        if (tipo === 'todos' && fabOficio) {
+            fabOficio.style.display = 'flex';
+        }
+
+        if (tipo === 'autos' && fabAuto) {
+            const modAutosHeader = document.getElementById('header-mod-autos');
+            const isAutosModuleVisible = modAutosHeader && modAutosHeader.parentElement.style.display !== 'none';
+            if (isAutosModuleVisible) fabAuto.style.display = 'flex';
+        }
+    }
 
     // Hide export count on autos
     if (tipo === 'autos') {
@@ -464,6 +483,27 @@ function aplicarFiltros() {
             });
         }
     }
+    else if (filtroAtivo === 'distribuicao') {
+        const termoBusca = document.getElementById('distNup').value.toLowerCase().trim();
+        const ofTermo = document.getElementById('distOficio') ? document.getElementById('distOficio').value.toLowerCase().trim() : '';
+
+        filtrados = filtrados.filter(r => {
+            const tec = (r['TÉCNICO/ADMIN'] || '').trim();
+            const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+            const statusVisual = obterStatusVisual(r);
+            const isFinalizado = statusVisual.texto.includes('FINALIZADO');
+            const isRevisao = (r['STATUS'] || '').toUpperCase() === 'REVISÃO';
+            const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+
+            return semTecnico && !isFinalizado && !isRevisao && !hasResposta;
+        });
+
+        filtrados = filtrados.filter(r => {
+            const busca = checarTermoBusca(r, termoBusca, ofTermo);
+            r._matchInfo = busca.info;
+            return busca.match;
+        });
+    }
     else if (filtroAtivo === 'andamento') {
         const termoBusca = document.getElementById('andNup').value.toLowerCase().trim();
         const ofTermo = document.getElementById('andOficio') ? document.getElementById('andOficio').value.toLowerCase().trim() : '';
@@ -471,6 +511,12 @@ function aplicarFiltros() {
         const stss = lerValoresMultiplosNativos('andStatus');
 
         filtrados = filtrados.filter(r => !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && (r['STATUS_RESPOSTA'] || '').toUpperCase() !== 'REPROVADO') && (r['STATUS'] || '').toUpperCase() !== 'REVISÃO');
+
+        filtrados = filtrados.filter(r => {
+            const tec = (r['TÉCNICO/ADMIN'] || '').trim();
+            const temTecnico = tec !== '' && tec !== '-' && tec !== 'S/T';
+            return temTecnico && !obterStatusVisual(r).texto.includes('🔴') && !obterStatusVisual(r).texto.includes('FINALIZADO') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && (r['STATUS_RESPOSTA'] || '').toUpperCase() !== 'REPROVADO') && (r['STATUS'] || '').toUpperCase() !== 'REVISÃO';
+        });
 
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca, ofTermo);
@@ -508,6 +554,12 @@ function aplicarFiltros() {
         const stss = lerValoresMultiplosNativos('atrStatus');
 
         filtrados = filtrados.filter(r => obterStatusVisual(r).texto.includes('🔴') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && (r['STATUS_RESPOSTA'] || '').toUpperCase() !== 'REPROVADO') && (r['STATUS'] || '').toUpperCase() !== 'REVISÃO');
+
+        filtrados = filtrados.filter(r => {
+            const tec = (r['TÉCNICO/ADMIN'] || '').trim();
+            const temTecnico = tec !== '' && tec !== '-' && tec !== 'S/T';
+            return temTecnico && obterStatusVisual(r).texto.includes('🔴') && !(r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-' && (r['STATUS_RESPOSTA'] || '').toUpperCase() !== 'REPROVADO') && (r['STATUS'] || '').toUpperCase() !== 'REVISÃO';
+        });
 
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca, ofTermo);
@@ -587,6 +639,8 @@ function exportarCSV() {
     URL.revokeObjectURL(url);
 }
 
+let oficioSelecionadoMockup = null;
+
 function desenharCards(dados, estadoInicialConsultaGeral = false) {
     dadosExibidos = dados;
     const container = document.getElementById('cards-container');
@@ -594,6 +648,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     container.innerHTML = '';
 
     if (estadoInicialConsultaGeral) {
+        container.style.display = 'grid'; // Restaura o grid para a mensagem inicial
         exportSection.style.display = 'none';
         container.innerHTML = `
             <div style="width: 100%; grid-column: 1 / -1; background-color: #0e1117; border: 1px solid #1a252f; border-radius: 8px; padding: 16px 20px; font-weight: bold; color: #ddd; font-size: 15px; display: flex; align-items: center; gap: 10px; animation: fadeInSlideUp 0.3s ease-out forwards;">
@@ -628,60 +683,357 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     }
 
     if (dados.length === 0) {
+        container.style.display = 'grid';
         container.innerHTML = '<h3 style="color: #666; width: 100%; grid-column: 1 / -1; animation: fadeInSlideUp 0.3s ease forwards;">Nenhum registo encontrado com estes critérios.</h3>';
         return;
     }
 
+    // Seleciona o primeiro por padrão se não houver um selecionado
+    if (!oficioSelecionadoMockup && dados.length > 0) {
+        oficioSelecionadoMockup = dados[0];
+    } else if (oficioSelecionadoMockup) {
+        // Verifica se o ofício selecionado ainda está nos dados filtrados
+        const exists = dados.find(r => r['NUP'] === oficioSelecionadoMockup['NUP']);
+        if (!exists) oficioSelecionadoMockup = dados[0];
+    }
+
+    // Configurar o container para Master-Detail (Flex row)
+    container.style.display = 'flex';
+    container.style.flexDirection = 'row';
+    container.style.gap = '20px';
+    container.style.alignItems = 'flex-start';
+
+    // === LADO ESQUERDO: LISTA (INBOX) ===
+    const leftPanel = document.createElement('div');
+    leftPanel.style.width = '35%';
+    leftPanel.style.minWidth = '300px';
+    leftPanel.style.display = 'flex';
+    leftPanel.style.flexDirection = 'column';
+    leftPanel.style.gap = '10px';
+    leftPanel.style.maxHeight = '75vh';
+    leftPanel.style.overflowY = 'auto';
+    leftPanel.style.paddingRight = '5px';
+    leftPanel.style.animation = 'fadeInSlideUp 0.3s ease-out forwards';
+
+    // === LADO DIREITO: DETALHES ===
+    const rightPanel = document.createElement('div');
+    rightPanel.id = 'right-panel-detalhes-oficios';
+    rightPanel.style.width = '65%';
+    rightPanel.style.backgroundColor = '#1a1a1a';
+    rightPanel.style.border = '1px solid var(--card-border)';
+    rightPanel.style.borderRadius = '8px';
+    rightPanel.style.padding = '25px';
+    rightPanel.style.position = 'sticky';
+    rightPanel.style.top = '20px';
+    rightPanel.style.display = 'flex';
+    rightPanel.style.flexDirection = 'column';
+    rightPanel.style.maxHeight = '85vh';
+    rightPanel.style.overflowY = 'auto';
+    rightPanel.style.animation = 'fadeInSlideUp 0.4s ease-out forwards';
+
     dados.forEach((linha, index) => {
+        const isSelected = oficioSelecionadoMockup && oficioSelecionadoMockup['NUP'] === linha['NUP'];
         const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
         const infoStatus = obterInfoDinamicaStatus(linha);
 
-        let barraProgressoHtml = `
-            <div class="progress-container" title="Indicador de Prazo">
-                <div class="progress-bar ${infoStatus.pulsingClass}" style="width: 100%; background-color: ${infoStatus.corFundo};"></div>
-            </div>
-        `;
+        const item = document.createElement('div');
+        item.style.backgroundColor = isSelected ? 'rgba(46, 204, 113, 0.1)' : '#1a1a1a';
+        item.style.border = isSelected ? '1px solid var(--primary-green)' : '1px solid #333';
+        item.style.borderRadius = '6px';
+        item.style.padding = '12px 15px';
+        item.style.cursor = 'pointer';
+        item.style.transition = 'all 0.2s';
 
-        let htmlMatchInfo = '';
-        if (linha._matchInfo) {
-            htmlMatchInfo = `<div style="background-color: rgba(0, 250, 154, 0.1); border: 1px dashed rgba(0, 250, 154, 0.4); color: #00fa9a; padding: 6px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; text-align: center;">${linha._matchInfo}</div>`;
+        item.onmouseenter = () => { if (!isSelected) item.style.backgroundColor = '#222'; };
+        item.onmouseleave = () => { if (!isSelected) item.style.backgroundColor = '#1a1a1a'; };
+        item.onclick = () => {
+            oficioSelecionadoMockup = linha;
+            desenharCards(dados); // Re-render para atualizar os painéis
+        };
+
+        const isAtrasado = infoStatus.textoStatusLimpo.includes('ATRASO');
+        if (isAtrasado) {
+            item.classList.add('pulse-border-red');
         }
-
-        const div = document.createElement('div');
-        div.className = 'card';
-
-        const delay = Math.min(index * 0.05, 1.5);
-        div.style.animationDelay = `${delay}s`;
 
         const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
         let badgeAvaliacao = '';
         if (statusRespAval === 'APROVADO') {
-            badgeAvaliacao = `<div style="background-color: rgba(39, 174, 96, 0.15); border: 1px solid #27ae60; color: #2ecc71; text-align: center; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 13px; margin-bottom: 12px;">✅ MANIFESTAÇÃO APROVADA</div>`;
+            badgeAvaliacao = `<div style="font-size: 10px; color: #2ecc71; margin-bottom: 5px; font-weight: bold;">✅ APROVADA</div>`;
         } else if (statusRespAval === 'REPROVADO') {
-            badgeAvaliacao = `<div style="background-color: rgba(192, 57, 43, 0.15); border: 1px solid #c0392b; color: #e74c3c; text-align: center; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 13px; margin-bottom: 12px; animation: pulseRed 2s infinite;">❌ MANIFESTAÇÃO REPROVADA</div>`;
-            if (linha['MOTIVO_AVALIACAO']) {
-                badgeAvaliacao += `<div style="background-color: rgba(192, 57, 43, 0.05); color: #e74c3c; font-size: 13px; text-align: left; padding: 10px; border-left: 3px solid #c0392b; margin-top: -5px; margin-bottom: 12px; line-height: 1.4;"><strong>📝 Motivo da Reprovação:</strong><br>${linha['MOTIVO_AVALIACAO']}</div>`;
+            badgeAvaliacao = `<div style="font-size: 10px; color: #e74c3c; margin-bottom: 5px; font-weight: bold;">❌ REPROVADA</div>`;
+        }
+
+        let htmlMatchInfo = '';
+        if (linha._matchInfo) {
+            htmlMatchInfo = `<div style="color: #00fa9a; font-size: 11px; margin-bottom: 5px;">${linha._matchInfo}</div>`;
+        }
+
+        item.innerHTML = `
+            ${badgeAvaliacao}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <div style="font-size: 14px; font-weight: bold; color: ${isSelected ? 'var(--primary-green)' : '#fff'};">
+                    ${linha['NUP'] || '-'}
+                </div>
+                <div style="font-size: 10px; padding: 3px 8px; border-radius: 6px; border: 1px solid ${infoStatus.corTexto}; color: ${infoStatus.corTexto}; background-color: rgba(255,255,255,0.03); font-weight: bold; display: flex; align-items: center;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</div>
+            </div>
+            ${htmlMatchInfo}
+            <div style="font-size: 12px; color: #aaa; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                Ofício: ${oficioRaw}
+            </div>
+            <div style="font-size: 11px; color: #777;">
+                Téc: ${linha['TÉCNICO/ADMIN'] || 'Não atribuído'}
+            </div>
+        `;
+        leftPanel.appendChild(item);
+    });
+
+    if (oficioSelecionadoMockup) {
+        const linha = oficioSelecionadoMockup;
+        const index = dadosExibidos.indexOf(linha);
+        const infoStatus = obterInfoDinamicaStatus(linha);
+        const obs = (linha['OBSERVAÇÃO'] || '').trim();
+        const linkRaw = linha['LINK_OFICIO'] || '';
+        const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
+
+        let htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="modal-obs" style="margin-top: 15px;"><strong>Observação:</strong><br>${obs}</div>` : '';
+        let htmlPreviewIcon = '';
+        let htmlLink = `<div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px; width: 100%;">🚫 Sem Link Vinculado</div>`;
+        let btnAnexar = '';
+        const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
+        const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
+
+        if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
+            if (temRespostaVinculada) {
+                const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
+                const isFazerCI = (linha['STATUS'] || '').toUpperCase() === 'FAZER CI';
+                const isGestor = usuarioAtivo.perfil === 'gerencia';
+
+                let blockRemoval = false;
+                if (!isGestor && (isAprovadoBackend || isFazerCI)) {
+                    blockRemoval = true;
+                }
+
+                if (blockRemoval) {
+                    btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px; width: 100%;">🔒 Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
+                } else {
+                    btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; color: white;">🗑️ Retirar Resposta</button>`;
+                }
+            } else if (usuarioAtivo.perfil === 'tecnico') {
+                btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
             }
         }
 
-        div.innerHTML = `
-            ${badgeAvaliacao}
-            <div class="card-status" style="color: ${infoStatus.corTexto}; display: flex; align-items: center;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</div>
-            ${barraProgressoHtml}
-            ${htmlMatchInfo}
-            <!-- 
-                Lógica de Movimentação de Aba:
-                A "movimentação" de um ofício para a aba de "Ofícios Atrasados" é tratada pela função 'aplicarFiltros'.
-                Quando um ofício tem 'DIAS RESTANTES' negativo, 'obterStatusVisual' o marca como "ATRASO".
-                A função 'aplicarFiltros' para a aba 'andamento' exclui automaticamente ofícios com status "ATRASO",
-                enquanto a aba 'atrasados' os inclui. Assim, a mudança de aba ou a atualização dos filtros reflete essa "movimentação".
-            -->
-            <div class="badge-nup">NUP: ${linha['NUP']}</div>
-            <div class="badge-oficio">📜 OFÍCIO N.: ${oficioRaw}</div>
-            <button class="btn-expander" onclick="abrirModal(${index})">📖 VER INFORMAÇÕES COMPLEMENTARES</button>
+        if (linkRaw && linkRaw.startsWith('http')) {
+            const fileId = extrairIdDrive(linkRaw);
+            if (fileId) {
+                const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
+                const linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
+                htmlLink = `
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <a href="${linkDownload}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download</a>
+                        ${btnAnexar}
+                    </div>
+                `;
+            } else {
+                htmlLink = `
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
+                        ${btnAnexar}
+                    </div>
+                `;
+            }
+        } else {
+            if (btnAnexar) {
+                htmlLink = `<div style="display: flex; gap: 10px; flex-wrap: wrap;">${btnAnexar}</div>`;
+            }
+        }
+
+        let htmlDiretoriaBotoes = '';
+        const isGestorFinalidade = usuarioAtivo.perfil === 'gerencia';
+        const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
+
+        if (isGestorFinalidade) {
+            if (statusGeralAtualizado === 'FAZER CI') {
+                htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
+            } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
+                htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
+            }
+        }
+
+        let htmlResposta = '';
+        if (temRespostaVinculada) {
+            const respId = extrairIdDrive(linkRespostaVerificacao);
+            let botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-upload">🔗 Abrir Resposta no Drive</a>`;
+            if (respId) {
+                const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
+                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-upload" style="border:none;">👁️ Pré-visualizar Resposta</button>`;
+            }
+
+            let htmlMotivoReprovacao = '';
+            if ((linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'REPROVADO' && linha['MOTIVO_AVALIACAO']) {
+                htmlMotivoReprovacao = `
+                    <div style="margin-top: 15px; padding: 10px; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; color: #ffcccc; font-size: 13px; border-radius: 0 4px 4px 0;">
+                        <strong style="color: #e74c3c;">Motivo da Reprovação:</strong><br>
+                        ${linha['MOTIVO_AVALIACAO']}
+                    </div>
+                `;
+            }
+
+            htmlResposta = `
+                <div style="margin: 20px 0; padding: 15px; background-color: rgba(140, 86, 51, 0.1); border: 1px solid rgba(140, 86, 51, 0.3); border-radius: 6px;">
+                    <div style="color: #e67e22; font-weight: bold; margin-bottom: 10px;">📁 Documento de Resposta Anexado:</div>
+                    ${botaoResp}
+                    ${htmlMotivoReprovacao}
+                </div>
+            `;
+        }
+
+        let htmlHistorico = '';
+        htmlHistorico += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], index);
+        if (linha['REITERACOES'] && linha['REITERACOES'].length > 0) {
+            linha['REITERACOES'].forEach((reit, i) => {
+                htmlHistorico += gerarHtmlDocExtra(`${i + 1}ª Reiteração`, reit.NUMERO, reit.NUP, reit.LINK, index);
+            });
+        }
+
+        let historicoReprovacoes = [];
+        if (linha['HISTORICO_REPROVACOES']) {
+            try {
+                historicoReprovacoes = JSON.parse(linha['HISTORICO_REPROVACOES']);
+            } catch (e) { console.error('Erro ao parsear HISTORICO_REPROVACOES', e); }
+        }
+
+        if (historicoReprovacoes.length > 0) {
+            historicoReprovacoes.forEach((rep, i) => {
+                htmlHistorico += gerarHtmlDocExtra(`Manifestação Recusada (${rep.data || 'Data Indisponível'})`, 'Ver Arquivo', 'RECUSADA', rep.link, index);
+            });
+        }
+
+        if (htmlHistorico !== '') {
+            htmlHistorico = `<div style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;">📚 Histórico de Documentos</strong>${htmlHistorico}</div>`;
+        }
+
+        let eventosTimeline = [];
+        if (linha['DATA']) {
+            eventosTimeline.push({ titulo: 'PROCESSO CADASTRADO NO SISTEMA', data: linha['DATA'], cor: '#3498db' });
+        }
+
+        const tecAdmin = (linha['TÉCNICO/ADMIN'] || '').trim();
+        if (tecAdmin && tecAdmin !== '-' && tecAdmin !== 'S/T') {
+            eventosTimeline.push({ titulo: `PROCESSO DISTRIBUÍDO PARA: ${tecAdmin.toUpperCase()}`, data: 'Registro Indisponível', cor: '#9b59b6' });
+        }
+
+        if (temRespostaVinculada) {
+            eventosTimeline.push({ titulo: 'DOCUMENTO DE MANIFESTAÇÃO ANEXADO', data: 'Registro Indisponível', cor: '#f39c12' });
+        }
+
+        const statusResposta = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
+        if (historicoReprovacoes.length > 0) {
+            historicoReprovacoes.forEach(rep => {
+                eventosTimeline.push({ titulo: `MANIFESTAÇÃO RECUSADA: ${rep.motivo || ''}`, data: rep.data || 'Registro Indisponível', cor: '#c0392b' });
+            });
+        }
+        if (statusResposta === 'REPROVADO') {
+            eventosTimeline.push({ titulo: `MANIFESTAÇÃO ATUAL RECUSADA`, data: 'Registro Indisponível', cor: '#c0392b' });
+        }
+
+        const statusGeral = (linha['STATUS'] || '').toUpperCase();
+        if (statusGeral === 'AGUARDANDO ASSINATURA' || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO') {
+            eventosTimeline.push({ titulo: 'REALIZAÇÃO DE C.I. CONFIRMADA', data: 'Registro Indisponível', cor: '#e67e22' });
+        }
+
+        if (statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO') {
+            eventosTimeline.push({ titulo: 'ASSINATURA DA C.I. CONFIRMADA', data: 'Registro Indisponível', cor: '#27ae60' });
+            eventosTimeline.push({ titulo: 'PROCESSO TRAMITADO / FINALIZADO', data: 'Registro Indisponível', cor: '#2ecc71' });
+        }
+
+        let htmlTimelineEvents = '';
+        eventosTimeline.reverse().forEach((ev, i) => {
+            htmlTimelineEvents += `
+                <div style="position: relative; margin-bottom: 15px;">
+                    <div style="position: absolute; left: -25px; top: 0; width: 10px; height: 10px; background-color: ${ev.cor}; border-radius: 50%;"></div>
+                    <div style="font-size: 11px; color: #888;">${ev.data}</div>
+                    <div style="font-size: 13px; color: ${i === 0 ? '#fff' : '#aaa'}; margin-top: 2px; font-weight: ${i === 0 ? 'bold' : 'normal'};">${ev.titulo}</div>
+                </div>
+            `;
+        });
+
+        let htmlTimeline = '';
+        if (eventosTimeline.length > 0) {
+            htmlTimeline = `
+            <div style="margin-top: 25px; margin-bottom: 25px;">
+                <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;">⏳ Histórico de Tramitação</div>
+                <div style="position: relative; padding-left: 20px; border-left: 2px solid #444; margin-left: 10px;">
+                    ${htmlTimelineEvents}
+                </div>
+            </div>
+            `;
+        }
+
+        rightPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
+                <div>
+                    <div style="font-size: 24px; font-weight: bold; color: #fff; margin-bottom: 5px;">${linha['NUP']}</div>
+                    <div style="font-size: 16px; color: #ccc;">${linha['TÉCNICO/ADMIN']}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="background-color: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #eee; display: inline-block; margin-bottom: 5px;">
+                        ${linha['TIPO'] || '-'}
+                    </div>
+                    <div style="color: ${infoStatus.corTexto}; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: flex-end;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">DATA DO OFÍCIO</div>
+                    <div style="font-size: 14px; color: #fff; font-weight: 500;">${linha['DATA'] || '-'}</div>
+                </div>
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">PRAZO / DIAS RESTANTES</div>
+                    <div style="font-size: 14px; color: #fff; font-weight: 500;">${linha['PRAZO'] || '-'}</div>
+                </div>
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">OFÍCIO N.</div>
+                    <div style="font-size: 14px; color: #fff; font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="word-break: break-word; padding-right: 10px;">${oficioRaw}</span>
+                        ${htmlPreviewIcon}
+                    </div>
+                </div>
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">N. DO CAR</div>
+                <div style="font-size: 14px; color: #fff; font-weight: 500; word-break: break-word;">${linha['CARMS'] || '-'}</div>
+                </div>
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">LOCAL / MUNICÍPIO</div>
+                <div style="font-size: 14px; color: #fff; font-weight: 500; word-break: break-word;">${linha['COMARCA'] || '-'}</div>
+                </div>
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">GERÊNCIA</div>
+                    <div style="font-size: 14px; color: #fff; font-weight: 500;">${linha['GERÊNCIA'] || '-'}</div>
+                </div>
+            <div style="background-color: #222; padding: 15px; border-radius: 8px; grid-column: span 2; display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 4px;">REFERÊNCIA</div>
+                <div style="font-size: 14px; color: #fff; font-weight: 500; line-height: 1.4;">${linha['REFERÊNCIA'] || '-'}</div>
+                </div>
+            </div>
+
+            ${htmlObs}
+            ${htmlResposta}
+            ${htmlHistorico}
+            ${htmlTimeline}
+
+            <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #333;">
+                ${htmlLink}
+                ${htmlDiretoriaBotoes}
+            </div>
         `;
-        container.appendChild(div);
-    });
+    }
+
+    container.appendChild(leftPanel);
+    container.appendChild(rightPanel);
 }
 
 function gerarHtmlDocExtra(titulo, num, nup, linkRaw, index) {
@@ -1162,7 +1514,7 @@ function abrirModal(index) {
 
     modalBody.innerHTML = `
         <div class="modal-grid" style="margin-top: 25px;">
-            <div>
+            <div style="display: flex; flex-direction: column; gap: 10px; background-color: #222; padding: 15px; border-radius: 8px;">
                 <div style="margin-bottom: 8px;">📌 <strong>NUP:</strong> ${linha['NUP']}</div>
                 <div style="margin-bottom: 8px;">📅 <strong>Data:</strong> ${linha['DATA']}</div>
                 <div style="margin-bottom: 8px;">📄 <strong>Tipo:</strong> ${linha['TIPO']}</div>
@@ -1170,8 +1522,8 @@ function abrirModal(index) {
                 <div style="margin-bottom: 8px;">📝 <strong>Referência:</strong> ${linha['REFERÊNCIA']}</div>
                 <div style="margin-bottom: 8px;">⏳ <strong>Prazo:</strong> ${linha['PRAZO'] || '-'}</div>
             </div>
-            <div>
-                <div style="margin-bottom: 8px; display: flex; align-items: center;">📜 <strong>Ofício N.:</strong> &nbsp;${oficioRaw} ${htmlPreviewIcon}</div>
+            <div style="display: flex; flex-direction: column; gap: 10px; background-color: #222; padding: 15px; border-radius: 8px;">
+                <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;"><span>📜 <strong>Ofício N.:</strong> &nbsp;${oficioRaw}</span> ${htmlPreviewIcon}</div>
                 <div style="margin-bottom: 8px;">👤 <strong>Responsável:</strong> ${linha['TÉCNICO/ADMIN']}</div>
                 <div style="margin-bottom: 8px;">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA']}</div>
                 <div style="margin-bottom: 8px;">🔗 <strong>Status:</strong> ${linha['STATUS']}</div>
@@ -1347,6 +1699,16 @@ function atualizarBadgesNotificacao(dados) {
     let totalAtrasados = 0;
     let totalRespReprovados = 0;
     let totalRespPendentes = 0;
+
+    let totalDistribuicao = dados.filter(r => {
+        const tec = (r['TÉCNICO/ADMIN'] || '').trim();
+        const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+        const isFinalizado = obterStatusVisual(r).texto.includes('FINALIZADO');
+        const isRevisao = (r['STATUS'] || '').toUpperCase() === 'REVISÃO';
+        const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+        return semTecnico && !isFinalizado && !isRevisao && !hasResposta;
+    }).length;
+    atualizarBadgeDOM('badge-menu-distribuicao', totalDistribuicao);
 
     if (usuarioAtivo.perfil === 'tecnico') {
         const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
@@ -1676,555 +2038,51 @@ async function salvarNovoOficio() {
 }
 
 // ============================================================================
-// AUTOS DE INFRAÇÃO
-// ============================================================================
-const opcoesAutoSetor = ["GCAR", "GEAA"];
-const opcoesAutoStatus = [
-    "AGUARDANDO DISTRIBUIÇÃO",
-    "AGUARDANDO MANIFESTAÇÃO",
-    "REVISÃO",
-    "FAZER DESPACHO",
-    "CONCLUIDO"
-];
-const opcoesAutoTipo = ["CONTRADITA", "MANIFESTAÇÃO"];
-
-let dadosAutosGlobais = [];
-let autosPicker = null;
-let autosCarregados = false;
-
-function popularOpcoesAuto() {
-    const preencherSelect = (id, opcoes, textoVazio = null) => {
-        const select = document.getElementById(id);
-        if (!select) return;
-        select.innerHTML = '';
-        if (textoVazio !== null) {
-            const elBlank = document.createElement('option');
-            elBlank.value = ''; elBlank.textContent = textoVazio;
-            select.appendChild(elBlank);
-        }
-        opcoes.forEach(opt => {
-            const el = document.createElement('option');
-            el.value = opt; el.textContent = opt;
-            select.appendChild(el);
-        });
-    };
-    preencherSelect('cadAutoSetor', opcoesAutoSetor);
-    preencherSelect('cadAutoStatus', opcoesAutoStatus);
-    preencherSelect('cadAutoTipo', opcoesAutoTipo);
-    preencherSelect('cadAutoTecnico', opcoesAutoTecnico, '-- Sem Técnico --');
-
-    // Filtros
-    const preencherMultiselect = (idBase, arrayValores) => {
-        const dropdown = document.getElementById(`dd-${idBase}`);
-        const display = document.getElementById(`ms-${idBase}`);
-        if (!dropdown || !display) return;
-
-        const placeholderText = display.getAttribute('data-placeholder');
-        dropdown.innerHTML = '';
-
-        let opTodos = document.createElement('div');
-        opTodos.className = 'ms-option';
-        opTodos.innerHTML = `<input type="checkbox" value="todos" id="chk-${idBase}-todos"> <label for="chk-${idBase}-todos">-- Todos --</label>`;
-        dropdown.appendChild(opTodos);
-
-        arrayValores.forEach((val, i) => {
-            let op = document.createElement('div');
-            op.className = 'ms-option';
-            op.innerHTML = `<input type="checkbox" value="${val}" id="chk-${idBase}-${i}"> <label for="chk-${idBase}-${i}">${val}</label>`;
-            dropdown.appendChild(op);
-        });
-
-        dropdown.querySelectorAll('input[type="checkbox"]').forEach(chk => {
-            chk.addEventListener('change', () => {
-                atualizarDisplayNativo(idBase, placeholderText);
-                filtrarAutos();
-            });
-        });
-
-        atualizarDisplayNativo(idBase, placeholderText);
-    };
-
-    preencherMultiselect('autoTecnico', opcoesAutoTecnico);
-    preencherMultiselect('autoStatus', opcoesAutoStatus);
-    preencherMultiselect('autoSetor', opcoesAutoSetor);
-}
-
-function abrirModalCadastroAuto() {
-    document.getElementById('cadastroAutoModal').style.display = 'flex';
-    popularOpcoesAuto();
-    if (!autosPicker) {
-        autosPicker = flatpickr("#cadAutoData", {
-            locale: "pt",
-            dateFormat: "d/m/Y",
-            allowInput: true
-        });
-    }
-    autosPicker.setDate(new Date());
-}
-
-function fecharModalCadastroAuto() {
-    document.getElementById('cadastroAutoModal').style.display = 'none';
-    ['cadAutoNup', 'cadAutoRequerente', 'cadAutoInfracao', 'cadAutoLaudo', 'cadAutoNotificacao', 'cadAutoData', 'cadAutoFisicoEms', 'cadAutoArquivo'].forEach(id => {
-        document.getElementById(id).value = '';
-    });
-    const label = document.getElementById('cadAutoArquivoLabel');
-    if (label) {
-        label.classList.remove('has-file');
-        const textSpan = label.querySelector('.upload-text');
-        if (textSpan) textSpan.innerText = 'Clique para selecionar ou arraste o ficheiro PDF';
-    }
-}
-
-function updateFileName(input) {
-    const label = document.getElementById('cadAutoArquivoLabel');
-    const textSpan = label.querySelector('.upload-text');
-    if (input.files && input.files.length > 0) {
-        textSpan.innerHTML = `<strong>Ficheiro selecionado:</strong><br>${input.files[0].name}`;
-        label.classList.add('has-file');
-    } else {
-        textSpan.innerText = 'Clique para selecionar ou arraste o ficheiro PDF';
-        label.classList.remove('has-file');
-    }
-}
-
-function renderTabelaAutos(dados) {
-    const tbody = document.getElementById('tabela-autos-body');
-    const cont = document.getElementById('contador-autos');
-    tbody.innerHTML = '';
-
-    if (!dados || dados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 15px;">Nenhum auto de infração encontrado.</td></tr>';
-        cont.innerText = 'Exibindo 0 resultados.';
-        return;
-    }
-
-    cont.innerText = `Exibindo ${dados.length} resultados.`;
-
-    dados.forEach((r, index) => {
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #333';
-
-        // Aplicação da animação suave idêntica aos Ofícios
-        tr.style.opacity = '0';
-        tr.style.animation = 'fadeInSlideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
-        const delay = Math.min(index * 0.05, 1.5);
-        tr.style.animationDelay = `${delay}s`;
-
-        const displayTecnico = r['TÉCNICO']
-            ? r['TÉCNICO']
-            : `<button class="btn-drive" style="padding: 4px 10px; font-size: 11px; background-color: #3498db; border: none; cursor: pointer; color: #fff;" onclick="abrirModalAtribuirTecnico('${r['NUP']}')">Atribuir Técnico</button>`;
-
-        let corBadgeTipo = '#333';
-        let corTextoTipo = '#ccc';
-        let iconTipo = '';
-        if (r['TIPO'] === 'CONTRADITA') {
-            corBadgeTipo = 'rgba(207, 102, 121, 0.15)';
-            corTextoTipo = '#cf6679';
-            iconTipo = '🛡️ ';
-        } else if (r['TIPO'] === 'MANIFESTAÇÃO') {
-            corBadgeTipo = 'rgba(107, 143, 186, 0.15)';
-            corTextoTipo = '#6b8fba';
-            iconTipo = '📄 ';
-        }
-
-        let badgeTipo = r['TIPO']
-            ? `<span style="display: inline-block; margin-top: 6px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; background-color: ${corBadgeTipo}; color: ${corTextoTipo}; border: 1px solid ${corTextoTipo};">${iconTipo}${r['TIPO']}</span>`
-            : '-';
-
-        let formatoBadge = '';
-        const formatoStr = (r['FISICO/E-MS'] || '').trim().toUpperCase();
-        if (formatoStr === 'FÍSICO' || formatoStr === 'FISICO') {
-            formatoBadge = `<br><span style="display: inline-block; margin-top: 6px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; background-color: rgba(211, 84, 0, 0.15); color: #e67e22; border: 1px solid #e67e22;">📦 FÍSICO</span>`;
-        } else if (formatoStr === 'E-MS') {
-            formatoBadge = `<br><span style="display: inline-block; margin-top: 6px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; background-color: rgba(46, 160, 67, 0.15); color: #2ea043; border: 1px solid #2ea043;">💻 E-MS</span>`;
-        }
-
-        let nupText = r['NUP'] || '-';
-        if (r['LINK NUP'] && String(r['LINK NUP']).trim() !== '') {
-            nupText += ` <a href="#" onclick="abrirPreviewAuto(event, '${r['LINK NUP']}', '${r['NUP']}')" class="icon-preview-nup" title="Visualizar Documento PDF">🔍</a>`;
-        }
-
-        tr.innerHTML = `
-            <td style="padding: 12px; white-space: nowrap;">${nupText}${formatoBadge}</td>
-            <td style="padding: 12px;">${r['REQUERENTE'] || '-'}</td>
-            <td style="padding: 12px;">${r['AUTO DE INFRAÇÃO'] || '-'}</td>
-            <td style="padding: 12px;">L: ${r['LAUDO DE CONSTATAÇÃO'] || '-'}<br>N: ${r['NOTIFICAÇÃO'] || '-'}</td>
-            <td style="padding: 12px;">${r['DATA DE REPASSE'] || '-'}</td>
-            <td style="padding: 12px; vertical-align: middle;">${r['SETOR'] || '-'}<br>${badgeTipo}</td>
-            <td style="padding: 12px; font-weight: bold;">${r['STATUS ATUAL'] || '-'}</td>
-            <td style="padding: 12px;">${displayTecnico}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function abrirPreviewAuto(event, url, nup) {
-    if (event) event.preventDefault();
-    const linha = dadosAutosGlobais.find(x => x['NUP'] === nup);
-    if (!linha) return;
-
-    const modal = document.getElementById('previewModal');
-    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-
-    if (!document.getElementById('preview-wrapper-id')) {
-        modal.className = 'preview-modal';
-        modal.innerHTML = `
-            <div class="preview-wrapper" id="preview-wrapper-id">
-                <div class="preview-toolbar">
-                    <div class="preview-toolbar-title" style="display: flex; align-items: center;">
-                        ${iconeOlhoGrande} Pré-visualização de Documento
-                    </div>
-                    <div class="preview-toolbar-buttons">
-                        <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
-                        <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
-                        <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
-                    </div>
-                </div>
-                <div class="preview-body">
-                    <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
-                    <div id="previewInfo" class="preview-info">
-                        <div id="previewInfoContent"></div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    let previewUrl = url;
-    const fileId = extrairIdDrive(url);
-    const btnDownload = document.getElementById('btn-download-preview');
-    if (fileId) {
-        previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    } else {
-        btnDownload.href = url;
-    }
-
-    let corBadgeTipo = '#333';
-    let corTextoTipo = '#ccc';
-    let iconTipo = '';
-    if (linha['TIPO'] === 'CONTRADITA') {
-        corBadgeTipo = 'rgba(207, 102, 121, 0.15)';
-        corTextoTipo = '#cf6679';
-        iconTipo = '🛡️ ';
-    } else if (linha['TIPO'] === 'MANIFESTAÇÃO') {
-        corBadgeTipo = 'rgba(107, 143, 186, 0.15)';
-        corTextoTipo = '#6b8fba';
-        iconTipo = '📄 ';
-    }
-
-    let badgeTipo = linha['TIPO']
-        ? `<span style="display: inline-block; margin-top: 6px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; background-color: ${corBadgeTipo}; color: ${corTextoTipo}; border: 1px solid ${corTextoTipo};">${iconTipo}${linha['TIPO']}</span>`
-        : '-';
-
-    document.getElementById('previewInfoContent').innerHTML = `
-        <div class="preview-info-item">📌 <strong>NUP:</strong> ${linha['NUP']}</div>
-        <div class="preview-info-item">👤 <strong>Requerente:</strong> ${linha['REQUERENTE'] || '-'}</div>
-        <div class="preview-info-item">⚖️ <strong>Auto de Infração:</strong> ${linha['AUTO DE INFRAÇÃO'] || '-'}</div>
-        <div class="preview-info-item">📑 <strong>Laudo de Constatação:</strong> ${linha['LAUDO DE CONSTATAÇÃO'] || '-'}</div>
-        <div class="preview-info-item">📨 <strong>Notificação:</strong> ${linha['NOTIFICAÇÃO'] || '-'}</div>
-        <div class="preview-info-item">📅 <strong>Data de Repasse:</strong> ${linha['DATA DE REPASSE'] || '-'}</div>
-        <div class="preview-info-item">🏢 <strong>Setor:</strong> ${linha['SETOR'] || '-'}</div>
-        <div class="preview-info-item" style="font-weight: bold; color: #fff;">🚦 <strong>Status Atual:</strong> ${linha['STATUS ATUAL'] || '-'}</div>
-        <div class="preview-info-item">👨‍💻 <strong>Técnico:</strong> ${linha['TÉCNICO'] || '-'}</div>
-        <div class="preview-info-item">📦 <strong>Formato:</strong> ${linha['FISICO/E-MS'] || '-'}</div>
-        <div class="preview-info-item">📄 <strong>Tipo:</strong><br>${badgeTipo}</div>
-    `;
-
-    document.getElementById('previewFrame').src = previewUrl;
-    modal.style.display = 'flex';
-}
-
-function abrirModalAtribuirTecnico(nup) {
-    document.getElementById('atrAutoNup').value = nup;
-    const select = document.getElementById('atrAutoTecnico');
-    select.innerHTML = '';
-    const elBlank = document.createElement('option');
-    elBlank.value = ''; elBlank.textContent = '-- Selecione o Técnico --';
-    select.appendChild(elBlank);
-    opcoesAutoTecnico.forEach(opt => {
-        const el = document.createElement('option');
-        el.value = opt; el.textContent = opt;
-        select.appendChild(el);
-    });
-    document.getElementById('atribuirTecnicoModal').style.display = 'flex';
-}
-
-function fecharModalAtribuirTecnico() {
-    document.getElementById('atribuirTecnicoModal').style.display = 'none';
-}
-
-async function salvarAtribuicaoTecnico() {
-    const nup = document.getElementById('atrAutoNup').value;
-    const tecnico = document.getElementById('atrAutoTecnico').value;
-
-    if (!tecnico) {
-        mostrarToast('Selecione um técnico para atribuir.', 'error');
-        return;
-    }
-
-    const btn = document.getElementById('btnSalvarAtribuicao');
-    const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ Salvando...';
-    btn.disabled = true;
-
-    const payload = {
-        acao: "atribuir_tecnico_auto",
-        nup: nup,
-        tecnico: tecnico
-    };
-
-    try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
-        if (resultado.status === 'success') {
-            mostrarToast('Técnico atribuído com sucesso!', 'success');
-
-            const autoRef = dadosAutosGlobais.find(a => a['NUP'] === nup);
-            if (autoRef) {
-                autoRef['TÉCNICO'] = tecnico;
-            }
-
-            fecharModalAtribuirTecnico();
-            filtrarAutos();
-        } else {
-            mostrarToast('Erro: ' + resultado.message, 'error');
-        }
-    } catch (e) {
-        console.error(e);
-        mostrarToast('Erro ao atribuir técnico.', 'error');
-    } finally {
-        btn.innerHTML = txtOriginal;
-        btn.disabled = false;
-    }
-}
-
-function filtrarAutos() {
-    const nup = document.getElementById('filtro-auto-nup').value.toLowerCase().trim();
-    const req = document.getElementById('filtro-auto-req').value.toLowerCase().trim();
-    const inf = document.getElementById('filtro-auto-inf').value.toLowerCase().trim();
-    const laudo = document.getElementById('filtro-auto-laudo').value.toLowerCase().trim();
-    const notif = document.getElementById('filtro-auto-notif').value.toLowerCase().trim();
-    const setorMulti = lerValoresMultiplosNativos('autoSetor');
-    const tecnicoMulti = lerValoresMultiplosNativos('autoTecnico');
-    const statusMulti = lerValoresMultiplosNativos('autoStatus');
-
-    const filtrados = dadosAutosGlobais.filter(r => {
-        // Ignorar ofícios misturados (garantir que é um Auto)
-        const tipoRow = String(r['TIPO'] || '').toUpperCase().trim();
-        const hasAutoInfo = (r['AUTO DE INFRAÇÃO'] && String(r['AUTO DE INFRAÇÃO']).trim() !== '');
-        const isAuto = tipoRow === 'CONTRADITA' || tipoRow === 'MANIFESTAÇÃO' || hasAutoInfo;
-        if (!isAuto) return false;
-
-        const matchNup = !nup || (r['NUP'] && String(r['NUP']).toLowerCase().includes(nup));
-        const matchReq = !req || (r['REQUERENTE'] && String(r['REQUERENTE']).toLowerCase().includes(req));
-        const matchInf = !inf || (r['AUTO DE INFRAÇÃO'] && String(r['AUTO DE INFRAÇÃO']).toLowerCase().includes(inf));
-        const matchLaudo = !laudo || (r['LAUDO DE CONSTATAÇÃO'] && String(r['LAUDO DE CONSTATAÇÃO']).toLowerCase().includes(laudo));
-        const matchNotif = !notif || (r['NOTIFICAÇÃO'] && String(r['NOTIFICAÇÃO']).toLowerCase().includes(notif));
-
-        const matchSetor = setorMulti.length === 0 || setorMulti.includes('todos') || setorMulti.includes(r['SETOR']);
-        const matchTecnico = tecnicoMulti.length === 0 || tecnicoMulti.includes('todos') || tecnicoMulti.includes(r['TÉCNICO']);
-        const matchStatus = statusMulti.length === 0 || statusMulti.includes('todos') || statusMulti.includes(r['STATUS ATUAL']);
-
-        return matchNup && matchReq && matchInf && matchLaudo && matchNotif && matchSetor && matchTecnico && matchStatus;
-    });
-
-    renderTabelaAutos(filtrados);
-}
-
-async function carregarAutos() {
-    if (autosCarregados) return;
-    document.getElementById('loading-autos').style.display = 'block';
-
-    try {
-        const payload = { acao: "buscar_autos" };
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
-        if (resultado.status === 'success') {
-            if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
-                dadosAutosGlobais = resultado.dados.filter(linha => {
-                    const tecnicoLinha = (linha['TÉCNICO'] || '').toUpperCase().trim();
-                    const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                    return tecnicoLinha === tecnicoLogado;
-                });
-            } else {
-                dadosAutosGlobais = resultado.dados;
-            }
-            popularOpcoesAuto();
-            filtrarAutos();
-            autosCarregados = true;
-        }
-    } catch (e) {
-        console.error(e);
-        mostrarToast('Erro ao carregar Autos de Infração.', 'error');
-    } finally {
-        document.getElementById('loading-autos').style.display = 'none';
-    }
-}
-
-async function salvarNovoAuto() {
-    const nup = document.getElementById('cadAutoNup').value.trim();
-    const req = document.getElementById('cadAutoRequerente').value.trim();
-
-    if (!nup || !req) {
-        mostrarToast('NUP e Requerente são obrigatórios!', 'error');
-        return;
-    }
-
-    const btn = document.getElementById('btnSalvarCadastroAuto');
-    const textoOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ Preparando (Pode demorar devido ao PDF)...';
-    btn.disabled = true;
-
-    const fileInput = document.getElementById('cadAutoArquivo');
-    let base64File = null;
-    let fileName = null;
-
-    if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        if (file.size > 15 * 1024 * 1024) {
-            mostrarToast('Erro: O arquivo deve ter no máximo 15MB', 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-            return;
-        }
-        fileName = file.name;
-        try {
-            base64File = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                reader.onerror = (e) => reject(e);
-                reader.readAsDataURL(file);
-            });
-        } catch (e) {
-            mostrarToast('Erro ao ler o arquivo', 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-            return;
-        }
-    }
-
-    const payload = {
-        acao: "cadastrar_auto",
-        nup: nup,
-        requerente: req,
-        auto_infracao: document.getElementById('cadAutoInfracao').value.trim(),
-        laudo: document.getElementById('cadAutoLaudo').value.trim(),
-        notificacao: document.getElementById('cadAutoNotificacao').value.trim(),
-        data_repasse: document.getElementById('cadAutoData').value,
-        setor: document.getElementById('cadAutoSetor').value,
-        status_atual: document.getElementById('cadAutoStatus').value,
-        tipo: document.getElementById('cadAutoTipo').value,
-        tecnico: document.getElementById('cadAutoTecnico').value,
-        fisico_ems: document.getElementById('cadAutoFisicoEms').value,
-        base64: base64File,
-        fileName: fileName
-    };
-
-    // OPTIMISTIC UPDATE: Atualiza a interface instantaneamente
-    const novoItem = {
-        'NUP': payload.nup,
-        'REQUERENTE': payload.requerente,
-        'AUTO DE INFRAÇÃO': payload.auto_infracao,
-        'LAUDO DE CONSTATAÇÃO': payload.laudo,
-        'NOTIFICAÇÃO': payload.notificacao,
-        'DATA DE REPASSE': payload.data_repasse,
-        'SETOR': payload.setor,
-        'STATUS ATUAL': payload.status_atual,
-        'TIPO': payload.tipo,
-        'TÉCNICO': payload.tecnico,
-        'FISICO/E-MS': payload.fisico_ems
-    };
-
-    dadosAutosGlobais.unshift(novoItem);
-    fecharModalCadastroAuto();
-    filtrarAutos();
-    mostrarToast('Auto lançado localmente. Sincronizando em background...', 'success');
-
-    btn.innerHTML = textoOriginal;
-    btn.disabled = false;
-
-    try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
-        if (resultado.status === 'success') {
-            mostrarToast('Auto sincronizado com a nuvem com sucesso!', 'success');
-        } else {
-            mostrarToast('Erro: ' + resultado.message + ' (Revertendo)', 'error');
-            dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem);
-            filtrarAutos();
-        }
-    } catch (e) {
-        console.error(e);
-        mostrarToast('Falha na internet ao salvar Auto. (Revertendo)', 'error');
-        dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem);
-        filtrarAutos();
-    }
-}
-
-// ============================================================================
 // DRAG AND DROP - ARRASTAR E SOLTAR ARQUIVOS
 // ============================================================================
-function configurarDragAndDrop() {
-    const arrastarESoltar = (inputId, labelId, updateCallback) => {
-        const input = document.getElementById(inputId);
-        const label = document.getElementById(labelId);
+function configurarDragAndDrop(inputId, labelId, updateCallback) {
+    const input = document.getElementById(inputId);
+    const label = document.getElementById(labelId);
 
-        if (!input || !label) return;
+    if (!input || !label) return;
 
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            label.addEventListener(eventName, preventDefaults, false);
-        });
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        label.addEventListener(eventName, preventDefaults, false);
+    });
 
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            label.addEventListener(eventName, () => {
-                label.style.backgroundColor = 'rgba(46, 160, 67, 0.2)';
-                label.style.borderColor = '#3fb950';
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            label.addEventListener(eventName, () => {
-                label.style.backgroundColor = '';
-                label.style.borderColor = '';
-            }, false);
-        });
-
-        label.addEventListener('drop', (e) => {
-            let dt = e.dataTransfer;
-            let files = dt.files;
-
-            if (files && files.length > 0) {
-                if (files[0].type !== 'application/pdf' && !files[0].name.toLowerCase().endsWith('.pdf')) {
-                    mostrarToast('Apenas ficheiros PDF são permitidos.', 'error');
-                    return;
-                }
-                input.files = files;
-                updateCallback(input);
-            }
+    ['dragenter', 'dragover'].forEach(eventName => {
+        label.addEventListener(eventName, () => {
+            label.style.backgroundColor = 'rgba(46, 160, 67, 0.2)';
+            label.style.borderColor = '#3fb950';
         }, false);
-    };
+    });
 
-    arrastarESoltar('cadOficioArquivo', 'cadOficioArquivoLabel', updateFileNameOficio);
-    arrastarESoltar('cadAutoArquivo', 'cadAutoArquivoLabel', updateFileName);
+    ['dragleave', 'drop'].forEach(eventName => {
+        label.addEventListener(eventName, () => {
+            label.style.backgroundColor = '';
+            label.style.borderColor = '';
+        }, false);
+    });
+
+    label.addEventListener('drop', (e) => {
+        let dt = e.dataTransfer;
+        let files = dt.files;
+
+        if (files && files.length > 0) {
+            if (files[0].type !== 'application/pdf' && !files[0].name.toLowerCase().endsWith('.pdf')) {
+                mostrarToast('Apenas ficheiros PDF são permitidos.', 'error');
+                return;
+            }
+            input.files = files;
+            updateCallback(input);
+        }
+    }, false);
 }
 
-configurarDragAndDrop();
+configurarDragAndDrop('cadOficioArquivo', 'cadOficioArquivoLabel', updateFileNameOficio);
 iniciarSistema();
