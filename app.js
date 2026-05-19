@@ -859,12 +859,16 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         let htmlDiretoriaBotoes = '';
         const isGestorFinalidade = usuarioAtivo.perfil === 'gerencia';
         const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
+        const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
 
         if (isGestorFinalidade) {
+            if (isSemTecnico) {
+                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+            }
             if (statusGeralAtualizado === 'FAZER CI') {
-                htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
+                htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
             } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
-                htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
+                htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
             }
         }
 
@@ -928,7 +932,8 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
         const tecAdmin = (linha['TÉCNICO/ADMIN'] || '').trim();
         if (tecAdmin && tecAdmin !== '-' && tecAdmin !== 'S/T') {
-            eventosTimeline.push({ titulo: `PROCESSO DISTRIBUÍDO PARA: ${tecAdmin.toUpperCase()}`, data: 'Registro Indisponível', cor: '#9b59b6' });
+            const dataDistribuicao = linha['DATA_DISTRIBUICAO'] || linha['DATA'] || 'Registro Indisponível';
+            eventosTimeline.push({ titulo: `PROCESSO DISTRIBUÍDO PARA: ${tecAdmin.toUpperCase()}`, data: dataDistribuicao, cor: '#9b59b6' });
         }
 
         if (temRespostaVinculada) {
@@ -1479,12 +1484,16 @@ function abrirModal(index) {
     let htmlDiretoriaBotoes = '';
     const isGestorFinalidade = usuarioAtivo.perfil === 'gerencia';
     const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
+    const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
 
     if (isGestorFinalidade) {
+        if (isSemTecnico) {
+            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+        }
         if (statusGeralAtualizado === 'FAZER CI') {
-            htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
+            htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
         } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
-            htmlDiretoriaBotoes = `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
+            htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
         }
     }
 
@@ -1688,6 +1697,101 @@ function fecharPreview() {
     if (frame) frame.src = '';
 }
 
+function abrirModalAtribuirTecnicoOficio(nup) {
+    // 1. Configura o NUP oculto para sabermos qual ofício alterar
+    document.getElementById('atrOficioNup').value = nup;
+    
+    // 2. Limpa e carrega a lista de técnicos no Menu Suspenso
+    const select = document.getElementById('atrOficioTecnico');
+    select.innerHTML = '';
+    const elBlank = document.createElement('option');
+    elBlank.value = ''; elBlank.textContent = '-- Selecione o Técnico --';
+    select.appendChild(elBlank);
+    
+    opcoesAutoTecnico.forEach(opt => { 
+        const el = document.createElement('option'); el.value = opt; el.textContent = opt; select.appendChild(el); 
+    });
+    
+    // 3. Exibe a janela
+    document.getElementById('atribuirTecnicoOficioModal').style.display = 'flex';
+}
+
+function fecharModalAtribuirTecnicoOficio() {
+    document.getElementById('atribuirTecnicoOficioModal').style.display = 'none';
+}
+
+async function salvarAtribuicaoTecnicoOficio() {
+    const nup = document.getElementById('atrOficioNup').value;
+    const tecnico = document.getElementById('atrOficioTecnico').value;
+    if (!tecnico) { mostrarToast('Selecione um técnico para atribuir.', 'error'); return; }
+
+    const btn = document.getElementById('btnSalvarAtribuicaoOficio');
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ Preparando...'; btn.disabled = true;
+
+    // OPTIMISTIC UPDATE: Atualiza a interface instantaneamente
+    const procRef = dadosCoringa.find(a => a['NUP'] === nup);
+    let statusOriginal = '';
+    let tecnicoOriginal = '';
+    let dataDistOriginal = '';
+    const dataProvisoria = new Date().toLocaleDateString('pt-BR');
+
+    if (procRef) {
+        statusOriginal = procRef['STATUS'];
+        tecnicoOriginal = procRef['TÉCNICO/ADMIN'];
+        dataDistOriginal = procRef['DATA_DISTRIBUICAO'];
+
+        procRef['TÉCNICO/ADMIN'] = tecnico;
+        procRef['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+        procRef['DATA_DISTRIBUICAO'] = dataProvisoria;
+    }
+
+    mostrarToast('Processo distribuído localmente. Sincronizando em background...', 'success');
+    
+    atualizarBadgesNotificacao(dadosCoringa);
+    fecharModalAtribuirTecnicoOficio();
+    aplicarFiltros();
+    
+    const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
+    if (newIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { 
+        abrirModal(newIndex); 
+    }
+
+    btn.innerHTML = txtOriginal; 
+    btn.disabled = false;
+
+    try {
+        const payload = { acao: "atribuir_tecnico_oficio", nup: nup, tecnico: tecnico };
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+        });
+        const resultado = await resposta.json();
+        
+        if (resultado.status === 'success') {
+            mostrarToast('Distribuição confirmada na nuvem com sucesso!', 'success');
+            if (procRef && resultado.dataDistribuicao) {
+                procRef['DATA_DISTRIBUICAO'] = resultado.dataDistribuicao;
+                const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
+                if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { abrirModal(currIndex); }
+            }
+        } else { 
+            throw new Error(resultado.message); 
+        }
+    } catch (e) {
+        console.error(e); 
+        mostrarToast('Falha na internet ao distribuir. (Revertendo alterações)', 'error');
+        if (procRef) {
+            procRef['TÉCNICO/ADMIN'] = tecnicoOriginal;
+            procRef['STATUS'] = statusOriginal;
+            procRef['DATA_DISTRIBUICAO'] = dataDistOriginal;
+        }
+        atualizarBadgesNotificacao(dadosCoringa);
+        aplicarFiltros();
+        const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
+        if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { abrirModal(currIndex); }
+    }
+}
+
 window.onclick = function (event) {
     if (event.target === document.getElementById('detalhesModal')) fecharModal();
     if (event.target === document.getElementById('previewModal')) fecharPreview();
@@ -1800,7 +1904,8 @@ const opcoesTipoAba0 = [
     "Polícia Civil",
     "SEMADESC",
     "DPU",
-    "DIBIO"
+    "DIBIO",
+    "PREFEITURA"
 ];
 
 const opcoesTipoAba1 = [

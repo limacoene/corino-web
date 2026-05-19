@@ -31,6 +31,7 @@ function limparEPadronizarLinha(linha) {
         STATUS: (linha['STATUS'] || linha['SITUAÇÃO'] || '-').toUpperCase().trim(),
         STATUS_RESPOSTA: (linha['STATUS DA RESPOSTA'] || linha['STATUS RESPOSTA'] || '').toUpperCase().trim(),
         MOTIVO_AVALIACAO: (linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || '').trim(),
+        DATA_DISTRIBUICAO: linha['DATA DE DISTRIBUIÇÃO'] || linha['DATA DISTRIBUIÇÃO'] || linha['DATA DISTRIBUICAO'] || '',
         'E-MS': linha['E-MS'] || linha['EMS'] || '-',
         CBRS: linha['CBRS'] || '-',
         OBSERVAÇÃO: linha['OBSERVAÇÃO'] || linha['OBSERVACAO'] || linha['OBS'] || '-',

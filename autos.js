@@ -303,7 +303,23 @@ async function salvarAtribuicaoTecnico() {
 
     const btn = document.getElementById('btnSalvarAtribuicao');
     const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ Salvando...'; btn.disabled = true;
+    btn.innerHTML = '⏳ Preparando...'; btn.disabled = true;
+
+    // OPTIMISTIC UPDATE
+    const autoRef = dadosAutosGlobais.find(a => a['NUP'] === nup);
+    let tecnicoOriginal = '';
+
+    if (autoRef) {
+        tecnicoOriginal = autoRef['TÉCNICO'];
+        autoRef['TÉCNICO'] = tecnico;
+    }
+
+    mostrarToast('Técnico atribuído localmente. Sincronizando em background...', 'success');
+    fecharModalAtribuirTecnico();
+    filtrarAutos();
+    
+    btn.innerHTML = txtOriginal; 
+    btn.disabled = false;
 
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
@@ -311,16 +327,20 @@ async function salvarAtribuicaoTecnico() {
             body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico })
         });
         const resultado = await resposta.json();
+        
         if (resultado.status === 'success') {
-            mostrarToast('Técnico atribuído com sucesso!', 'success');
-            const autoRef = dadosAutosGlobais.find(a => a['NUP'] === nup);
-            if (autoRef) autoRef['TÉCNICO'] = tecnico;
-            fecharModalAtribuirTecnico();
-            filtrarAutos();
-        } else { mostrarToast('Erro: ' + resultado.message, 'error'); }
+            mostrarToast('Atribuição confirmada na nuvem com sucesso!', 'success');
+        } else { 
+            throw new Error(resultado.message); 
+        }
     } catch (e) {
-        console.error(e); mostrarToast('Erro ao atribuir técnico.', 'error');
-    } finally { btn.innerHTML = txtOriginal; btn.disabled = false; }
+        console.error(e); 
+        mostrarToast('Falha na internet ao atribuir técnico. (Revertendo)', 'error');
+        if (autoRef) {
+            autoRef['TÉCNICO'] = tecnicoOriginal;
+        }
+        filtrarAutos();
+    } 
 }
 
 function filtrarAutos() {

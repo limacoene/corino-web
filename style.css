@@ -741,6 +741,18 @@ input:checked+.slider:before {
     color: #d48f5d;
 }
 
+.btn-blue {
+    background-color: rgba(52, 152, 219, 0.15);
+    border-color: #3498db;
+    color: #3498db;
+}
+
+.btn-blue:hover {
+    background-color: rgba(52, 152, 219, 0.25);
+    border-color: #5dade2;
+    color: #5dade2;
+}
+
 .btn-soft-gray {
     background-color: #4b5563;
     border-color: #374151;
