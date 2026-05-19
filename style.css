@@ -727,12 +727,18 @@ input:checked+.slider:before {
 }
 
 .btn-upload {
-    background-color: #8c5633;
-    border-color: #6e4125;
+    background-color: rgba(140, 86, 51, 0.15);
+    /* Fundo escuro com opacidade */
+    border-color: #8c5633;
+    /* Cor original passa para o contorno */
+    color: #c97e4a;
+    /* Cor ajustada para garantir boa leitura no modo escuro */
 }
 
 .btn-upload:hover {
-    background-color: #6e4125;
+    background-color: rgba(140, 86, 51, 0.25);
+    border-color: #c97e4a;
+    color: #d48f5d;
 }
 
 .btn-soft-gray {

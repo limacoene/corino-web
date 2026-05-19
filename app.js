@@ -3,6 +3,12 @@ const usuarioAtivo = JSON.parse(sessionStorage.getItem('corino_user'));
 if (!usuarioAtivo) {
     window.location.href = 'login.html';
 } else {
+    // Ocultar aba de Aguardando Distribuição para quem não for da Diretoria
+    if (usuarioAtivo.perfil !== 'gerencia') {
+        const btnDistribuicao = document.getElementById('btn-menu-distribuicao');
+        if (btnDistribuicao) btnDistribuicao.style.display = 'none';
+    }
+
     if (usuarioAtivo.perfil === 'gerencia_consulta') {
         const btnAndamento = document.getElementById('btn-menu-andamento');
         const btnAtrasados = document.getElementById('btn-menu-atrasados');
@@ -1641,7 +1647,7 @@ function abrirPreview(url, index) {
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                  <button onclick="document.getElementById('previewFrame').src='${oficioPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadOficioUrlFull}';" class="btn-drive btn-preview" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
-                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive btn-upload" style="flex: 1; padding: 10px; font-size: 12px; color: white;">📁 Ver Resposta</button>
+                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive btn-upload" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }
