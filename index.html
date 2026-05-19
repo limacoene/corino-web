@@ -324,8 +324,24 @@
                 <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
                     <button class="btn-preview-action" onclick="fecharModalAtribuirTecnico()"
                         style="padding: 10px 15px;">Cancelar</button>
-                    <button id="btnSalvarAtribuicao" class="btn-drive btn-download" onclick="salvarAtribuicaoTecnico()"
+                    <button id="btnSalvarAtribuicao" class="btn-drive btn-blue" onclick="salvarAtribuicaoTecnico()"
                         style="width: auto; padding: 10px 15px; font-weight: bold;">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="atribuirTecnicoOficioModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <span class="close-btn" onclick="fecharModalAtribuirTecnicoOficio()">&times;</span>
+            <div style="padding: 15px; border-bottom: 2px solid #3498db; font-weight: bold; font-size: 18px; color: #3498db;">Distribuir Processo</div>
+            <div style="padding: 20px;">
+                <input type="hidden" id="atrOficioNup">
+                <label style="display: block; margin-bottom: 10px; text-align: left; color: #aaa;">Selecione o Técnico Responsável:</label>
+                <select id="atrOficioTecnico" style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
+                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn-preview-action" onclick="fecharModalAtribuirTecnicoOficio()" style="padding: 10px 15px;">Cancelar</button>
+                    <button id="btnSalvarAtribuicaoOficio" class="btn-drive btn-blue" onclick="salvarAtribuicaoTecnicoOficio()" style="width: auto; padding: 10px 15px; font-weight: bold;">Salvar</button>
                 </div>
             </div>
         </div>
