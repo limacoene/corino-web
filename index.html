@@ -24,32 +24,25 @@
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content" id="mod-oficios">
-                    <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta
-                        Geral</button>
+                    <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta Geral</button>
                     <button class="menu-btn" id="btn-menu-distribuicao" onclick="mudarAbaPrincipal('distribuicao')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-distribuicao"
-                                class="notification-badge" style="display: none;">0</span>
+                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-distribuicao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge"
-                                style="display: none;">0</span>
+                            <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>🚨 Painel de Atrasados</span> <span id="badge-menu-atrasados"
-                                class="notification-badge" style="display: none;">0</span>
+                            <span>🚨 Painel de Atrasados</span> <span id="badge-menu-atrasados" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
-
-                    <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')"
-                        style="display: none; margin-top: 5px; color: #ffa500;">
+                    <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')" style="display: none; margin-top: 5px; color: #ffa500;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos"
-                                class="notification-badge" style="display: none;">0</span>
+                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                 </div>
@@ -61,488 +54,650 @@
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content collapsed" id="mod-autos">
-                    <button class="menu-btn" id="btn-menu-autos" onclick="mudarAbaPrincipal('autos')">📋 Controle de
-                        Autos</button>
+                    <button class="menu-btn" id="btn-menu-autos" onclick="mudarAbaPrincipal('autos')">📋 Controle de Autos</button>
+                </div>
+            </div>
+
+            <div class="module-section">
+                <div class="module-header collapsed" id="header-mod-externos" onclick="toggleModule('mod-externos')">
+                    <span>🏢 Ofícios Externos</span>
+                    <span class="icon-chevron">▼</span>
+                </div>
+                <div class="module-content collapsed" id="mod-externos">
+                    <button class="menu-btn" id="btn-menu-externos" onclick="mudarAbaPrincipal('externos')">📬 Controle de Externos</button>
                 </div>
             </div>
         </nav>
-
-        <div class="user-profile-panel"
-            style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--card-border);">
-            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">Sessão Ativa:</div>
-            <div id="user-display-name"
-                style="font-size: 14px; font-weight: bold; color: var(--primary-green); margin-bottom: 15px; word-break: break-word;">
-                Carregando...</div>
-            <button class="menu-btn"
-                style="color: #ff4b4b; border: 1px solid rgba(255,75,75,0.3); text-align: center; justify-content: center;"
-                onclick="fazerLogout()">
-                🚪 Sair do Sistema
-            </button>
+        <div class="user-profile-panel">
+            <div id="user-display-name">Carregando...</div>
+            <button class="menu-btn" style="color: #ff4b4b;" onclick="fazerLogout()">🚪 Sair</button>
         </div>
     </aside>
 
     <main class="main-content" id="mainContent">
-        <header class="top-header">
-            <div class="header-titles" style="display: flex; align-items: center; gap: 15px;">
-                <button class="btn-toggle" onclick="toggleSidebar()" title="Recolher/Expandir Menu">☰</button>
-                <h1>C.O.R.I.N.O. - Controle de Ofícios e Requisições de Informações de Natureza Operacional</h1>
-            </div>
-        </header>
-
+        <!-- ABA: CONSULTA GERAL -->
         <div id="aba-todos" class="tab-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 class="page-title" style="margin-bottom: 0;">🔍 Consulta Geral</h2>
-            </div>
+            <h2 class="page-title">🔍 Consulta Geral</h2>
             <details class="advanced-filters" open>
-                <summary>🛠️ Filtros de Busca Avançada</summary>
+                <summary>Filtros Avançados</summary>
                 <div class="filter-grid">
-                    <div class="filter-group"><label>NUP</label><input type="text" id="cgNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
-                    <div class="filter-group"><label>Nº Ofício</label><input type="text" id="cgOficio"
-                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
-                    <div class="filter-group"><label>CARMS</label><input type="text" id="cgCarms"
-                            placeholder="Ex: CARMS0000000" oninput="aplicarFiltros()"></div>
-                    <div class="filter-group"><label>Gerência</label>
-                        <div class="custom-multiselect" id="ms-cgGerencia" data-placeholder="DIFLOR">
-                            <div class="ms-display" onclick="toggleDropdown('cgGerencia')"></div>
+                    <div class="filter-group">
+                        <label>NUP / Ofício</label>
+                        <input type="text" id="cgNup" oninput="maskNUP(event)">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="cgOficio">
+                    </div>
+                    <div class="filter-group">
+                        <label>Nº CARMS</label>
+                        <input type="text" id="cgCarms">
+                    </div>
+                    <div class="filter-group">
+                        <label>Gerência</label>
+                        <div class="custom-multiselect" id="ms-cgGerencia" data-placeholder="Gerência" onclick="toggleDropdown('cgGerencia')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-cgGerencia"></div>
                         </div>
                     </div>
-                    <div class="filter-group"><label>Município</label>
-                        <div class="custom-multiselect" id="ms-cgMunicipio" data-placeholder="CAMPO GRANDE">
-                            <div class="ms-display" onclick="toggleDropdown('cgMunicipio')"></div>
+                    <div class="filter-group">
+                        <label>Município</label>
+                        <div class="custom-multiselect" id="ms-cgMunicipio" data-placeholder="Município" onclick="toggleDropdown('cgMunicipio')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-cgMunicipio"></div>
                         </div>
                     </div>
-                    <div class="filter-group"><label>Status</label>
-                        <div class="custom-multiselect" id="ms-cgStatus" data-placeholder="AGUARDANDO DISTRIBUIÇÃO">
-                            <div class="ms-display" onclick="toggleDropdown('cgStatus')"></div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="custom-multiselect" id="ms-cgStatus" data-placeholder="Status" onclick="toggleDropdown('cgStatus')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-cgStatus"></div>
                         </div>
                     </div>
-                    <div class="filter-group"><label>Técnico</label>
-                        <div class="custom-multiselect" id="ms-cgTecnico" data-placeholder="QUATITO">
-                            <div class="ms-display" onclick="toggleDropdown('cgTecnico')"></div>
+                    <div class="filter-group">
+                        <label>Técnico Responsável</label>
+                        <div class="custom-multiselect" id="ms-cgTecnico" data-placeholder="Técnico" onclick="toggleDropdown('cgTecnico')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-cgTecnico"></div>
                         </div>
                     </div>
-                    <div class="filter-group">
-                        <label>Incluir Reiterações na Contagem</label>
+                    <div class="filter-group" style="display: flex; flex-direction: column; justify-content: center;">
+                        <label>Incluir Reiterações</label>
                         <label class="switch">
                             <input type="checkbox" id="toggleReiteracoes">
-                            <span class="slider round"></span>
+                            <span class="slider"></span>
                         </label>
                     </div>
                 </div>
             </details>
         </div>
 
+        <!-- ABA: AGUARDANDO DISTRIBUIÇÃO -->
         <div id="aba-distribuicao" class="tab-section" style="display: none;">
             <h2 class="page-title">📥 Aguardando Distribuição</h2>
-            <details class="advanced-filters" open>
-                <summary>🛠️ Filtros de Distribuição</summary>
-                <div class="filter-grid">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="distNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
-                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="distOficio"
-                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
+            <div id="alerta-distribuicao" class="alert-banner alert-info">Há 0 processos aguardando distribuição no sistema.</div>
+            <div class="mini-tabs" id="mini-tabs-distribuicao">
+                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
+                <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
+                <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
+            </div>
+            <div class="advanced-filters">
+                <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="distNup" oninput="maskNUP(event)">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="distOficio">
+                    </div>
                 </div>
-            </details>
+            </div>
         </div>
 
+        <!-- ABA: EM ANDAMENTO -->
         <div id="aba-andamento" class="tab-section" style="display: none;">
-            <h2 class="page-title">⏳ Processos em Andamento</h2>
-            <details class="advanced-filters" open>
-                <summary>🛠️ Filtros de Distribuição</summary>
-                <div class="filter-grid">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="andNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
-                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="andOficio"
-                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
-                    <div class="filter-group"><label>👤 Filtrar por Técnico</label>
-                        <div class="custom-multiselect" id="ms-andTecnico" data-placeholder="QUATITO">
-                            <div class="ms-display" onclick="toggleDropdown('andTecnico')"></div>
-                            <div class="ms-dropdown" id="dd-andTecnico"></div>
-                        </div>
-                    </div>
-                    <div class="filter-group"><label>📊 Filtrar por Status</label>
-                        <div class="custom-multiselect" id="ms-andStatus" data-placeholder="AGUARDANDO DISTRIBUIÇÃO">
-                            <div class="ms-display" onclick="toggleDropdown('andStatus')"></div>
-                            <div class="ms-dropdown" id="dd-andStatus"></div>
-                        </div>
-                    </div>
-                </div>
-            </details>
+            <h2 class="page-title">⏳ Em Andamento</h2>
+            <div id="alerta-andamento" class="alert-banner alert-info">Há 0 processos em andamento no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-andamento">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
                 <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
                 <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
                 <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
             </div>
-            <div id="alerta-andamento" class="alert-banner alert-info">ℹ️ Há 0 processos em andamento no sistema</div>
-        </div>
-
-        <div id="aba-atrasados" class="tab-section" style="display: none;">
-            <h2 class="page-title">🚨 Painel de Ofícios Atrasados</h2>
-            <details class="advanced-filters" open>
-                <summary>🛠️ Filtros de Atrasos</summary>
+            <div class="advanced-filters">
                 <div class="filter-grid">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="atrNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
-                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="atrOficio"
-                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
-                    <div class="filter-group"><label>👤 Filtrar por Técnico</label>
-                        <div class="custom-multiselect" id="ms-atrTecnico" data-placeholder="QUATITO">
-                            <div class="ms-display" onclick="toggleDropdown('atrTecnico')"></div>
-                            <div class="ms-dropdown" id="dd-atrTecnico"></div>
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="andNup" oninput="maskNUP(event)">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="andOficio">
+                    </div>
+                    <div class="filter-group">
+                        <label>Técnico</label>
+                        <div class="custom-multiselect" id="ms-andTecnico" data-placeholder="Técnico" onclick="toggleDropdown('andTecnico')">
+                            <div class="ms-display"></div>
+                            <div class="ms-dropdown" id="dd-andTecnico"></div>
                         </div>
                     </div>
-                    <div class="filter-group"><label>📊 Filtrar por Status</label>
-                        <div class="custom-multiselect" id="ms-atrStatus" data-placeholder="AGUARDANDO DISTRIBUIÇÃO">
-                            <div class="ms-display" onclick="toggleDropdown('atrStatus')"></div>
-                            <div class="ms-dropdown" id="dd-atrStatus"></div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="custom-multiselect" id="ms-andStatus" data-placeholder="Status" onclick="toggleDropdown('andStatus')">
+                            <div class="ms-display"></div>
+                            <div class="ms-dropdown" id="dd-andStatus"></div>
                         </div>
                     </div>
                 </div>
-            </details>
+            </div>
+        </div>
+
+        <!-- ABA: PAINEL DE ATRASADOS -->
+        <div id="aba-atrasados" class="tab-section" style="display: none;">
+            <h2 class="page-title">🚨 Painel de Atrasados</h2>
+            <div id="alerta-atrasados" class="alert-banner alert-danger">Atenção - Há 0 processos em atraso no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-atrasados">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
                 <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
                 <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
                 <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
             </div>
-            <div id="alerta-atrasados" class="alert-banner alert-danger">⚠️ Atenção - Há 0 processos em atraso no
-                sistema</div>
+            <div class="advanced-filters">
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="atrNup" oninput="maskNUP(event)">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="atrOficio">
+                    </div>
+                    <div class="filter-group">
+                        <label>Técnico</label>
+                        <div class="custom-multiselect" id="ms-atrTecnico" data-placeholder="Técnico" onclick="toggleDropdown('atrTecnico')">
+                            <div class="ms-display"></div>
+                            <div class="ms-dropdown" id="dd-atrTecnico"></div>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="custom-multiselect" id="ms-atrStatus" data-placeholder="Status" onclick="toggleDropdown('atrStatus')">
+                            <div class="ms-display"></div>
+                            <div class="ms-dropdown" id="dd-atrStatus"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
+        <!-- ABA: AGUARDANDO REVISÃO -->
         <div id="aba-respondidos" class="tab-section" style="display: none;">
-            <h2 class="page-title" style="color: #ffa500;">📁 Aguardando Revisão</h2>
-            <details class="advanced-filters" open>
-                <summary>🛠️ Filtros de Revisão</summary>
-                <div class="filter-grid">
-                    <div class="filter-group"><label>🔍 Buscar por NUP</label><input type="text" id="respNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event); aplicarFiltros()"></div>
-                    <div class="filter-group"><label>🔍 Buscar por Ofício</label><input type="text" id="respOficio"
-                            placeholder="Ex: 123/2026" oninput="aplicarFiltros()"></div>
-                    <div class="filter-group"><label>👤 Filtrar por Técnico</label>
-                        <div class="custom-multiselect" id="ms-respTecnico" data-placeholder="QUATITO">
-                            <div class="ms-display" onclick="toggleDropdown('respTecnico')"></div>
+            <h2 class="page-title">📁 Aguardando Revisão</h2>
+            <div id="alerta-respondidos" class="alert-banner alert-info">Há 0 processos nesta aba.</div>
+            <div class="mini-tabs" id="mini-tabs-respondidos">
+                <button class="mini-tab active" id="btn-tab-todos" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" id="btn-tab-pendentes" onclick="setSubAba('Pendentes')">Pendentes</button>
+                <button class="mini-tab" id="btn-tab-aprovados" onclick="setSubAba('Aprovados')">Aprovados</button>
+                <button class="mini-tab" id="btn-tab-reprovados" onclick="setSubAba('Reprovados')">Reprovados</button>
+            </div>
+            <div class="advanced-filters">
+                <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="respNup" oninput="maskNUP(event)">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="respOficio">
+                    </div>
+                    <div class="filter-group">
+                        <label>Técnico</label>
+                        <div class="custom-multiselect" id="ms-respTecnico" data-placeholder="Técnico" onclick="toggleDropdown('respTecnico')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-respTecnico"></div>
                         </div>
                     </div>
                 </div>
-            </details>
-            <div class="mini-tabs" id="mini-tabs-respondidos">
-                <button id="btn-tab-pendentes" class="mini-tab active" onclick="setSubAba('Pendentes')">Pendentes <span
-                        id="badge-tab-pendentes" class="notification-badge mini-badge"
-                        style="display: none;">0</span></button>
-                <button id="btn-tab-aprovados" class="mini-tab" onclick="setSubAba('Aprovados')">Aprovados</button>
-                <button id="btn-tab-reprovados" class="mini-tab" onclick="setSubAba('Reprovados')">Reprovados <span
-                        id="badge-tab-reprovados" class="notification-badge mini-badge"
-                        style="display: none;">0</span></button>
-                <button id="btn-tab-todos" class="mini-tab" onclick="setSubAba('Geral')">Todos</button>
-            </div>
-            <div id="alerta-respondidos" class="alert-banner alert-info"
-                style="background-color: rgba(255, 165, 0, 0.1); border-color: rgba(255, 165, 0, 0.3); color: #ffa500;">
-                📁 Há 0 processos aguardando revisão.
             </div>
         </div>
 
+        <!-- ABA: AUTOS DE INFRAÇÃO -->
         <div id="aba-autos" class="tab-section" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 class="page-title" style="margin-bottom: 0;">⚖️ Autos de Infração</h2>
-            </div>
-            <div class="card"
-                style="padding: 20px; color: white; margin-bottom: 20px; position: relative; z-index: 10;">
-                <div class="filter-grid" style="gap: 15px;">
-                    <div class="filter-group"><label>NUP</label><input type="text" id="filtro-auto-nup"
-                            placeholder="Ex: 83.000..." oninput="maskNUP(event); filtrarAutos()"></div>
-                    <div class="filter-group"><label>Requerente</label><input type="text" id="filtro-auto-req"
-                            placeholder="Ex: João Silva" oninput="filtrarAutos()"></div>
-                    <div class="filter-group"><label>Auto de Infração</label><input type="text" id="filtro-auto-inf"
-                            placeholder="Nº do Auto" oninput="filtrarAutos()"></div>
-                    <div class="filter-group"><label>Laudo Constatação</label><input type="text" id="filtro-auto-laudo"
-                            placeholder="Nº do Laudo" oninput="filtrarAutos()"></div>
-                    <div class="filter-group"><label>Notificação</label><input type="text" id="filtro-auto-notif"
-                            placeholder="Nº Notificação" oninput="filtrarAutos()"></div>
-                    <div class="filter-group"><label>Setor</label>
-                        <div class="custom-multiselect" id="ms-autoSetor" data-placeholder="-- Todos --">
-                            <div class="ms-display" onclick="toggleDropdown('autoSetor')"></div>
+            <h2 class="page-title">⚖️ Controle de Autos de Infração</h2>
+            <div class="advanced-filters">
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="filtro-auto-nup" oninput="maskNUP(event)">
+                    </div>
+                    <div class="filter-group">
+                        <label>Requerente</label>
+                        <input type="text" id="filtro-auto-req">
+                    </div>
+                    <div class="filter-group">
+                        <label>Auto de Infração</label>
+                        <input type="text" id="filtro-auto-inf">
+                    </div>
+                    <div class="filter-group">
+                        <label>Laudo</label>
+                        <input type="text" id="filtro-auto-laudo">
+                    </div>
+                    <div class="filter-group">
+                        <label>Notificação</label>
+                        <input type="text" id="filtro-auto-notif">
+                    </div>
+                    <div class="filter-group">
+                        <label>Setor</label>
+                        <div class="custom-multiselect" id="ms-autoSetor" data-placeholder="Setor" onclick="toggleDropdown('autoSetor')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-autoSetor"></div>
                         </div>
                     </div>
-                    <div class="filter-group"><label>Técnico</label>
-                        <div class="custom-multiselect" id="ms-autoTecnico" data-placeholder="-- Todos --">
-                            <div class="ms-display" onclick="toggleDropdown('autoTecnico')"></div>
+                    <div class="filter-group">
+                        <label>Técnico</label>
+                        <div class="custom-multiselect" id="ms-autoTecnico" data-placeholder="Técnico" onclick="toggleDropdown('autoTecnico')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-autoTecnico"></div>
                         </div>
                     </div>
-                    <div class="filter-group"><label>Status</label>
-                        <div class="custom-multiselect" id="ms-autoStatus" data-placeholder="-- Todos --">
-                            <div class="ms-display" onclick="toggleDropdown('autoStatus')"></div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <div class="custom-multiselect" id="ms-autoStatus" data-placeholder="Status" onclick="toggleDropdown('autoStatus')">
+                            <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-autoStatus"></div>
                         </div>
                     </div>
                 </div>
             </div>
+            <div id="loading-autos" class="loading" style="display: none;">⏳ Carregando autos...</div>
+            <div id="lista-autos-container"></div>
+            <div id="contador-autos" class="results-count" style="margin-top: 15px;"></div>
+        </div>
 
-            <div id="loading-autos" style="text-align: center; color: #aaa; margin: 20px 0; display: none;">A carregar
-                autos de infração...</div>
-            <div id="lista-autos-container" style="display: flex; flex-direction: column; gap: 15px;">
-                <!-- Preenchido via JS com o Layout A -->
+        <!-- ABA: OFÍCIOS EXTERNOS -->
+        <div id="aba-externos" class="tab-section" style="display: none;">
+            <h2 class="page-title">🏢 Ofícios Externos</h2>
+            <div class="mini-tabs" id="mini-tabs-externos">
+                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAba('Aguard. Distribuição')">Aguard. Distribuição</button>
+                <button class="mini-tab" onclick="setSubAba('Em Andamento')">Em Andamento</button>
+                <button class="mini-tab" onclick="setSubAba('Aguardando Revisão')">Aguardando Revisão</button>
             </div>
-            <div id="contador-autos" class="results-count" style="margin-top: 15px;">Exibindo 0 resultados.</div>
+            <div class="advanced-filters">
+                <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="filtro-ext-nup" oninput="maskNUP(event); filtrarExternos()">
+                    </div>
+                    <div class="filter-group">
+                        <label>CARMS</label>
+                        <input type="text" id="filtro-ext-carms" oninput="filtrarExternos()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Técnico</label>
+                        <select id="filtro-ext-tecnico" onchange="filtrarExternos()" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                            <option value="">-- Todos os Técnicos --</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Remetente</label>
+                        <input type="text" id="filtro-ext-remetente" oninput="filtrarExternos()">
+                    </div>
+                </div>
+            </div>
+            <div id="loading-externos" class="loading" style="display: none;">⏳ Carregando ofícios externos...</div>
+            <div id="lista-externos-container"></div>
+            <div id="contador-externos" class="results-count" style="margin-top: 15px;"></div>
         </div>
 
-        <div id="export-section" style="display: none; margin-bottom: 40px;">
-            <button class="btn-export-full" id="btnExport" onclick="exportarCSV()">📥 Exportar lista filtrada (0
-                itens)</button>
-            <div id="contador-processos" class="results-count">Exibindo 0 resultados.</div>
+        <!-- SEÇÃO DE EXPORTAÇÃO -->
+        <div id="export-section" class="export-container" style="margin-top: 25px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+            <div id="contador-processos" class="results-count"></div>
+            <button id="btnExport" class="btn-export-full" onclick="exportarCSV()" style="max-width: 300px; margin-bottom: 0;">📥 Exportar lista filtrada</button>
         </div>
 
-        <div id="loading" class="loading">A carregar dados do sistema central de forma segura...</div>
+        <!-- INDICADOR DE CARREGAMENTO -->
+        <div id="loading" class="loading">⏳ Carregando dados da base central...</div>
+
+        <!-- CONTEÚDO DOS CARDS -->
         <div id="cards-container" class="grid-layout"></div>
 
-        <button id="fab-novo-oficio" class="fab-button" onclick="abrirModalCadastro()" title="Cadastrar Novo Ofício"
-            style="display: none;">➕ Novo Ofício</button>
-        <button id="fab-novo-auto" class="fab-button" onclick="abrirModalCadastroAuto()" title="Cadastrar Novo Auto"
-            style="display: none;">➕ Novo Auto</button>
+        <!-- BOTÕES FLUTUANTES (FAB) -->
+        <button id="fab-novo-oficio" class="fab-button" onclick="abrirModalCadastro()" style="display: none;">➕ Novo</button>
+        <button id="fab-novo-auto" class="fab-button" onclick="abrirModalCadastroAuto()" style="display: none;">➕ Novo Auto</button>
+        <button id="fab-novo-externo" class="fab-button" onclick="abrirModalCadastroExterno()" style="display: none; background-color: #8e44ad;">➕ Novo Externo</button>
     </main>
 
-    <div id="atribuirTecnicoModal" class="modal">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-            <span class="close-btn" onclick="fecharModalAtribuirTecnico()">&times;</span>
-            <div
-                style="padding: 15px; border-bottom: 2px solid #3498db; font-weight: bold; font-size: 18px; color: #3498db;">
-                Atribuir Técnico</div>
-            <div style="padding: 20px;">
-                <input type="hidden" id="atrAutoNup">
-                <label style="display: block; margin-bottom: 10px; text-align: left; color: #aaa;">Selecione o Técnico
-                    Responsável:</label>
-                <select id="atrAutoTecnico"
-                    style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button class="btn-preview-action" onclick="fecharModalAtribuirTecnico()"
-                        style="padding: 10px 15px;">Cancelar</button>
-                    <button id="btnSalvarAtribuicao" class="btn-drive btn-blue" onclick="salvarAtribuicaoTecnico()"
-                        style="width: auto; padding: 10px 15px; font-weight: bold;">Salvar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="atribuirTecnicoOficioModal" class="modal">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-            <span class="close-btn" onclick="fecharModalAtribuirTecnicoOficio()">&times;</span>
-            <div style="padding: 15px; border-bottom: 2px solid #3498db; font-weight: bold; font-size: 18px; color: #3498db;">Distribuir Processo</div>
-            <div style="padding: 20px;">
-                <input type="hidden" id="atrOficioNup">
-                <label style="display: block; margin-bottom: 10px; text-align: left; color: #aaa;">Selecione o Técnico Responsável:</label>
-                <select id="atrOficioTecnico" style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button class="btn-preview-action" onclick="fecharModalAtribuirTecnicoOficio()" style="padding: 10px 15px;">Cancelar</button>
-                    <button id="btnSalvarAtribuicaoOficio" class="btn-drive btn-blue" onclick="salvarAtribuicaoTecnicoOficio()" style="width: auto; padding: 10px 15px; font-weight: bold;">Salvar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="cadastroAutoModal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <span class="close-btn" onclick="fecharModalCadastroAuto()">&times;</span>
-            <div
-                style="text-align: center; padding: 15px; border-bottom: 2px solid #27ae60; font-weight: bold; font-size: 18px; color: #2ecc71;">
-                ⚖️ Cadastrar Novo Auto de Infração</div>
-            <div id="cadastroAutoBody" style="padding: 15px 20px;">
-                <div class="filter-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div class="filter-group"><label>NUP *</label><input type="text" id="cadAutoNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event)"></div>
-                    <div class="filter-group"><label>Requerente *</label><input type="text" id="cadAutoRequerente"
-                            placeholder="Nome do Requerente"></div>
-                    <div class="filter-group"><label>Auto de Infração</label><input type="text" id="cadAutoInfracao"
-                            placeholder="Nº do Auto"></div>
-                    <div class="filter-group"><label>Laudo de Constatação</label><input type="text" id="cadAutoLaudo"
-                            placeholder="Nº do Laudo"></div>
-                    <div class="filter-group"><label>Notificação</label><input type="text" id="cadAutoNotificacao"
-                            placeholder="Nº da Notificação"></div>
-                    <div class="filter-group"><label>Data de Repasse</label><input type="text" id="cadAutoData"
-                            placeholder="Selecionar data..."
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif; cursor: pointer;">
-                    </div>
-                    <div class="filter-group"><label>Setor</label><select id="cadAutoSetor"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                    </div>
-                    <div class="filter-group"><label>Status Atual</label><select id="cadAutoStatus"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                    </div>
-                    <div class="filter-group"><label>Formato (FÍSICO/E-MS)</label>
-                        <select id="cadAutoFisicoEms"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
-                            <option value="">-- Opcional --</option>
-                            <option value="FÍSICO">FÍSICO (Impresso)</option>
-                            <option value="E-MS">E-MS (Digital)</option>
-                        </select>
-                    </div>
-                    <div class="filter-group"><label>Tipo</label><select id="cadAutoTipo"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                    </div>
-                    <div class="filter-group"><label>Técnico</label><select id="cadAutoTecnico"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                    </div>
-                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Anexar Documento (PDF)</label>
-                        <div class="custom-file-upload">
-                            <input type="file" id="cadAutoArquivo" accept="application/pdf" style="display: none;"
-                                onchange="updateFileName(this)">
-                            <label for="cadAutoArquivo" class="file-upload-label" id="cadAutoArquivoLabel">
-                                <span class="upload-icon">📄</span>
-                                <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 15px;">
-                    <button class="btn-preview-action" onclick="fecharModalCadastroAuto()"
-                        style="padding: 10px 20px;">Cancelar</button>
-                    <button id="btnSalvarCadastroAuto" class="btn-pill-gray" onclick="salvarNovoAuto()">💾 Salvar
-                        Auto</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="cadastroModal" class="modal">
-        <div class="modal-content" style="max-width: 650px;">
-            <span class="close-btn" onclick="fecharModalCadastro()">&times;</span>
-            <div
-                style="text-align: center; padding: 15px; border-bottom: 2px solid #27ae60; font-weight: bold; font-size: 18px; color: #2ecc71;">
-                ➕ Cadastrar Novo Ofício</div>
-            <div id="cadastroBody" style="padding: 20px;">
-                <div class="filter-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="filter-group" style="grid-column: 1 / -1;">
-                        <label>Aba de Destino na Planilha *</label>
-                        <select id="cadAbaDestino" onchange="atualizarOpcoesTipo()"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
-                            <option value="0">Primeira Aba</option>
-                            <option value="1">Segunda Aba</option>
-                        </select>
-                    </div>
-                    <div class="filter-group"><label>NUP *</label><input type="text" id="cadNup"
-                            placeholder="Ex: 83.000.000-20XX" oninput="maskNUP(event)"></div>
-                    <div class="filter-group"><label>Ofício N. *</label><input type="text" id="cadOficioN"
-                            placeholder="Ex: 123/2026/DIFLOR"></div>
-                    <div class="filter-group"><label>Data</label><input type="text" id="cadData"
-                            placeholder="Selecionar data..."
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif; cursor: pointer;">
-                    </div>
-                    <div class="filter-group">
-                        <label>Prazo (Dias)</label>
-                        <div style="display: flex; gap: 5px;">
-                            <input type="text" id="cadPrazo" placeholder="Ex: 15" style="flex: 1; min-width: 0;"
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-                            <select id="cadTipoPrazo"
-                                style="flex: 1; min-width: 0; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
-                                <option value="corridos">Corridos</option>
-                                <option value="uteis">Úteis</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="filter-group">
-                        <label>Tipo *</label>
-                        <select id="cadTipo"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;">
-                            <!-- Preenchido via JS -->
-                        </select>
-                    </div>
-                    <div class="filter-group"><label>Município</label><input type="text" id="cadComarca"
-                            placeholder="Ex: CAMPO GRANDE"></div>
-                    <div class="filter-group"><label>Técnico/Admin</label><select id="cadTecnico"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                    </div>
-                    <div class="filter-group"><label>Gerência</label><select id="cadGerencia"
-                            style="width: 100%; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; font-family: 'Inter', sans-serif;"></select>
-                    </div>
-                    <div class="filter-group" style="grid-column: 1 / -1;"><label>CARMS</label><input type="text"
-                            id="cadCarms" placeholder="Ex: MS-500..."></div>
-                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Referência</label><textarea
-                            id="cadReferencia" rows="2"
-                            style="width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 10px; font-family: 'Inter', sans-serif;"
-                            placeholder="Assunto ou Referência do Ofício..."></textarea></div>
-                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Observação</label><textarea
-                            id="cadObservacao" rows="2"
-                            style="width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 10px; font-family: 'Inter', sans-serif;"
-                            placeholder="Observações adicionais..."></textarea></div>
-                    <div class="filter-group" style="grid-column: 1 / -1;"><label>Anexar Documento Inicial (PDF)</label>
-                        <div class="custom-file-upload">
-                            <input type="file" id="cadOficioArquivo" accept="application/pdf" style="display: none;"
-                                onchange="updateFileNameOficio(this)">
-                            <label for="cadOficioArquivo" class="file-upload-label" id="cadOficioArquivoLabel">
-                                <span class="upload-icon">📄</span>
-                                <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 15px;">
-                    <button class="btn-preview-action" onclick="fecharModalCadastro()"
-                        style="padding: 10px 20px;">Cancelar</button>
-                    <button id="btnSalvarCadastro" class="btn-pill-gray" onclick="salvarNovoOficio()">💾 Salvar
-                        Ofício</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <!-- MODAL: DETALHES -->
     <div id="detalhesModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 700px;">
             <span class="close-btn" onclick="fecharModal()">&times;</span>
-            <div
-                style="text-align: center; padding: 15px; border-bottom: 2px solid #006400; font-weight: bold; font-size: 18px;">
-                📋 Detalhes Completos</div>
             <div id="modalBody"></div>
         </div>
     </div>
 
-    <div id="previewModal" class="modal" style="z-index: 2000;"></div>
+    <!-- MODAL: PREVIEW -->
+    <div id="previewModal" class="modal"></div>
 
-    <div id="confirmModal" class="modal" style="z-index: 3000;">
-        <div class="modal-content"
-            style="max-width: 400px; text-align: center; border-top-color: #ff4b4b; padding: 30px;">
-            <div id="confirmIcon" style="font-size: 40px; margin-bottom: 15px; animation: pulseRed 1.5s infinite;">⚠️
-            </div>
-            <h3 id="confirmTitle" style="color: white; margin-bottom: 15px; font-size: 20px;">Confirmar Remoção</h3>
-            <p id="confirmMessage" style="color: #ccc; margin-bottom: 25px; font-size: 14px; line-height: 1.5;"></p>
-            <div id="confirmInputContainer" style="display: none; margin-bottom: 25px; text-align: left;">
-                <label style="color: #ddd; font-size: 14px; display: block; margin-bottom: 8px;">Por que você está
-                    reprovando este documento?</label>
-                <textarea id="confirmInputText" rows="3"
-                    style="width: 100%; border-radius: 4px; padding: 10px; background-color: #1a1a1a; color: #fff; border: 1px solid #c0392b; font-family: inherit; font-size: 14px; resize: none;"
-                    placeholder="Digite o motivo aqui para que o técnico possa corrigir..."></textarea>
-            </div>
-            <div style="display: flex; gap: 15px; justify-content: center;">
-                <button id="btnConfirmCancel" class="btn-preview-action"
-                    style="flex: 1; padding: 12px; font-size: 15px;">Cancelar</button>
-                <button id="btnConfirmYes" class="btn-drive btn-upload"
-                    style="background-color: #c0392b; border-color: #a93226; flex: 1; padding: 12px; font-size: 15px; cursor: pointer; color: white;">🗑️
-                    Sim, Remover</button>
+    <!-- MODAL: CONFIRMAÇÃO -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close-btn" onclick="document.getElementById('confirmModal').style.display='none'">&times;</span>
+            <div style="padding: 25px; text-align: center;">
+                <div id="confirmIcon" style="font-size: 40px; margin-bottom: 15px;">⚠️</div>
+                <h3 id="confirmTitle" style="color: white; font-size: 20px; margin-bottom: 10px;">Confirmar Ação</h3>
+                <p id="confirmMessage" style="color: #aaa; font-size: 14px; line-height: 1.5; margin-bottom: 20px;"></p>
+                <div id="confirmInputContainer" style="display: none; margin-bottom: 20px;">
+                    <textarea id="confirmInputText" placeholder="Digite o motivo da reprovação..." style="width: 100%; height: 80px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; resize: none;"></textarea>
+                </div>
+                <div class="modal-buttons">
+                    <button id="btnConfirmYes" class="btn-drive" style="background-color: #c0392b; border-color: #a93226;">Sim</button>
+                    <button id="btnConfirmCancel" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <button id="btn-back-to-top" onclick="scrollToTop()" title="Voltar ao topo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 15l-6-6-6 6" />
+    <!-- MODAL: CADASTRO DE OFÍCIO -->
+    <div id="cadastroModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close-btn" onclick="fecharModalCadastro()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">➕ Cadastrar Novo Ofício</h2>
+            <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
+                <div class="filter-group">
+                    <label>Aba Destino</label>
+                    <select id="cadAbaDestino" onchange="atualizarOpcoesTipo()" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                        <option value="0">Consulta Geral / Demanda Técnica</option>
+                        <option value="1">Ofício / Juntada Simples</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>NUP</label>
+                    <input type="text" id="cadNup" oninput="maskNUP(event)">
+                </div>
+                <div class="filter-group">
+                    <label>Ofício N.</label>
+                    <input type="text" id="cadOficioN">
+                </div>
+                <div class="filter-group">
+                    <label>Data de Entrada</label>
+                    <input type="text" id="cadData" class="date-picker-ext">
+                </div>
+                <div class="filter-group">
+                    <label>Prazo (Quantidade de Dias)</label>
+                    <input type="number" id="cadPrazo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                </div>
+                <div class="filter-group">
+                    <label>Tipo de Prazo</label>
+                    <select id="cadTipoPrazo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                        <option value="corridos">Dias Corridos</option>
+                        <option value="uteis">Dias Úteis</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Tipo de Documento</label>
+                    <select id="cadTipo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group">
+                    <label>Município / Comarca</label>
+                    <input type="text" id="cadComarca">
+                </div>
+                <div class="filter-group">
+                    <label>Técnico</label>
+                    <select id="cadTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group">
+                    <label>Gerência</label>
+                    <select id="cadGerencia" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group">
+                    <label>CARMS / CAR</label>
+                    <input type="text" id="cadCarms">
+                </div>
+                <div class="filter-group">
+                    <label>Referência</label>
+                    <input type="text" id="cadReferencia">
+                </div>
+                <div class="filter-group" style="grid-column: span 2;">
+                    <label>Observação</label>
+                    <textarea id="cadObservacao" style="width: 100%; height: 80px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; resize: vertical;"></textarea>
+                </div>
+                <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
+                    <label>Anexar Ficheiro PDF</label>
+                    <label id="cadOficioArquivoLabel" class="file-upload-label">
+                        <span class="upload-icon">📁</span>
+                        <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
+                        <input type="file" id="cadOficioArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameOficio(this)">
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
+                <div class="modal-buttons">
+                    <button id="btnSalvarCadastro" onclick="salvarNovoOficio()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Processo</button>
+                    <button onclick="fecharModalCadastro()" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRO DE AUTO DE INFRAÇÃO -->
+    <div id="cadastroAutoModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close-btn" onclick="fecharModalCadastroAuto()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">⚖️ Cadastrar Novo Auto</h2>
+            <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
+                <div class="filter-group">
+                    <label>NUP</label>
+                    <input type="text" id="cadAutoNup" oninput="maskNUP(event)">
+                </div>
+                <div class="filter-group">
+                    <label>Requerente</label>
+                    <input type="text" id="cadAutoRequerente">
+                </div>
+                <div class="filter-group">
+                    <label>Auto de Infração</label>
+                    <input type="text" id="cadAutoInfracao">
+                </div>
+                <div class="filter-group">
+                    <label>Laudo de Constatação</label>
+                    <input type="text" id="cadAutoLaudo">
+                </div>
+                <div class="filter-group">
+                    <label>Notificação</label>
+                    <input type="text" id="cadAutoNotificacao">
+                </div>
+                <div class="filter-group">
+                    <label>Data de Repasse</label>
+                    <input type="text" id="cadAutoData" class="date-picker-ext">
+                </div>
+                <div class="filter-group">
+                    <label>Setor</label>
+                    <select id="cadAutoSetor" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                        <option value="">-- Selecione o Setor --</option>
+                        <option value="GCAR">GCAR</option>
+                        <option value="GEAA">GEAA</option>
+                        <option value="DIFLOR">DIFLOR</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Status Atual</label>
+                    <select id="cadAutoStatus" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group">
+                    <label>Tipo</label>
+                    <select id="cadAutoTipo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                        <option value="AUTO DE INFRAÇÃO">AUTO DE INFRAÇÃO</option>
+                        <option value="CONTRADITA">CONTRADITA</option>
+                        <option value="MANIFESTAÇÃO">MANIFESTAÇÃO</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Técnico</label>
+                    <select id="cadAutoTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group">
+                    <label>Físico / E-MS</label>
+                    <input type="text" id="cadAutoFisicoEms">
+                </div>
+                <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
+                    <label>Anexar Ficheiro PDF</label>
+                    <label id="cadAutoArquivoLabel" class="file-upload-label">
+                        <span class="upload-icon">📁</span>
+                        <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
+                        <input type="file" id="cadAutoArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameAuto(this)">
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
+                <div class="modal-buttons">
+                    <button id="btnSalvarCadastroAuto" onclick="salvarNovoAuto()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Auto</button>
+                    <button onclick="fecharModalCadastroAuto()" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRO DE OFÍCIO EXTERNO -->
+    <div id="cadastroExternoModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close-btn" onclick="fecharModalCadastroExterno()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">🏢 Cadastrar Novo Ofício Externo</h2>
+            <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
+                <div class="filter-group">
+                    <label>NUP</label>
+                    <input type="text" id="cadExtNup" oninput="maskNUP(event)">
+                </div>
+                <div class="filter-group">
+                    <label>Órgão Remetente</label>
+                    <input type="text" id="cadExtRemetente">
+                </div>
+                <div class="filter-group">
+                    <label>Data de Recebimento</label>
+                    <input type="text" id="cadExtDataRec" class="date-picker-ext">
+                </div>
+                <div class="filter-group">
+                    <label>Nº CARMS</label>
+                    <input type="text" id="cadExtCarms">
+                </div>
+                <div class="filter-group">
+                    <label>Data de Repasse</label>
+                    <input type="text" id="cadExtDataRep" class="date-picker-ext">
+                </div>
+                <div class="filter-group">
+                    <label>Data Determino</label>
+                    <input type="text" id="cadExtDataDet" class="date-picker-ext">
+                </div>
+                <div class="filter-group" style="grid-column: span 2;">
+                    <label>Assunto</label>
+                    <textarea id="cadExtAssunto" style="width: 100%; height: 60px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; resize: vertical;"></textarea>
+                </div>
+                <div class="filter-group">
+                    <label>Técnico Responsável</label>
+                    <select id="cadExtTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group">
+                    <label>Status Atual</label>
+                    <select id="cadExtStatus" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                </div>
+                <div class="filter-group" style="grid-column: span 2;">
+                    <label>Observações</label>
+                    <textarea id="cadExtObs" style="width: 100%; height: 80px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; resize: vertical;"></textarea>
+                </div>
+                <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
+                    <label>Anexar Ficheiro PDF</label>
+                    <label id="cadExternoArquivoLabel" class="file-upload-label">
+                        <span class="upload-icon">📁</span>
+                        <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
+                        <input type="file" id="cadExtArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameExterno(this)">
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
+                <div class="modal-buttons">
+                    <button id="btnSalvarCadastroExt" onclick="salvarNovoExterno()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Externo</button>
+                    <button onclick="fecharModalCadastroExterno()" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ATRIBUIR TÉCNICO AO OFÍCIO (DISTRIBUIR) -->
+    <div id="atribuirTecnicoOficioModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close-btn" onclick="fecharModalAtribuirTecnicoOficio()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">👤 Distribuir Ofício</h2>
+            <div style="padding: 20px;">
+                <input type="hidden" id="atrOficioNup">
+                <div class="filter-group">
+                    <label>Selecionar Técnico</label>
+                    <select id="atrOficioTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; margin-bottom: 20px;"></select>
+                </div>
+                <div class="modal-buttons">
+                    <button id="btnSalvarAtribuicaoOficio" onclick="salvarAtribuicaoTecnicoOficio()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Distribuição</button>
+                    <button onclick="fecharModalAtribuirTecnicoOficio()" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ATRIBUIR TÉCNICO AO AUTO -->
+    <div id="atribuirTecnicoModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close-btn" onclick="fecharModalAtribuirTecnico()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">👤 Distribuir Auto</h2>
+            <div style="padding: 20px;">
+                <input type="hidden" id="atrAutoNup">
+                <div class="filter-group">
+                    <label>Selecionar Técnico</label>
+                    <select id="atrAutoTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; margin-bottom: 20px;"></select>
+                </div>
+                <div class="modal-buttons">
+                    <button id="btnSalvarAtribuicao" onclick="salvarAtribuicaoTecnico()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Distribuição</button>
+                    <button onclick="fecharModalAtribuirTecnico()" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ATRIBUIR TÉCNICO AO OFÍCIO EXTERNO -->
+    <div id="atribuirTecnicoExternoModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <span class="close-btn" onclick="fecharModalAtribuirTecnicoExterno()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">👤 Distribuir Ofício Externo</h2>
+            <div style="padding: 20px;">
+                <input type="hidden" id="atrExternoNup">
+                <div class="filter-group">
+                    <label>Selecionar Técnico</label>
+                    <select id="atrExternoTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; margin-bottom: 20px;"></select>
+                </div>
+                <div class="modal-buttons">
+                    <button id="btnSalvarAtribuicaoExterno" onclick="salvarAtribuicaoTecnicoExterno()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Distribuição</button>
+                    <button onclick="fecharModalAtribuirTecnicoExterno()" class="btn-drive btn-soft-gray">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTÃO FLUTUANTE VOLTAR AO TOPO -->
+    <button id="btn-back-to-top" onclick="scrollToTop()" title="Voltar ao Topo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
     </button>
 
+    <!-- TOAST CONTAINER -->
     <div id="toast-container"></div>
 
+    <!-- IMPORTS JAVASCRIPT -->
     <script src="leitor.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
     <script src="utils.js"></script>
     <script src="app.js"></script>
     <script src="autos.js"></script>
+    <script src="externos.js"></script>
 </body>
 
 </html>

@@ -116,6 +116,15 @@ function renderTabelaAutos(dados) {
     const container = document.getElementById('lista-autos-container');
     const cont = document.getElementById('contador-autos');
     if (!container) return;
+
+    const leftPanelEl = document.getElementById('left-panel-autos-inbox');
+    const savedLeftScrollTop = leftPanelEl ? leftPanelEl.scrollTop : 0;
+
+    const rightPanelEl = document.getElementById('right-panel-detalhes-autos');
+    const savedRightScrollTop = rightPanelEl ? rightPanelEl.scrollTop : 0;
+
+    const savedWindowScrollY = window.scrollY;
+
     container.innerHTML = '';
 
     if (!dados || dados.length === 0) {
@@ -136,6 +145,7 @@ function renderTabelaAutos(dados) {
     container.style.alignItems = 'flex-start';
 
     const leftPanel = document.createElement('div');
+    leftPanel.id = 'left-panel-autos-inbox';
     leftPanel.style.width = '35%';
     leftPanel.style.minWidth = '300px';
     leftPanel.style.display = 'flex';
@@ -144,10 +154,10 @@ function renderTabelaAutos(dados) {
     leftPanel.style.maxHeight = '75vh';
     leftPanel.style.overflowY = 'auto';
     leftPanel.style.paddingRight = '5px';
-    leftPanel.style.animation = 'fadeInSlideUp 0.3s ease-out forwards';
+    leftPanel.style.animation = leftPanelEl ? 'none' : 'fadeInSlideUp 0.3s ease-out forwards';
 
     const rightPanel = document.createElement('div');
-    rightPanel.id = 'right-panel-detalhes';
+    rightPanel.id = 'right-panel-detalhes-autos';
     rightPanel.style.width = '65%';
     rightPanel.style.backgroundColor = '#1a1a1a';
     rightPanel.style.border = '1px solid var(--card-border)';
@@ -157,7 +167,7 @@ function renderTabelaAutos(dados) {
     rightPanel.style.top = '20px';
     rightPanel.style.display = 'flex';
     rightPanel.style.flexDirection = 'column';
-    rightPanel.style.animation = 'fadeInSlideUp 0.4s ease-out forwards';
+    rightPanel.style.animation = rightPanelEl ? 'none' : 'fadeInSlideUp 0.4s ease-out forwards';
 
     dados.forEach((r, index) => {
         const isSelected = autoSelecionadoMockup && autoSelecionadoMockup['NUP'] === r['NUP'];
@@ -223,6 +233,15 @@ function renderTabelaAutos(dados) {
     }
     container.appendChild(leftPanel);
     container.appendChild(rightPanel);
+
+    // RESTAURAR SCROLLS E POSIÇÕES
+    if (leftPanelEl) {
+        leftPanel.scrollTop = savedLeftScrollTop;
+    }
+    if (rightPanelEl) {
+        rightPanel.scrollTop = savedRightScrollTop;
+    }
+    window.scrollTo(0, savedWindowScrollY);
 }
 
 function abrirPreviewAuto(event, url, nup) {
@@ -344,11 +363,17 @@ async function salvarAtribuicaoTecnico() {
 }
 
 function filtrarAutos() {
-    const nup = document.getElementById('filtro-auto-nup').value.toLowerCase().trim();
-    const req = document.getElementById('filtro-auto-req').value.toLowerCase().trim();
-    const inf = document.getElementById('filtro-auto-inf').value.toLowerCase().trim();
-    const laudo = document.getElementById('filtro-auto-laudo').value.toLowerCase().trim();
-    const notif = document.getElementById('filtro-auto-notif').value.toLowerCase().trim();
+    const fNupEl = document.getElementById('filtro-auto-nup');
+    const fReqEl = document.getElementById('filtro-auto-req');
+    const fInfEl = document.getElementById('filtro-auto-inf');
+    const fLaudoEl = document.getElementById('filtro-auto-laudo');
+    const fNotifEl = document.getElementById('filtro-auto-notif');
+
+    const nup = fNupEl ? fNupEl.value.toLowerCase().trim() : '';
+    const req = fReqEl ? fReqEl.value.toLowerCase().trim() : '';
+    const inf = fInfEl ? fInfEl.value.toLowerCase().trim() : '';
+    const laudo = fLaudoEl ? fLaudoEl.value.toLowerCase().trim() : '';
+    const notif = fNotifEl ? fNotifEl.value.toLowerCase().trim() : '';
     const setorMulti = lerValoresMultiplosNativos('autoSetor');
     const tecnicoMulti = lerValoresMultiplosNativos('autoTecnico');
     const statusMulti = lerValoresMultiplosNativos('autoStatus');

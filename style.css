@@ -753,6 +753,54 @@ input:checked+.slider:before {
     color: #5dade2;
 }
 
+.btn-purple {
+    background-color: rgba(142, 68, 173, 0.15);
+    border-color: #8e44ad;
+    color: #af7ac5;
+}
+
+.btn-purple:hover {
+    background-color: rgba(142, 68, 173, 0.25);
+    border-color: #bb8fce;
+    color: #d7bde2;
+}
+
+.btn-green-outline {
+    background-color: rgba(39, 174, 96, 0.15);
+    border-color: #27ae60;
+    color: #2ecc71;
+}
+
+.btn-green-outline:hover {
+    background-color: rgba(39, 174, 96, 0.25);
+    border-color: #2ecc71;
+    color: #a3e4d7;
+}
+
+.btn-red-outline {
+    background-color: rgba(192, 41, 43, 0.15);
+    border-color: #c0392b;
+    color: #e74c3c;
+}
+
+.btn-red-outline:hover {
+    background-color: rgba(192, 41, 43, 0.25);
+    border-color: #e74c3c;
+    color: #f9d5d5;
+}
+
+.btn-orange-outline {
+    background-color: rgba(230, 126, 34, 0.15);
+    border-color: #e67e22;
+    color: #f39c12;
+}
+
+.btn-orange-outline:hover {
+    background-color: rgba(230, 126, 34, 0.25);
+    border-color: #f39c12;
+    color: #f5b041;
+}
+
 .btn-soft-gray {
     background-color: #4b5563;
     border-color: #374151;

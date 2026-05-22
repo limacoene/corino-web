@@ -71,11 +71,10 @@ function scrollToTop() {
 }
 // ============================================================================
 
-
 let dadosCoringa = [];
 let filtroAtivo = 'todos';
 let subAbaAtiva = 'Geral';
-let incluirReiteracoes = false; // Nova variável para o toggle
+let incluirReiteracoes = false;
 let dadosExibidos = [];
 
 function obterStatusVisual(linha) {
@@ -90,10 +89,9 @@ function obterStatusVisual(linha) {
     if (numero === 0) return { texto: ' VENCE HOJE', classe: 'status-yellow' };
     if (numero === 1) return { texto: `🟢 ${numero} DIA RESTANTE`, classe: 'status-green' };
 
-    return { texto: `🟢 ${numero} DIAS RESTANTES`, classe: 'status-green' }; // Para 2 ou mais dias
+    return { texto: `🟢 ${numero} DIAS RESTANTES`, classe: 'status-green' };
 }
 
-// Função auxiliar para calcular a formatação dinâmica (cores HSL, texto e ícone de bolinha)
 function obterInfoDinamicaStatus(linha) {
     const statusVisual = obterStatusVisual(linha);
     let percentual = 100;
@@ -151,11 +149,26 @@ async function iniciarSistema() {
 
         const dadosBrutos = await buscarDadosGoogleSheets();
 
-        if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+        if (usuarioAtivo) {
             dadosCoringa = dadosBrutos.filter(linha => {
-                const tecnicoLinha = (linha['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
-                const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                return tecnicoLinha === tecnicoLogado || tecnicoLinha === '' || tecnicoLinha === '-' || tecnicoLinha === 'S/T';
+                const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+                const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+                const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
+                const statusVisual = obterStatusVisual(linha);
+                const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
+
+                // 1. Ocultar processos "Sem Técnico" + "Finalizado" para não-gestores (tecnico e gerencia_consulta)
+                if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+                    return false;
+                }
+
+                // 2. Técnicos só visualizam processos de competência direta
+                if (usuarioAtivo.perfil === 'tecnico') {
+                    const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
+                    return tec === tecnicoLogado;
+                }
+
+                return true;
             });
         } else {
             dadosCoringa = dadosBrutos;
@@ -170,18 +183,16 @@ async function iniciarSistema() {
 
         popularTodosOsSelectsNativos();
 
-        // Event listener para o toggle de reiterações
         const toggleReiteracoes = document.getElementById('toggleReiteracoes');
         if (toggleReiteracoes) {
             toggleReiteracoes.addEventListener('change', (event) => {
                 incluirReiteracoes = event.target.checked;
-                aplicarFiltros(); // Re-aplicar filtros para atualizar a contagem
+                aplicarFiltros();
             });
         }
         atualizarBadgesNotificacao(dadosCoringa);
         mudarAbaPrincipal('todos');
 
-        // Pré-carrega os autos em background para ser instantâneo ao abrir a aba
         carregarAutos();
     } catch (erro) {
         document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
@@ -292,7 +303,9 @@ function mudarAbaPrincipal(tipo) {
     filtroAtivo = tipo;
     subAbaAtiva = (tipo === 'respondidos') ? 'Pendentes' : 'Geral';
     document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`btn-menu-${tipo}`).classList.add('active');
+
+    const btnAtivo = document.getElementById(`btn-menu-${tipo}`);
+    if (btnAtivo) btnAtivo.classList.add('active');
 
     document.getElementById('aba-todos').style.display = (tipo === 'todos') ? 'block' : 'none';
     document.getElementById('aba-distribuicao').style.display = (tipo === 'distribuicao') ? 'block' : 'none';
@@ -300,44 +313,50 @@ function mudarAbaPrincipal(tipo) {
     document.getElementById('aba-atrasados').style.display = (tipo === 'atrasados') ? 'block' : 'none';
     document.getElementById('aba-respondidos').style.display = (tipo === 'respondidos') ? 'block' : 'none';
     document.getElementById('aba-autos').style.display = (tipo === 'autos') ? 'block' : 'none';
+    document.getElementById('aba-externos').style.display = (tipo === 'externos') ? 'block' : 'none';
 
-    // Gerenciar a visibilidade dos botões flutuantes (FABs)
     const fabOficio = document.getElementById('fab-novo-oficio');
     const fabAuto = document.getElementById('fab-novo-auto');
+    const fabExterno = document.getElementById('fab-novo-externo');
 
-    // Esconder por padrão
     if (fabOficio) fabOficio.style.display = 'none';
     if (fabAuto) fabAuto.style.display = 'none';
+    if (fabExterno) fabExterno.style.display = 'none';
 
-    // Apenas mostrar botões se o perfil não for 'tecnico'
     if (usuarioAtivo && usuarioAtivo.perfil !== 'tecnico') {
-        if (tipo === 'todos' && fabOficio) {
-            fabOficio.style.display = 'flex';
-        }
+        if (tipo === 'todos' && fabOficio) fabOficio.style.display = 'flex';
 
         if (tipo === 'autos' && fabAuto) {
             const modAutosHeader = document.getElementById('header-mod-autos');
             const isAutosModuleVisible = modAutosHeader && modAutosHeader.parentElement.style.display !== 'none';
             if (isAutosModuleVisible) fabAuto.style.display = 'flex';
         }
+
+        if (tipo === 'externos' && fabExterno) fabExterno.style.display = 'flex';
     }
 
-    // Hide export count on autos
-    if (tipo === 'autos') {
+    if (tipo === 'autos' || tipo === 'externos') {
         document.getElementById('export-section').style.display = 'none';
+        document.getElementById('cards-container').innerHTML = ''; // LIMPEZA DA ABA ANTERIOR (CORREÇÃO DE SOBREPOSIÇÃO)
+    } else {
+        document.getElementById('export-section').style.display = 'block';
     }
 
     if (tipo === 'autos') {
         carregarAutos();
     }
 
+    if (tipo === 'externos') {
+        carregarExternos();
+    }
+
     atualizarVisualSubAbas();
     limparInputsDeFiltro();
-    aplicarFiltros();
 
-    // ==========================================
-    // ROLA A PÁGINA PARA O TOPO AO TROCAR DE ABA
-    // ==========================================
+    if (tipo !== 'autos' && tipo !== 'externos') {
+        aplicarFiltros();
+    }
+
     scrollToTop();
 }
 
@@ -352,13 +371,14 @@ function toggleModule(moduleId) {
     }
 }
 
-
 function setSubAba(aba) {
     subAbaAtiva = aba;
     atualizarVisualSubAbas();
-    aplicarFiltros();
-
-    // Opcional: Rolar para o topo ao trocar as sub-abas (DIFLOR, GCAR, etc) também
+    if (filtroAtivo === 'externos') {
+        if (typeof filtrarExternos === 'function') filtrarExternos();
+    } else {
+        aplicarFiltros();
+    }
     scrollToTop();
 }
 
@@ -373,7 +393,7 @@ function atualizarVisualSubAbas() {
 }
 
 function limparInputsDeFiltro() {
-    ['cgNup', 'cgCarms', 'andNup', 'atrNup', 'respNup'].forEach(id => {
+    ['cgNup', 'cgCarms', 'andNup', 'atrNup', 'respNup', 'filtro-ext-nup', 'filtro-ext-carms', 'filtro-ext-tecnico', 'filtro-ext-remetente'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -450,7 +470,7 @@ function checarTermoBusca(r, nupTermo, oficioTermo) {
 }
 
 function aplicarFiltros() {
-    if (filtroAtivo === 'autos') {
+    if (filtroAtivo === 'autos' || filtroAtivo === 'externos') { // CORREÇÃO DE SOBREPOSIÇÃO
         document.getElementById('cards-container').innerHTML = '';
         document.getElementById('export-section').style.display = 'none';
         return;
@@ -458,10 +478,40 @@ function aplicarFiltros() {
 
     let filtrados = dadosCoringa;
 
+    // Failsafe de Segurança e Restrição de Acesso
+    if (usuarioAtivo) {
+        filtrados = filtrados.filter(linha => {
+            const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+            const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+            const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
+            const statusVisual = obterStatusVisual(linha);
+            const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
+
+            // 1. Ocultar processos "Sem Técnico" + "Finalizado" para não-gestores
+            if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+                return false;
+            }
+
+            // 2. Técnicos só visualizam processos de competência direta
+            if (usuarioAtivo.perfil === 'tecnico') {
+                const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
+                if (tec !== tecnicoLogado) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
     if (filtroAtivo === 'todos') {
-        const termoBusca = document.getElementById('cgNup').value.toLowerCase().trim();
-        const ofTermo = document.getElementById('cgOficio') ? document.getElementById('cgOficio').value.toLowerCase().trim() : '';
-        const carms = document.getElementById('cgCarms').value.toLowerCase().trim();
+        const cgNupEl = document.getElementById('cgNup');
+        const cgOficioEl = document.getElementById('cgOficio');
+        const cgCarmsEl = document.getElementById('cgCarms');
+
+        const termoBusca = cgNupEl ? cgNupEl.value.toLowerCase().trim() : '';
+        const ofTermo = cgOficioEl ? cgOficioEl.value.toLowerCase().trim() : '';
+        const carms = cgCarmsEl ? cgCarmsEl.value.toLowerCase().trim() : '';
         const gersRaw = lerValoresMultiplosNativos('cgGerencia');
         const munsRaw = lerValoresMultiplosNativos('cgMunicipio');
         const stssRaw = lerValoresMultiplosNativos('cgStatus');
@@ -490,8 +540,11 @@ function aplicarFiltros() {
         }
     }
     else if (filtroAtivo === 'distribuicao') {
-        const termoBusca = document.getElementById('distNup').value.toLowerCase().trim();
-        const ofTermo = document.getElementById('distOficio') ? document.getElementById('distOficio').value.toLowerCase().trim() : '';
+        const distNupEl = document.getElementById('distNup');
+        const distOficioEl = document.getElementById('distOficio');
+
+        const termoBusca = distNupEl ? distNupEl.value.toLowerCase().trim() : '';
+        const ofTermo = distOficioEl ? distOficioEl.value.toLowerCase().trim() : '';
 
         filtrados = filtrados.filter(r => {
             const tec = (r['TÉCNICO/ADMIN'] || '').trim();
@@ -507,12 +560,21 @@ function aplicarFiltros() {
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca, ofTermo);
             r._matchInfo = busca.info;
-            return busca.match;
+            return (subAbaAtiva === 'Geral' || r['GERÊNCIA'] === subAbaAtiva)
+                && busca.match;
         });
+
+        const alertaDistribuicaoEl = document.getElementById('alerta-distribuicao');
+        if (alertaDistribuicaoEl) {
+            alertaDistribuicaoEl.innerText = `ℹ️ Há ${filtrados.length} processos aguardando distribuição ${obterNomeSetorFormatado(subAbaAtiva)}.`;
+        }
     }
     else if (filtroAtivo === 'andamento') {
-        const termoBusca = document.getElementById('andNup').value.toLowerCase().trim();
-        const ofTermo = document.getElementById('andOficio') ? document.getElementById('andOficio').value.toLowerCase().trim() : '';
+        const andNupEl = document.getElementById('andNup');
+        const andOficioEl = document.getElementById('andOficio');
+
+        const termoBusca = andNupEl ? andNupEl.value.toLowerCase().trim() : '';
+        const ofTermo = andOficioEl ? andOficioEl.value.toLowerCase().trim() : '';
         const tecs = lerValoresMultiplosNativos('andTecnico');
         const stss = lerValoresMultiplosNativos('andStatus');
 
@@ -551,11 +613,17 @@ function aplicarFiltros() {
             return converterDataBR(a['DATA']) - converterDataBR(b['DATA']);
         });
 
-        document.getElementById('alerta-andamento').innerText = `ℹ️ Há ${filtrados.length} processos em andamento ${obterNomeSetorFormatado(subAbaAtiva)}.`;
+        const alertaAndamentoEl = document.getElementById('alerta-andamento');
+        if (alertaAndamentoEl) {
+            alertaAndamentoEl.innerText = `ℹ️ Há ${filtrados.length} processos em andamento ${obterNomeSetorFormatado(subAbaAtiva)}.`;
+        }
     }
     else if (filtroAtivo === 'atrasados') {
-        const termoBusca = document.getElementById('atrNup').value.toLowerCase().trim();
-        const ofTermo = document.getElementById('atrOficio') ? document.getElementById('atrOficio').value.toLowerCase().trim() : '';
+        const atrNupEl = document.getElementById('atrNup');
+        const atrOficioEl = document.getElementById('atrOficio');
+
+        const termoBusca = atrNupEl ? atrNupEl.value.toLowerCase().trim() : '';
+        const ofTermo = atrOficioEl ? atrOficioEl.value.toLowerCase().trim() : '';
         const tecs = lerValoresMultiplosNativos('atrTecnico');
         const stss = lerValoresMultiplosNativos('atrStatus');
 
@@ -581,11 +649,18 @@ function aplicarFiltros() {
             const numB = extrairDiasRestantes(b['DIAS RESTANTES']) || 0;
             return numA - numB;
         });
-        document.getElementById('alerta-atrasados').innerText = `⚠️ Atenção - Há ${filtrados.length} processos em atraso ${obterNomeSetorFormatado(subAbaAtiva)}.`;
+
+        const alertaAtrasadosEl = document.getElementById('alerta-atrasados');
+        if (alertaAtrasadosEl) {
+            alertaAtrasadosEl.innerText = `⚠️ Atenção - Há ${filtrados.length} processos em atraso ${obterNomeSetorFormatado(subAbaAtiva)}.`;
+        }
     }
     else if (filtroAtivo === 'respondidos') {
-        const termoBusca = document.getElementById('respNup').value.toLowerCase().trim();
-        const ofTermo = document.getElementById('respOficio') ? document.getElementById('respOficio').value.toLowerCase().trim() : '';
+        const respNupEl = document.getElementById('respNup');
+        const respOficioEl = document.getElementById('respOficio');
+
+        const termoBusca = respNupEl ? respNupEl.value.toLowerCase().trim() : '';
+        const ofTermo = respOficioEl ? respOficioEl.value.toLowerCase().trim() : '';
         const tecs = lerValoresMultiplosNativos('respTecnico');
 
         filtrados = filtrados.filter(r => ((r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-') || (r['STATUS'] || '').toUpperCase() === 'REVISÃO') && r['STATUS'] !== 'TRAMITADO' && r['STATUS'] !== 'ARQUIVADO');
@@ -609,7 +684,11 @@ function aplicarFiltros() {
             return busca.match && subAbaFiltro
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']));
         });
-        document.getElementById('alerta-respondidos').innerText = `📁 Há ${filtrados.length} processos nesta aba.`;
+
+        const alertaRespondidosEl = document.getElementById('alerta-respondidos');
+        if (alertaRespondidosEl) {
+            alertaRespondidosEl.innerText = `📁 Há ${filtrados.length} processos nesta aba.`;
+        }
     }
 
     desenharCards(filtrados);
@@ -651,10 +730,19 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     dadosExibidos = dados;
     const container = document.getElementById('cards-container');
     const exportSection = document.getElementById('export-section');
+
+    const leftPanelEl = document.getElementById('left-panel-inbox-oficios');
+    const savedLeftScrollTop = leftPanelEl ? leftPanelEl.scrollTop : 0;
+
+    const rightPanelEl = document.getElementById('right-panel-detalhes-oficios');
+    const savedRightScrollTop = rightPanelEl ? rightPanelEl.scrollTop : 0;
+
+    const savedWindowScrollY = window.scrollY;
+
     container.innerHTML = '';
 
     if (estadoInicialConsultaGeral) {
-        container.style.display = 'grid'; // Restaura o grid para a mensagem inicial
+        container.style.display = 'grid';
         exportSection.style.display = 'none';
         container.innerHTML = `
             <div style="width: 100%; grid-column: 1 / -1; background-color: #0e1117; border: 1px solid #1a252f; border-radius: 8px; padding: 16px 20px; font-weight: bold; color: #ddd; font-size: 15px; display: flex; align-items: center; gap: 10px; animation: fadeInSlideUp 0.3s ease-out forwards;">
@@ -666,9 +754,8 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
     exportSection.style.display = 'block';
     const qtd = dados.length;
-    let totalItensContados = qtd; // Começa com os ofícios principais
+    let totalItensContados = qtd;
 
-    // Se o filtro ativo for 'todos' e o toggle de reiterações estiver ligado, adiciona as reiterações à contagem
     if (filtroAtivo === 'todos' && incluirReiteracoes) {
         dados.forEach(linha => {
             if (linha.REITERACOES && linha.REITERACOES.length > 0) {
@@ -685,7 +772,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         contadorProcessos.style.display = 'block';
         contadorProcessos.innerText = `Exibindo ${textoResultados}.`;
     } else {
-        contadorProcessos.style.display = 'none'; // Oculta o contador para outras abas
+        contadorProcessos.style.display = 'none';
     }
 
     if (dados.length === 0) {
@@ -694,23 +781,21 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         return;
     }
 
-    // Seleciona o primeiro por padrão se não houver um selecionado
     if (!oficioSelecionadoMockup && dados.length > 0) {
         oficioSelecionadoMockup = dados[0];
     } else if (oficioSelecionadoMockup) {
-        // Verifica se o ofício selecionado ainda está nos dados filtrados
         const exists = dados.find(r => r['NUP'] === oficioSelecionadoMockup['NUP']);
         if (!exists) oficioSelecionadoMockup = dados[0];
     }
 
-    // Configurar o container para Master-Detail (Flex row)
     container.style.display = 'flex';
     container.style.flexDirection = 'row';
     container.style.gap = '20px';
     container.style.alignItems = 'flex-start';
 
-    // === LADO ESQUERDO: LISTA (INBOX) ===
+    // LADO ESQUERDO: LISTA (INBOX)
     const leftPanel = document.createElement('div');
+    leftPanel.id = 'left-panel-inbox-oficios';
     leftPanel.style.width = '35%';
     leftPanel.style.minWidth = '300px';
     leftPanel.style.display = 'flex';
@@ -719,9 +804,9 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     leftPanel.style.maxHeight = '75vh';
     leftPanel.style.overflowY = 'auto';
     leftPanel.style.paddingRight = '5px';
-    leftPanel.style.animation = 'fadeInSlideUp 0.3s ease-out forwards';
+    leftPanel.style.animation = leftPanelEl ? 'none' : 'fadeInSlideUp 0.3s ease-out forwards';
 
-    // === LADO DIREITO: DETALHES ===
+    // LADO DIREITO: DETALHES
     const rightPanel = document.createElement('div');
     rightPanel.id = 'right-panel-detalhes-oficios';
     rightPanel.style.width = '65%';
@@ -735,7 +820,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
     rightPanel.style.flexDirection = 'column';
     rightPanel.style.maxHeight = '85vh';
     rightPanel.style.overflowY = 'auto';
-    rightPanel.style.animation = 'fadeInSlideUp 0.4s ease-out forwards';
+    rightPanel.style.animation = rightPanelEl ? 'none' : 'fadeInSlideUp 0.4s ease-out forwards';
 
     dados.forEach((linha, index) => {
         const isSelected = oficioSelecionadoMockup && oficioSelecionadoMockup['NUP'] === linha['NUP'];
@@ -754,7 +839,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         item.onmouseleave = () => { if (!isSelected) item.style.backgroundColor = '#1a1a1a'; };
         item.onclick = () => {
             oficioSelecionadoMockup = linha;
-            desenharCards(dados); // Re-render para atualizar os painéis
+            desenharCards(dados);
         };
 
         const isAtrasado = infoStatus.textoStatusLimpo.includes('ATRASO');
@@ -812,7 +897,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
             if (temRespostaVinculada) {
                 const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
-                const isFazerCI = (linha['STATUS'] || '').toUpperCase() === 'FAZER CI';
+                const isFazerCI = (linha['STATUS'] || '').toUpperCase().trim().replace(/\./g, '') === 'FAZER CI';
                 const isGestor = usuarioAtivo.perfil === 'gerencia';
 
                 let blockRemoval = false;
@@ -823,7 +908,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
                 if (blockRemoval) {
                     btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px; width: 100%;">🔒 Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
                 } else {
-                    btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; color: white;">🗑️ Retirar Resposta</button>`;
+                    btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-red-outline">🗑️ Retirar Resposta</button>`;
                 }
             } else if (usuarioAtivo.perfil === 'tecnico') {
                 btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
@@ -865,9 +950,10 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
             if (isSemTecnico) {
                 htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
             }
-            if (statusGeralAtualizado === 'FAZER CI') {
+            const statusGeralFormatado = statusGeralAtualizado.replace(/\./g, '').trim();
+            if (statusGeralFormatado === 'FAZER CI') {
                 htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
-            } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
+            } else if (statusGeralFormatado === 'AGUARDANDO ASSINATURA') {
                 htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
             }
         }
@@ -875,10 +961,10 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         let htmlResposta = '';
         if (temRespostaVinculada) {
             const respId = extrairIdDrive(linkRespostaVerificacao);
-            let botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-upload">🔗 Abrir Resposta no Drive</a>`;
+            let botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
             if (respId) {
                 const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
-                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-upload" style="border:none;">👁️ Pré-visualizar Resposta</button>`;
+                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
             }
 
             let htmlMotivoReprovacao = '';
@@ -1045,6 +1131,15 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
     container.appendChild(leftPanel);
     container.appendChild(rightPanel);
+
+    // RESTAURAR SCROLLS E POSIÇÕES
+    if (leftPanelEl) {
+        leftPanel.scrollTop = savedLeftScrollTop;
+    }
+    if (rightPanelEl) {
+        rightPanel.scrollTop = savedRightScrollTop;
+    }
+    window.scrollTo(0, savedWindowScrollY);
 }
 
 function gerarHtmlDocExtra(titulo, num, nup, linkRaw, index) {
@@ -1180,7 +1275,6 @@ function mostrarConfirmacao(mensagem, options = {}) {
             inputText.value = '';
         }
 
-        // Remove listeners antigos
         const newBtnYes = btnYes.cloneNode(true);
         const newBtnCancel = btnCancel.cloneNode(true);
         btnYes.parentNode.replaceChild(newBtnYes, btnYes);
@@ -1205,7 +1299,7 @@ function mostrarConfirmacao(mensagem, options = {}) {
 }
 
 async function removerDocumento(event, nup) {
-    const btn = event.currentTarget; // Guarda elemento antes de ir async
+    const btn = event.currentTarget;
     const result = await mostrarConfirmacao('Tem certeza de que deseja desvincular a resposta deste NUP?\n\nO link será apagado e o status voltará para Aguardando Manifestação Técnica.', {
         titulo: 'Confirmar Remoção',
         textoBotao: '🗑️ Sim, Remover',
@@ -1349,6 +1443,47 @@ async function avaliarResposta(event, nup, decisao) {
 }
 
 async function atualizarStatusCI(event, nup, novoStatus) {
+    let confirmou = false;
+    let msg = '';
+    let options = {};
+
+    if (novoStatus === 'AGUARDANDO ASSINATURA') {
+        msg = "Tem certeza de que deseja confirmar a realização da C.I. para este processo?\n\nO status mudará para Aguardando Assinatura.";
+        options = {
+            titulo: "Confirmar Realização de C.I.",
+            textoBotao: "✅ Confirmar C.I.",
+            corBotao: "#2980b9",
+            corBorda: "#1c5986",
+            corBordaTop: "#2980b9",
+            icone: "📑"
+        };
+    } else if (novoStatus === 'TRAMITADO') {
+        msg = "Tem certeza de que deseja confirmar a assinatura realizada para este processo?\n\nO status mudará para Tramitado e o ciclo de vida deste processo será finalizado.";
+        options = {
+            titulo: "Confirmar Assinatura Realizada",
+            textoBotao: "✍️ Confirmar Assinatura",
+            corBotao: "#8e44ad",
+            corBorda: "#6c3483",
+            corBordaTop: "#8e44ad",
+            icone: "✍️"
+        };
+    } else {
+        msg = `Tem certeza de que deseja alterar o status para ${novoStatus}?`;
+        options = {
+            titulo: "Confirmar Alteração de Status",
+            textoBotao: "Confirmar",
+            corBotao: "#27ae60",
+            corBorda: "#1e824c",
+            corBordaTop: "#27ae60",
+            icone: "🔄"
+        };
+    }
+
+    const resultadoConfirmacao = await mostrarConfirmacao(msg, options);
+    if (!resultadoConfirmacao.confirmou) {
+        return;
+    }
+
     const btn = event.currentTarget;
     const textoOriginal = btn.innerHTML;
 
@@ -1381,7 +1516,6 @@ async function atualizarStatusCI(event, nup, novoStatus) {
             atualizarBadgesNotificacao(dadosCoringa);
             aplicarFiltros();
 
-            // Manter a janela de detalhes aberta com o estado visual atualizado sem recarregar e crer em travamentos
             const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
             if (newIndex !== -1) {
                 abrirModal(newIndex);
@@ -1437,7 +1571,7 @@ function abrirModal(index) {
     if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
         if (temRespostaVinculada) {
             const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
-            const isFazerCI = (linha['STATUS'] || '').toUpperCase() === 'FAZER CI';
+            const isFazerCI = (linha['STATUS'] || '').toUpperCase().trim().replace(/\./g, '') === 'FAZER CI';
             const isGestor = usuarioAtivo.perfil === 'gerencia';
 
             let blockRemoval = false;
@@ -1448,7 +1582,7 @@ function abrirModal(index) {
             if (blockRemoval) {
                 btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px;">🔒 Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
             } else {
-                btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="background-color: #c0392b; border-color: #a93226; color: white;">🗑️ Retirar Resposta</button>`;
+                btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-red-outline">🗑️ Retirar Resposta</button>`;
             }
         } else if (usuarioAtivo.perfil === 'tecnico') {
             btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
@@ -1490,9 +1624,10 @@ function abrirModal(index) {
         if (isSemTecnico) {
             htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
         }
-        if (statusGeralAtualizado === 'FAZER CI') {
+        const statusGeralFormatado = statusGeralAtualizado.replace(/\./g, '').trim();
+        if (statusGeralFormatado === 'FAZER CI') {
             htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
-        } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
+        } else if (statusGeralFormatado === 'AGUARDANDO ASSINATURA') {
             htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'TRAMITADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
         }
     }
@@ -1501,10 +1636,10 @@ function abrirModal(index) {
     const linkResposta = linha['LINK_RESPOSTA'];
     if (linkResposta && linkResposta.startsWith('http')) {
         const respId = extrairIdDrive(linkResposta);
-        let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-upload">🔗 Abrir Resposta no Drive</a>`;
+        let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
         if (respId) {
             const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
-            botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-upload" style="border:none;">👁️ Pré-visualizar Resposta</button>`;
+            botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
         }
 
         htmlResposta = `
@@ -1588,13 +1723,12 @@ function abrirPreview(url, index) {
         `;
     }
 
-    // Atualiza o link do botão de download de acordo com o documento atualmente aberto
     const btnDownload = document.getElementById('btn-download-preview');
     const fileId = extrairIdDrive(url);
     if (fileId) {
         btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
     } else {
-        btnDownload.href = url; // Fallback caso não seja um formato padrão do Drive
+        btnDownload.href = url;
     }
 
     const linha = dadosExibidos[index];
@@ -1631,7 +1765,6 @@ function abrirPreview(url, index) {
         ${htmlHistoricoPreview}
     `;
 
-    // Botões Toggles
     const linkResposta = linha['LINK_RESPOSTA'];
     let respPreviewUrl = '';
     let respId = null;
@@ -1656,12 +1789,11 @@ function abrirPreview(url, index) {
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                  <button onclick="document.getElementById('previewFrame').src='${oficioPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadOficioUrlFull}';" class="btn-drive btn-preview" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
-                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive btn-upload" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive btn-orange-outline" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }
 
-    // Botões Avaliar (DIFLOR)
     let acoesDiflorPreview = '';
     const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
     const isLinkRespostaValido = linha['LINK_RESPOSTA'] && linha['LINK_RESPOSTA'].trim() !== '' && linha['LINK_RESPOSTA'].trim() !== '-';
@@ -1670,8 +1802,8 @@ function abrirPreview(url, index) {
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
                 <div style="display: flex; gap: 10px; flex-direction: column;">
-                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive" style="background-color: #27ae60; border-color: #1e8449;">✅ Aprovar Manifestação</button>
-                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive" style="background-color: #c0392b; border-color: #a93226;">❌ Reprovar Manifestação</button>
+                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive btn-green-outline">✅ Aprovar Manifestação</button>
+                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive btn-red-outline">❌ Reprovar Manifestação</button>
                 </div>
             </div>
         `;
@@ -1698,21 +1830,18 @@ function fecharPreview() {
 }
 
 function abrirModalAtribuirTecnicoOficio(nup) {
-    // 1. Configura o NUP oculto para sabermos qual ofício alterar
     document.getElementById('atrOficioNup').value = nup;
-    
-    // 2. Limpa e carrega a lista de técnicos no Menu Suspenso
+
     const select = document.getElementById('atrOficioTecnico');
     select.innerHTML = '';
     const elBlank = document.createElement('option');
     elBlank.value = ''; elBlank.textContent = '-- Selecione o Técnico --';
     select.appendChild(elBlank);
-    
-    opcoesAutoTecnico.forEach(opt => { 
-        const el = document.createElement('option'); el.value = opt; el.textContent = opt; select.appendChild(el); 
+
+    opcoesAutoTecnico.forEach(opt => {
+        const el = document.createElement('option'); el.value = opt; el.textContent = opt; select.appendChild(el);
     });
-    
-    // 3. Exibe a janela
+
     document.getElementById('atribuirTecnicoOficioModal').style.display = 'flex';
 }
 
@@ -1729,7 +1858,6 @@ async function salvarAtribuicaoTecnicoOficio() {
     const txtOriginal = btn.innerHTML;
     btn.innerHTML = '⏳ Preparando...'; btn.disabled = true;
 
-    // OPTIMISTIC UPDATE: Atualiza a interface instantaneamente
     const procRef = dadosCoringa.find(a => a['NUP'] === nup);
     let statusOriginal = '';
     let tecnicoOriginal = '';
@@ -1747,17 +1875,17 @@ async function salvarAtribuicaoTecnicoOficio() {
     }
 
     mostrarToast('Processo distribuído localmente. Sincronizando em background...', 'success');
-    
+
     atualizarBadgesNotificacao(dadosCoringa);
     fecharModalAtribuirTecnicoOficio();
     aplicarFiltros();
-    
+
     const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
-    if (newIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { 
-        abrirModal(newIndex); 
+    if (newIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
+        abrirModal(newIndex);
     }
 
-    btn.innerHTML = txtOriginal; 
+    btn.innerHTML = txtOriginal;
     btn.disabled = false;
 
     try {
@@ -1766,7 +1894,7 @@ async function salvarAtribuicaoTecnicoOficio() {
             method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
-        
+
         if (resultado.status === 'success') {
             mostrarToast('Distribuição confirmada na nuvem com sucesso!', 'success');
             if (procRef && resultado.dataDistribuicao) {
@@ -1774,11 +1902,11 @@ async function salvarAtribuicaoTecnicoOficio() {
                 const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
                 if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { abrirModal(currIndex); }
             }
-        } else { 
-            throw new Error(resultado.message); 
+        } else {
+            throw new Error(resultado.message);
         }
     } catch (e) {
-        console.error(e); 
+        console.error(e);
         mostrarToast('Falha na internet ao distribuir. (Revertendo alterações)', 'error');
         if (procRef) {
             procRef['TÉCNICO/ADMIN'] = tecnicoOriginal;
@@ -1928,10 +2056,7 @@ const opcoesAutoTecnico = [
 const opcoesGerencia = [
     "DIFLOR",
     "GCAR",
-    "GEAA",
-    "GEAMB",
-    "DIPRE",
-    "DIBIO"
+    "GEAA"
 ];
 
 function atualizarOpcoesTipo() {
@@ -1992,7 +2117,6 @@ function abrirModalCadastro() {
 
 function fecharModalCadastro() {
     document.getElementById('cadastroModal').style.display = 'none';
-    // Limpar os campos
     ['cadNup', 'cadOficioN', 'cadData', 'cadPrazo', 'cadComarca', 'cadTecnico', 'cadGerencia', 'cadCarms', 'cadReferencia', 'cadObservacao', 'cadOficioArquivo'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -2059,7 +2183,6 @@ async function salvarNovoOficio() {
         const nupFormatado = nup;
         const oficioFormatado = oficioN.replace(/\//g, '-');
 
-        // Lógica de renomeação de acordo com a Aba de Destino
         fileName = (abaDestino === "1") ? `${oficioFormatado}.pdf` : `${nupFormatado}.pdf`;
 
         try {
@@ -2096,7 +2219,6 @@ async function salvarNovoOficio() {
         fileName: fileName
     };
 
-    // OPTIMISTIC UPDATE: Atualiza a interface instantaneamente
     const novoObj = {
         'NUP': payload.nup,
         'OFÍCIO N.': payload.oficio_n,
