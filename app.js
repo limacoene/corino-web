@@ -2381,4 +2381,4 @@ function configurarDragAndDrop(inputId, labelId, updateCallback) {
 }
 
 configurarDragAndDrop('cadOficioArquivo', 'cadOficioArquivoLabel', updateFileNameOficio);
-iniciarSistema();
+document.addEventListener('DOMContentLoaded', iniciarSistema);
