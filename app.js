@@ -77,6 +77,12 @@ let subAbaAtiva = 'Geral';
 let incluirReiteracoes = false;
 let dadosExibidos = [];
 
+function atualizarCacheOficios() {
+    const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
+    const keyOficios = `corino_cache_dados_coringa_${username}`;
+    localStorage.setItem(keyOficios, JSON.stringify(dadosCoringa));
+}
+
 function obterStatusVisual(linha) {
     const status = (linha['STATUS'] || '').toUpperCase().trim();
 
@@ -147,55 +153,102 @@ async function iniciarSistema() {
             });
         }
 
-        const dadosBrutos = await buscarDadosGoogleSheets();
+        const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
+        const keyOficios = `corino_cache_dados_coringa_${username}`;
+        const cacheSalvo = localStorage.getItem(keyOficios);
+        let carregouDeCache = false;
 
-        if (usuarioAtivo) {
-            dadosCoringa = dadosBrutos.filter(linha => {
-                const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
-                const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
-                const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
-                const statusVisual = obterStatusVisual(linha);
-                const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
+        if (cacheSalvo) {
+            try {
+                dadosCoringa = JSON.parse(cacheSalvo);
+                carregouDeCache = true;
 
-                // 1. Ocultar processos "Sem Técnico" + "Finalizado" para não-gestores (tecnico e gerencia_consulta)
-                if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
-                    return false;
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) loadingEl.style.display = 'none';
+
+                ['cgNup', 'andNup', 'atrNup', 'respNup'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.placeholder = 'Pesquisar NUP ou Ofício...';
+                });
+
+                popularTodosOsSelectsNativos();
+
+                const toggleReiteracoes = document.getElementById('toggleReiteracoes');
+                if (toggleReiteracoes && !toggleReiteracoes.dataset.listenerAdded) {
+                    toggleReiteracoes.addEventListener('change', (event) => {
+                        incluirReiteracoes = event.target.checked;
+                        aplicarFiltros();
+                    });
+                    toggleReiteracoes.dataset.listenerAdded = 'true';
                 }
-
-                // 2. Técnicos só visualizam processos de competência direta
-                if (usuarioAtivo.perfil === 'tecnico') {
-                    const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                    return tec === tecnicoLogado;
-                }
-
-                return true;
-            });
-        } else {
-            dadosCoringa = dadosBrutos;
+                atualizarBadgesNotificacao(dadosCoringa);
+                mudarAbaPrincipal('todos');
+            } catch (e) {
+                console.error("Erro ao processar cache de Ofícios:", e);
+            }
         }
 
-        document.getElementById('loading').style.display = 'none';
+        buscarDadosGoogleSheets().then(dadosBrutos => {
+            let novosDados = [];
+            if (usuarioAtivo) {
+                novosDados = dadosBrutos.filter(linha => {
+                    const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+                    const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+                    const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
+                    const statusVisual = obterStatusVisual(linha);
+                    const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
 
-        ['cgNup', 'andNup', 'atrNup', 'respNup'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.placeholder = 'Pesquisar NUP ou Ofício...';
-        });
+                    if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+                        return false;
+                    }
 
-        popularTodosOsSelectsNativos();
+                    if (usuarioAtivo.perfil === 'tecnico') {
+                        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
+                        return tec === tecnicoLogado;
+                    }
 
-        const toggleReiteracoes = document.getElementById('toggleReiteracoes');
-        if (toggleReiteracoes) {
-            toggleReiteracoes.addEventListener('change', (event) => {
-                incluirReiteracoes = event.target.checked;
+                    return true;
+                });
+            } else {
+                novosDados = dadosBrutos;
+            }
+
+            dadosCoringa = novosDados;
+            atualizarCacheOficios();
+
+            const loadingEl = document.getElementById('loading');
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            popularTodosOsSelectsNativos();
+
+            const toggleReiteracoes = document.getElementById('toggleReiteracoes');
+            if (toggleReiteracoes && !toggleReiteracoes.dataset.listenerAdded) {
+                toggleReiteracoes.addEventListener('change', (event) => {
+                    incluirReiteracoes = event.target.checked;
+                    aplicarFiltros();
+                });
+                toggleReiteracoes.dataset.listenerAdded = 'true';
+            }
+            atualizarBadgesNotificacao(dadosCoringa);
+
+            if (filtroAtivo !== 'autos' && filtroAtivo !== 'externos') {
                 aplicarFiltros();
-            });
-        }
-        atualizarBadgesNotificacao(dadosCoringa);
-        mudarAbaPrincipal('todos');
+            }
+        }).catch(erro => {
+            console.error("Erro ao sincronizar dados em background:", erro);
+            if (!carregouDeCache) {
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) loadingEl.innerText = "Erro ao conectar com a base de dados central.";
+            } else {
+                mostrarToast("Conexão instável. Exibindo dados do cache offline.", "warning");
+            }
+        });
 
         carregarAutos();
     } catch (erro) {
-        document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
+        if (!localStorage.getItem(`corino_cache_dados_coringa_${usuarioAtivo ? usuarioAtivo.username : 'guest'}`)) {
+            document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
+        }
         console.error(erro);
     }
 }
@@ -1220,6 +1273,7 @@ function anexarDocumento(event, nup) {
                     target['MOTIVO_AVALIACAO'] = "";
                 }
                 atualizarBadgesNotificacao(dadosCoringa);
+                atualizarCacheOficios();
                 fecharModal();
                 aplicarFiltros();
             } else {
@@ -1346,6 +1400,7 @@ async function removerDocumento(event, nup) {
                 target['MOTIVO_AVALIACAO'] = "";
             }
             atualizarBadgesNotificacao(dadosCoringa);
+            atualizarCacheOficios();
             fecharModal();
             aplicarFiltros();
         } else {
@@ -1424,6 +1479,7 @@ async function avaliarResposta(event, nup, decisao) {
                 }
             }
             atualizarBadgesNotificacao(dadosCoringa);
+            atualizarCacheOficios();
             fecharPreview();
             fecharModal();
             aplicarFiltros();
@@ -1514,6 +1570,7 @@ async function atualizarStatusCI(event, nup, novoStatus) {
                 target['STATUS'] = novoStatus;
             }
             atualizarBadgesNotificacao(dadosCoringa);
+            atualizarCacheOficios();
             aplicarFiltros();
 
             const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
@@ -1877,6 +1934,7 @@ async function salvarAtribuicaoTecnicoOficio() {
     mostrarToast('Processo distribuído localmente. Sincronizando em background...', 'success');
 
     atualizarBadgesNotificacao(dadosCoringa);
+    atualizarCacheOficios();
     fecharModalAtribuirTecnicoOficio();
     aplicarFiltros();
 
@@ -1899,6 +1957,7 @@ async function salvarAtribuicaoTecnicoOficio() {
             mostrarToast('Distribuição confirmada na nuvem com sucesso!', 'success');
             if (procRef && resultado.dataDistribuicao) {
                 procRef['DATA_DISTRIBUICAO'] = resultado.dataDistribuicao;
+                atualizarCacheOficios();
                 const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
                 if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { abrirModal(currIndex); }
             }
@@ -1914,6 +1973,7 @@ async function salvarAtribuicaoTecnicoOficio() {
             procRef['DATA_DISTRIBUICAO'] = dataDistOriginal;
         }
         atualizarBadgesNotificacao(dadosCoringa);
+        atualizarCacheOficios();
         aplicarFiltros();
         const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
         if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') { abrirModal(currIndex); }
@@ -2239,6 +2299,7 @@ async function salvarNovoOficio() {
     fecharModalCadastro();
     aplicarFiltros();
     atualizarBadgesNotificacao(dadosCoringa);
+    atualizarCacheOficios();
     mostrarToast('Ofício lançado localmente. Sincronizando em background...', 'success');
 
     btn.innerHTML = textoOriginal;
@@ -2260,6 +2321,7 @@ async function salvarNovoOficio() {
             dadosCoringa = dadosCoringa.filter(item => item !== novoObj);
             aplicarFiltros();
             atualizarBadgesNotificacao(dadosCoringa);
+            atualizarCacheOficios();
         }
     } catch (error) {
         console.error(error);
@@ -2267,6 +2329,7 @@ async function salvarNovoOficio() {
         dadosCoringa = dadosCoringa.filter(item => item !== novoObj);
         aplicarFiltros();
         atualizarBadgesNotificacao(dadosCoringa);
+        atualizarCacheOficios();
     }
 }
 
