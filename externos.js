@@ -15,6 +15,12 @@ let dadosExternosGlobais = [];
 let externosCarregados = false;
 let externoSelecionadoMockup = null;
 
+function atualizarCacheExternos() {
+    const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
+    const keyExternos = `corino_cache_dados_externos_${username}`;
+    localStorage.setItem(keyExternos, JSON.stringify(dadosExternosGlobais));
+}
+
 function updateFileNameExterno(input) {
     const label = document.getElementById('cadExternoArquivoLabel');
     const textSpan = label.querySelector('.upload-text');
@@ -383,7 +389,26 @@ function filtrarExternos() {
 
 async function carregarExternos() {
     if (externosCarregados) return;
-    document.getElementById('loading-externos').style.display = 'block';
+    
+    const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
+    const keyExternos = `corino_cache_dados_externos_${username}`;
+    const cacheSalvo = localStorage.getItem(keyExternos);
+    let carregouDeCache = false;
+
+    if (cacheSalvo) {
+        try {
+            dadosExternosGlobais = JSON.parse(cacheSalvo);
+            carregouDeCache = true;
+            document.getElementById('loading-externos').style.display = 'none';
+            popularOpcoesExterno();
+            filtrarExternos();
+        } catch (e) {
+            console.error("Erro ao ler cache de Externos:", e);
+        }
+    } else {
+        document.getElementById('loading-externos').style.display = 'block';
+    }
+
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
             method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -392,13 +417,18 @@ async function carregarExternos() {
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
             dadosExternosGlobais = resultado.dados;
+            atualizarCacheExternos();
             popularOpcoesExterno();
             filtrarExternos();
             externosCarregados = true;
         }
     } catch (e) {
         console.error(e);
-        mostrarToast('Erro ao carregar Ofícios Externos.', 'error');
+        if (!carregouDeCache) {
+            mostrarToast('Erro ao carregar Ofícios Externos.', 'error');
+        } else {
+            mostrarToast('Conexão instável. Exibindo dados do cache de Externos offline.', 'warning');
+        }
     } finally {
         document.getElementById('loading-externos').style.display = 'none';
     }
@@ -461,6 +491,7 @@ async function salvarNovoExterno() {
     dadosExternosGlobais.unshift(novoItem);
     fecharModalCadastroExterno();
     filtrarExternos();
+    atualizarCacheExternos();
     mostrarToast('Ofício Externo lançado localmente. Sincronizando...', 'success');
     btn.innerHTML = textoOriginal; btn.disabled = false;
 
@@ -470,10 +501,17 @@ async function salvarNovoExterno() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') { mostrarToast('Sincronizado com sucesso!', 'success'); }
-        else { mostrarToast('Erro: ' + resultado.message, 'error'); dadosExternosGlobais = dadosExternosGlobais.filter(item => item !== novoItem); filtrarExternos(); }
+        else { 
+            mostrarToast('Erro: ' + resultado.message, 'error'); 
+            dadosExternosGlobais = dadosExternosGlobais.filter(item => item !== novoItem); 
+            filtrarExternos(); 
+            atualizarCacheExternos();
+        }
     } catch (e) {
         console.error(e); mostrarToast('Falha na internet. (Revertendo)', 'error');
-        dadosExternosGlobais = dadosExternosGlobais.filter(item => item !== novoItem); filtrarExternos();
+        dadosExternosGlobais = dadosExternosGlobais.filter(item => item !== novoItem); 
+        filtrarExternos(); 
+        atualizarCacheExternos();
     }
 }
 
@@ -649,6 +687,7 @@ function anexarDocumentoExt(event, nup) {
                     target['MOTIVO DA AVALIAÇÃO'] = "";
                 }
                 filtrarExternos();
+                atualizarCacheExternos();
             } else {
                 mostrarToast('Erro: ' + resultado.message, 'error');
                 btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
@@ -695,6 +734,7 @@ function anexarPdfOriginalExt(event, nup) {
                     target['LINK-NUP'] = resultado.url;
                 }
                 filtrarExternos();
+                atualizarCacheExternos();
             } else {
                 mostrarToast('Erro: ' + resultado.message, 'error');
                 btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
@@ -730,6 +770,7 @@ async function removerDocumentoExt(event, nup) {
                 target['MOTIVO DA AVALIAÇÃO'] = "";
             }
             filtrarExternos();
+            atualizarCacheExternos();
         } else {
             mostrarToast('Erro: ' + resultado.message, 'error'); btn.innerHTML = textoOriginal; btn.disabled = false;
         }
@@ -759,6 +800,7 @@ async function avaliarRespostaExt(event, nup, decisao) {
                 target['STATUS'] = (decisao === 'APROVADO') ? "FAZER CI" : "AGUARDANDO MANIFESTAÇÃO TÉCNICA";
             }
             filtrarExternos();
+            atualizarCacheExternos();
         } else {
             mostrarToast('Erro: ' + resultado.message, 'error'); btn.innerHTML = textoOriginal; btn.disabled = false;
         }
@@ -815,6 +857,7 @@ async function salvarAtribuicaoTecnicoExterno() {
 
     fecharModalAtribuirTecnicoExterno();
     filtrarExternos();
+    atualizarCacheExternos();
 
     btn.innerHTML = txtOriginal;
     btn.disabled = false;
@@ -831,6 +874,7 @@ async function salvarAtribuicaoTecnicoExterno() {
             if (procRef && resultado.dataRepasse) {
                 procRef['DATA DE REPASSE'] = resultado.dataRepasse;
                 filtrarExternos();
+                atualizarCacheExternos();
             }
         } else {
             throw new Error(resultado.message);
@@ -844,6 +888,7 @@ async function salvarAtribuicaoTecnicoExterno() {
             procRef['DATA DE REPASSE'] = dataRepasseOriginal;
         }
         filtrarExternos();
+        atualizarCacheExternos();
     }
 }
 

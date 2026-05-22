@@ -83,15 +83,15 @@
                 <div class="filter-grid">
                     <div class="filter-group">
                         <label>NUP / Ofício</label>
-                        <input type="text" id="cgNup" oninput="maskNUP(event)">
+                        <input type="text" id="cgNup" oninput="maskNUP(event); aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Ofício N.</label>
-                        <input type="text" id="cgOficio">
+                        <input type="text" id="cgOficio" oninput="aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Nº CARMS</label>
-                        <input type="text" id="cgCarms">
+                        <input type="text" id="cgCarms" oninput="aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Gerência</label>
@@ -146,11 +146,11 @@
                 <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
                     <div class="filter-group">
                         <label>NUP</label>
-                        <input type="text" id="distNup" oninput="maskNUP(event)">
+                        <input type="text" id="distNup" oninput="maskNUP(event); aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Ofício N.</label>
-                        <input type="text" id="distOficio">
+                        <input type="text" id="distOficio" oninput="aplicarFiltros()">
                     </div>
                 </div>
             </div>
@@ -170,11 +170,11 @@
                 <div class="filter-grid">
                     <div class="filter-group">
                         <label>NUP</label>
-                        <input type="text" id="andNup" oninput="maskNUP(event)">
+                        <input type="text" id="andNup" oninput="maskNUP(event); aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Ofício N.</label>
-                        <input type="text" id="andOficio">
+                        <input type="text" id="andOficio" oninput="aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Técnico</label>
@@ -208,11 +208,11 @@
                 <div class="filter-grid">
                     <div class="filter-group">
                         <label>NUP</label>
-                        <input type="text" id="atrNup" oninput="maskNUP(event)">
+                        <input type="text" id="atrNup" oninput="maskNUP(event); aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Ofício N.</label>
-                        <input type="text" id="atrOficio">
+                        <input type="text" id="atrOficio" oninput="aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Técnico</label>
@@ -246,11 +246,11 @@
                 <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                     <div class="filter-group">
                         <label>NUP</label>
-                        <input type="text" id="respNup" oninput="maskNUP(event)">
+                        <input type="text" id="respNup" oninput="maskNUP(event); aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Ofício N.</label>
-                        <input type="text" id="respOficio">
+                        <input type="text" id="respOficio" oninput="aplicarFiltros()">
                     </div>
                     <div class="filter-group">
                         <label>Técnico</label>
@@ -270,23 +270,23 @@
                 <div class="filter-grid">
                     <div class="filter-group">
                         <label>NUP</label>
-                        <input type="text" id="filtro-auto-nup" oninput="maskNUP(event)">
+                        <input type="text" id="filtro-auto-nup" oninput="maskNUP(event); filtrarAutos()">
                     </div>
                     <div class="filter-group">
                         <label>Requerente</label>
-                        <input type="text" id="filtro-auto-req">
+                        <input type="text" id="filtro-auto-req" oninput="filtrarAutos()">
                     </div>
                     <div class="filter-group">
                         <label>Auto de Infração</label>
-                        <input type="text" id="filtro-auto-inf">
+                        <input type="text" id="filtro-auto-inf" oninput="filtrarAutos()">
                     </div>
                     <div class="filter-group">
                         <label>Laudo</label>
-                        <input type="text" id="filtro-auto-laudo">
+                        <input type="text" id="filtro-auto-laudo" oninput="filtrarAutos()">
                     </div>
                     <div class="filter-group">
                         <label>Notificação</label>
-                        <input type="text" id="filtro-auto-notif">
+                        <input type="text" id="filtro-auto-notif" oninput="filtrarAutos()">
                     </div>
                     <div class="filter-group">
                         <label>Setor</label>

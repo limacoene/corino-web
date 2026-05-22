@@ -16,6 +16,12 @@ let autosPicker = null;
 let autosCarregados = false;
 let autoSelecionadoMockup = null;
 
+function atualizarCacheAutos() {
+    const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
+    const keyAutos = `corino_cache_dados_autos_${username}`;
+    localStorage.setItem(keyAutos, JSON.stringify(dadosAutosGlobais));
+}
+
 function updateFileNameAuto(input) {
     const label = document.getElementById('cadAutoArquivoLabel');
     const textSpan = label.querySelector('.upload-text');
@@ -336,6 +342,7 @@ async function salvarAtribuicaoTecnico() {
     mostrarToast('Técnico atribuído localmente. Sincronizando em background...', 'success');
     fecharModalAtribuirTecnico();
     filtrarAutos();
+    atualizarCacheAutos();
     
     btn.innerHTML = txtOriginal; 
     btn.disabled = false;
@@ -359,6 +366,7 @@ async function salvarAtribuicaoTecnico() {
             autoRef['TÉCNICO'] = tecnicoOriginal;
         }
         filtrarAutos();
+        atualizarCacheAutos();
     } 
 }
 
@@ -397,7 +405,26 @@ function filtrarAutos() {
 
 async function carregarAutos() {
     if (autosCarregados) return;
-    document.getElementById('loading-autos').style.display = 'block';
+    
+    const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
+    const keyAutos = `corino_cache_dados_autos_${username}`;
+    const cacheSalvo = localStorage.getItem(keyAutos);
+    let carregouDeCache = false;
+
+    if (cacheSalvo) {
+        try {
+            dadosAutosGlobais = JSON.parse(cacheSalvo);
+            carregouDeCache = true;
+            document.getElementById('loading-autos').style.display = 'none';
+            popularOpcoesAuto();
+            filtrarAutos();
+        } catch (e) {
+            console.error("Erro ao ler cache de Autos:", e);
+        }
+    } else {
+        document.getElementById('loading-autos').style.display = 'block';
+    }
+
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
             method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -405,13 +432,28 @@ async function carregarAutos() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
+            let novosDados = [];
             if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
-                dadosAutosGlobais = resultado.dados.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
-            } else { dadosAutosGlobais = resultado.dados; }
-            popularOpcoesAuto(); filtrarAutos(); autosCarregados = true;
+                novosDados = resultado.dados.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
+            } else { novosDados = resultado.dados; }
+            
+            dadosAutosGlobais = novosDados;
+            atualizarCacheAutos();
+            
+            popularOpcoesAuto();
+            filtrarAutos();
+            autosCarregados = true;
         }
-    } catch (e) { console.error(e); mostrarToast('Erro ao carregar Autos de Infração.', 'error'); }
-    finally { document.getElementById('loading-autos').style.display = 'none'; }
+    } catch (e) {
+        console.error(e);
+        if (!carregouDeCache) {
+            mostrarToast('Erro ao carregar Autos de Infração.', 'error');
+        } else {
+            mostrarToast('Conexão instável. Exibindo dados do cache de Autos offline.', 'warning');
+        }
+    } finally {
+        document.getElementById('loading-autos').style.display = 'none';
+    }
 }
 
 async function salvarNovoAuto() {
@@ -450,7 +492,7 @@ async function salvarNovoAuto() {
 
     const novoItem = { 'NUP': payload.nup, 'REQUERENTE': payload.requerente, 'AUTO DE INFRAÇÃO': payload.auto_infracao, 'LAUDO DE CONSTATAÇÃO': payload.laudo, 'NOTIFICAÇÃO': payload.notificacao, 'DATA DE REPASSE': payload.data_repasse, 'SETOR': payload.setor, 'STATUS ATUAL': payload.status_atual, 'TIPO': payload.tipo, 'TÉCNICO': payload.tecnico, 'FISICO/E-MS': payload.fisico_ems };
     dadosAutosGlobais.unshift(novoItem);
-    fecharModalCadastroAuto(); filtrarAutos(); mostrarToast('Auto lançado localmente. Sincronizando...', 'success');
+    fecharModalCadastroAuto(); filtrarAutos(); atualizarCacheAutos(); mostrarToast('Auto lançado localmente. Sincronizando...', 'success');
     btn.innerHTML = textoOriginal; btn.disabled = false;
 
     try {
@@ -459,10 +501,10 @@ async function salvarNovoAuto() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') { mostrarToast('Auto sincronizado com sucesso!', 'success'); }
-        else { mostrarToast('Erro: ' + resultado.message + ' (Revertendo)', 'error'); dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos(); }
+        else { mostrarToast('Erro: ' + resultado.message + ' (Revertendo)', 'error'); dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos(); atualizarCacheAutos(); }
     } catch (e) {
         console.error(e); mostrarToast('Falha na internet ao salvar Auto. (Revertendo)', 'error');
-        dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos();
+        dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos(); atualizarCacheAutos();
     }
 }
 
