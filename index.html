@@ -2,19 +2,41 @@
 <html lang="pt-PT">
 
 <head>
+    <script>
+        if (!sessionStorage.getItem('corino_user')) {
+            window.location.replace('login.html');
+        }
+        const savedTheme = localStorage.getItem('corino_theme') || 'dark';
+        if (savedTheme === 'light') {
+            document.documentElement.classList.add('light-mode');
+        }
+
+        function alternarTema() {
+            const isLight = document.documentElement.classList.toggle('light-mode');
+            localStorage.setItem('corino_theme', isLight ? 'light' : 'dark');
+            if (typeof mostrarToast === 'function') {
+                mostrarToast(isLight ? "Modo claro ativado!" : "Modo escuro ativado!", "success");
+            }
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>C.O.R.I.N.O. | Diretoria Florestal</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="flatpickr.min.css">
 </head>
 
 <body>
     <aside class="sidebar" id="sidebar">
-        <div class="brand">
-            <h1 class="logo">🌲 DIFLOR</h1>
-            <p class="subtitle">Sistema da Diretoria Florestal</p>
+        <div class="brand" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 10px;">
+            <div>
+                <h1 class="logo" style="font-size: 24px;">🌲 DIFLOR</h1>
+                <p class="subtitle">Sistema da Diretoria Florestal</p>
+            </div>
+            <button id="btn-theme-toggle" class="btn-theme-toggle" onclick="alternarTema()" title="Alternar Tema" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 18px; padding: 6px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: var(--text-light); flex-shrink: 0;">
+                🌓
+            </button>
         </div>
         <hr class="divider">
         <nav class="menu" style="flex-grow: 1;">

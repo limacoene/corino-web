@@ -392,6 +392,20 @@ async function carregarExternos() {
     
     const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
     const keyExternos = `corino_cache_dados_externos_${username}`;
+
+    // Migrar dados temporários pré-carregados se existirem
+    const tempRawExternos = localStorage.getItem('corino_temp_raw_externos');
+    if (tempRawExternos) {
+        try {
+            const dadosBrutos = JSON.parse(tempRawExternos);
+            localStorage.setItem(keyExternos, JSON.stringify(dadosBrutos));
+            localStorage.removeItem('corino_temp_raw_externos');
+            console.log("Externos pré-carregados aplicados com sucesso ao cache do usuário logado.");
+        } catch (e) {
+            console.error("Erro ao processar dados pré-carregados de Externos:", e);
+        }
+    }
+
     const cacheSalvo = localStorage.getItem(keyExternos);
     let carregouDeCache = false;
 
@@ -624,10 +638,15 @@ function abrirPreviewExterno(event, url, nup) {
         let downloadPrincipalUrlFull = principalId ? `https://drive.google.com/uc?export=download&id=${principalId}` : linkDrive;
         let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
 
+        // Determina qual aba deve iniciar ativa com base na URL atualmente aberta
+        const isPrincipalActive = (url === principalPreviewUrl || url === linkDrive);
+        const activePrincipalClass = isPrincipalActive ? 'active' : '';
+        const activeRespClass = !isPrincipalActive ? 'active' : '';
+
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="document.getElementById('previewFrame').src='${principalPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadPrincipalUrlFull}';" class="btn-drive btn-preview" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício Original</button>
-                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive btn-orange-outline" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${principalPreviewUrl}', '${downloadPrincipalUrlFull}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activePrincipalClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício Original</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${downloadRespUrlFull}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }

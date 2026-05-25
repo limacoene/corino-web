@@ -408,6 +408,26 @@ async function carregarAutos() {
     
     const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
     const keyAutos = `corino_cache_dados_autos_${username}`;
+
+    // Migrar dados temporários pré-carregados se existirem
+    const tempRawAutos = localStorage.getItem('corino_temp_raw_autos');
+    if (tempRawAutos) {
+        try {
+            const dadosBrutos = JSON.parse(tempRawAutos);
+            let novosDados = [];
+            if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+                novosDados = dadosBrutos.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
+            } else { 
+                novosDados = dadosBrutos; 
+            }
+            localStorage.setItem(keyAutos, JSON.stringify(novosDados));
+            localStorage.removeItem('corino_temp_raw_autos');
+            console.log("Autos pré-carregados aplicados com sucesso ao cache do usuário logado.");
+        } catch (e) {
+            console.error("Erro ao processar dados pré-carregados de Autos:", e);
+        }
+    }
+
     const cacheSalvo = localStorage.getItem(keyAutos);
     let carregouDeCache = false;
 

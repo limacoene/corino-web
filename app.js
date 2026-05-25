@@ -33,6 +33,33 @@ function fazerLogout() {
     window.location.href = 'login.html';
 }
 
+// CONTROLE DE INATIVIDADE (DESLOGAR APÓS 8 MINUTOS)
+(function iniciarControleInatividade() {
+    const TEMPO_LIMITE_INATIVIDADE = 8 * 60 * 1000; // 8 minutos em milissegundos
+    let tempoInatividade;
+
+    function resetarTemporizador() {
+        clearTimeout(tempoInatividade);
+        tempoInatividade = setTimeout(deslogarPorInatividade, TEMPO_LIMITE_INATIVIDADE);
+    }
+
+    function deslogarPorInatividade() {
+        console.warn("Usuário inativo por mais de 8 minutos. Efetuando logout...");
+        sessionStorage.setItem('corino_logout_reason', 'inactivity');
+        fazerLogout();
+    }
+
+    // Ouvintes para capturar qualquer atividade do usuário
+    const eventos = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll', 'click'];
+    eventos.forEach(evento => {
+        window.addEventListener(evento, resetarTemporizador, { passive: true });
+    });
+
+    // Inicializa o temporizador ao carregar a página
+    resetarTemporizador();
+})();
+
+
 // TOAST NOTIFICATIONS
 function mostrarToast(mensagem, tipo = 'success') {
     const container = document.getElementById('toast-container');
@@ -108,17 +135,17 @@ function obterInfoDinamicaStatus(linha) {
     const MAX_PRAZO_VISUAL = 30;
 
     if (statusVisual.texto.includes('FINALIZADO')) {
-        percentual = 100; corFundo = '#00fa9a';
+        percentual = 100; corFundo = 'var(--status-finalizado, #00fa9a)';
     } else if (isNaN(numeroDiasRestantes)) {
         percentual = 0; corFundo = 'transparent';
     } else {
         if (numeroDiasRestantes < 0) {
-            percentual = 100; corFundo = '#ff4b4b'; pulsingClass = 'pulse-bar';
+            percentual = 100; corFundo = 'var(--status-atrasado, #ff4b4b)'; pulsingClass = 'pulse-bar';
         } else {
             const diasDecorridosVisual = MAX_PRAZO_VISUAL - numeroDiasRestantes;
             percentual = Math.min(Math.max(0, (diasDecorridosVisual / MAX_PRAZO_VISUAL) * 100), 99);
             const hue = 120 - (percentual * 1.2);
-            corFundo = `hsl(${hue}, 100%, 50%)`;
+            corFundo = `hsl(${hue}, var(--status-saturation, 100%), var(--status-lightness, 50%))`;
             if (percentual >= 70) pulsingClass = 'pulse-bar-warning';
         }
     }
@@ -155,6 +182,46 @@ async function iniciarSistema() {
 
         const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
         const keyOficios = `corino_cache_dados_coringa_${username}`;
+
+        // Migrar dados temporários pré-carregados se existirem
+        const tempRawDados = localStorage.getItem('corino_temp_raw_dados');
+        if (tempRawDados) {
+            try {
+                const dadosBrutos = JSON.parse(tempRawDados);
+                const dadosProcessados = dadosBrutos.map(limparEPadronizarLinha);
+                
+                let novosDados = [];
+                if (usuarioAtivo) {
+                    novosDados = dadosProcessados.filter(linha => {
+                        const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+                        const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+                        const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
+                        const statusVisual = obterStatusVisual(linha);
+                        const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
+
+                        if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+                            return false;
+                        }
+
+                        if (usuarioAtivo.perfil === 'tecnico') {
+                            const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
+                            return tec === tecnicoLogado;
+                        }
+
+                        return true;
+                    });
+                } else {
+                    novosDados = dadosProcessados;
+                }
+
+                localStorage.setItem(keyOficios, JSON.stringify(novosDados));
+                localStorage.removeItem('corino_temp_raw_dados');
+                console.log("Ofícios pré-carregados aplicados com sucesso ao cache do usuário logado.");
+            } catch (e) {
+                console.error("Erro ao processar dados pré-carregados de Ofícios:", e);
+            }
+        }
+
         const cacheSalvo = localStorage.getItem(keyOficios);
         let carregouDeCache = false;
 
@@ -1843,10 +1910,15 @@ function abrirPreview(url, index) {
         let downloadOficioUrlFull = ofId ? `https://drive.google.com/uc?export=download&id=${ofId}` : linkOficio;
         let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
 
+        // Determina qual aba deve iniciar ativa com base na URL atualmente aberta
+        const isOficioActive = (url === oficioPreviewUrl || url === linkOficio);
+        const activeOficioClass = isOficioActive ? 'active' : '';
+        const activeRespClass = !isOficioActive ? 'active' : '';
+
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="document.getElementById('previewFrame').src='${oficioPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadOficioUrlFull}';" class="btn-drive btn-preview" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
-                 <button onclick="document.getElementById('previewFrame').src='${respPreviewUrl}'; document.getElementById('btn-download-preview').href='${downloadRespUrlFull}';" class="btn-drive btn-orange-outline" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${oficioPreviewUrl}', '${downloadOficioUrlFull}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activeOficioClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${downloadRespUrlFull}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }
