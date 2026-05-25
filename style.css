@@ -2095,3 +2095,67 @@ html.light-mode #cards-container div[style*="background-color: rgb(14, 17, 23)"]
     color: var(--text-light) !important;
     box-shadow: 0 4px 6px rgba(0,0,0,0.02) !important;
 }
+
+/* ============================================================================
+   CORREÇÃO DE CONTRASTE E VISIBILIDADE DAS RESPOSTAS ANEXADAS NO MODO CLARO
+   ============================================================================ */
+
+/* 1. Botão de visualização e controle da resposta (Laranja) */
+html.light-mode .btn-orange-outline {
+    background-color: rgba(230, 126, 34, 0.08) !important;
+    border-color: #d35400 !important;
+    color: #d35400 !important;
+}
+html.light-mode .btn-orange-outline:hover {
+    background-color: rgba(230, 126, 34, 0.15) !important;
+    border-color: #e67e22 !important;
+    color: #e67e22 !important;
+}
+
+/* 2. Botão de Anexar Resposta para Externos (Roxo) */
+html.light-mode .btn-purple {
+    background-color: rgba(142, 68, 173, 0.08) !important;
+    border-color: #7d3c98 !important;
+    color: #7d3c98 !important;
+}
+html.light-mode .btn-purple:hover {
+    background-color: rgba(142, 68, 173, 0.15) !important;
+    border-color: #8e44ad !important;
+    color: #8e44ad !important;
+}
+
+/* 3. Botões de Retirar Resposta e Reprovação (Vermelho) */
+html.light-mode .btn-red-outline {
+    background-color: rgba(192, 41, 43, 0.08) !important;
+    border-color: #c0392b !important;
+    color: #c0392b !important;
+}
+html.light-mode .btn-red-outline:hover {
+    background-color: rgba(192, 41, 43, 0.15) !important;
+    border-color: #e74c3c !important;
+    color: #e74c3c !important;
+}
+
+/* 4. Botões de Aprovação (Verde) */
+html.light-mode .btn-green-outline {
+    background-color: rgba(39, 174, 96, 0.08) !important;
+    border-color: #27ae60 !important;
+    color: #27ae60 !important;
+}
+html.light-mode .btn-green-outline:hover {
+    background-color: rgba(39, 174, 96, 0.15) !important;
+    border-color: #2ecc71 !important;
+    color: #2ecc71 !important;
+}
+
+/* 5. Caixa de Resposta Anexada (Ajuste de Fundo e Bordas para suavidade) */
+html.light-mode div[style*="background-color: rgba(140, 86, 51, 0.1)"] {
+    background-color: rgba(140, 86, 51, 0.06) !important;
+    border-color: rgba(140, 86, 51, 0.25) !important;
+}
+
+/* 6. Correção do Texto do Motivo de Reprovação (#ffcccc inline) */
+html.light-mode div[style*="color: #ffcccc"],
+html.light-mode [style*="color: #ffcccc"] {
+    color: #a82c2c !important; /* Vermelho escuro altamente legível no modo claro */
+}
