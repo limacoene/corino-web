@@ -1,17 +1,77 @@
 :root {
     --bg-main: #171717;
-    /* Cinza fosco neutro (matte) */
     --bg-sidebar: #0a0a0a;
-    /* Fundo mais denso, sem saturação */
     --card-bg: #262626;
-    /* Cinza fosco médio */
     --card-border: #404040;
-    /* Borda suave */
     --badge-gray: #404040;
     --text-light: #f5f5f5;
     --text-muted: #a3a3a3;
     --primary-green: #2ea043;
-    /* Verde um pouco mais suave para harmonizar */
+    
+    /* Variáveis extras para controle completo de temas */
+    --sidebar-bg: rgba(10, 10, 10, 0.65);
+    --sidebar-border: rgba(255, 255, 255, 0.05);
+    --filter-bg: rgba(14, 17, 23, 0.9);
+    --filter-border: rgba(255, 255, 255, 0.1);
+    --filter-border-inner: rgba(255, 255, 255, 0.05);
+    --filter-hover-bg: rgba(255, 255, 255, 0.05);
+    --module-header-bg: rgba(255, 255, 255, 0.03);
+    --module-header-border: rgba(255, 255, 255, 0.05);
+    --module-content-border: rgba(255, 255, 255, 0.05);
+    --header-border: rgba(255, 255, 255, 0.08);
+    --input-bg: #1a1a1a;
+    --input-border: #333333;
+    --input-color: #ffffff;
+    --option-hover-bg: #2a2a2a;
+    --tab-active-color: #ffffff;
+    --tab-active-bg: #333333;
+    --modal-bg: #1a1a1a;
+    --modal-border: #333333;
+    --toast-bg: rgba(26, 26, 26, 0.95);
+    --toast-color: #ffffff;
+
+    /* Variáveis de Status dinâmico */
+    --status-saturation: 100%;
+    --status-lightness: 50%;
+    --status-finalizado: #00fa9a;
+    --status-atrasado: #ff4b4b;
+}html.light-mode {
+    --bg-main: #eef1f6; /* Fundo cinza fosco neutro muito suave e confortável */
+    --bg-sidebar: #f7f9fc; /* Fundo sidebar branco-acinzentado fosco premium */
+    --card-bg: #fafbfc; /* Cards em off-white fosco sutil, eliminando reflexos vibrantes */
+    --card-border: #cbd5e1; /* Borda suave */
+    --badge-gray: #e2e8f0;
+    --text-light: #2d3748; /* Cinza carvão para melhor conforto ocular */
+    --text-muted: #5a6a85; /* Cinza médio suave */
+    --primary-green: #27ae60;
+    
+    /* Variáveis extras para o modo claro */
+    --sidebar-bg: rgba(247, 249, 252, 0.85); /* Sidebar mais opaca e fosca */
+    --sidebar-border: rgba(0, 0, 0, 0.08);
+    --filter-bg: rgba(250, 251, 252, 0.95);
+    --filter-border: rgba(0, 0, 0, 0.08);
+    --filter-border-inner: rgba(0, 0, 0, 0.04);
+    --filter-hover-bg: rgba(0, 0, 0, 0.02);
+    --module-header-bg: rgba(0, 0, 0, 0.02);
+    --module-header-border: rgba(0, 0, 0, 0.04);
+    --module-content-border: rgba(0, 0, 0, 0.04);
+    --header-border: rgba(0, 0, 0, 0.08);
+    --input-bg: #ffffff;
+    --input-border: #cbd5e1;
+    --input-color: #2d3748;
+    --option-hover-bg: #eef1f6;
+    --tab-active-color: #2d3748;
+    --tab-active-bg: #e2e8f0;
+    --modal-bg: #fafbfc;
+    --modal-border: #cbd5e1;
+    --toast-bg: rgba(250, 251, 252, 0.98);
+    --toast-color: #2d3748;
+
+    /* Variáveis de Status dinâmico no Modo Claro */
+    --status-saturation: 75%; /* Saturação reduzida para cores menos vibrantes */
+    --status-lightness: 32%; /* Redução de luminosidade para legibilidade */
+    --status-finalizado: #218c53; /* Verde mate escuro de alta legibilidade */
+    --status-atrasado: #a82c2c; /* Vermelho mate escuro de alta legibilidade */
 }
 
 * {
@@ -213,7 +273,7 @@ body {
     border-radius: 8px;
     margin-bottom: 25px;
     position: relative;
-    z-index: 10;
+    z-index: 90;
 }
 
 .advanced-filters summary {
@@ -427,6 +487,8 @@ body {
 /* ANIMAÇÃO DE TRANSIÇÃO DE ABAS */
 .tab-section {
     animation: fadeScaleTab 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    position: relative;
+    z-index: 20;
 }
 
 @keyframes fadeScaleTab {
@@ -1547,6 +1609,11 @@ input:checked+.slider:before {
     justify-content: center;
 }
 
+#confirmModal {
+    z-index: 2000;
+}
+
+
 /* BADGES DE NOTIFICACAO */
 .notification-badge {
     display: inline-flex;
@@ -1572,4 +1639,459 @@ input:checked+.slider:before {
     padding: 0 5px;
     margin-left: 6px;
     transform: translateY(-1px);
+}
+
+/* =========================================
+   REGRAS DE CONTRASTE EXTRAS PARA MODO CLARO
+   ========================================= */
+html.light-mode {
+    background-color: var(--bg-main);
+    color: var(--text-light);
+}
+
+html.light-mode body {
+    background-color: var(--bg-main);
+    color: var(--text-light);
+}
+
+html.light-mode .sidebar {
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+}
+
+html.light-mode .divider {
+    border-top-color: var(--card-border);
+}
+
+html.light-mode .menu-btn {
+    color: var(--text-muted);
+}
+
+html.light-mode .menu-btn:hover,
+html.light-mode .menu-btn.active {
+    background-color: #edf2f7 !important;
+    color: #1a202c !important;
+    border-left: 4px solid var(--primary-green);
+}
+
+html.light-mode .module-header {
+    background-color: var(--module-header-bg);
+    border-color: var(--module-header-border);
+    color: var(--text-light);
+}
+
+html.light-mode .module-header:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+html.light-mode .module-content {
+    border-left-color: var(--module-content-border);
+}
+
+html.light-mode .advanced-filters {
+    background-color: var(--filter-bg);
+    border-color: var(--filter-border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+html.light-mode .advanced-filters summary {
+    border-bottom-color: var(--filter-border-inner);
+    color: var(--text-light);
+}
+
+html.light-mode .advanced-filters summary:hover {
+    background-color: var(--filter-hover-bg);
+}
+
+html.light-mode .filter-group label {
+    color: var(--text-muted);
+}
+
+html.light-mode .filter-group input[type="text"] {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    color: var(--input-color);
+}
+
+html.light-mode .filter-group input[type="text"]::placeholder {
+    color: #a0aec0;
+}
+
+html.light-mode .ms-display {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+}
+
+html.light-mode .ms-placeholder {
+    color: #a0aec0;
+}
+
+html.light-mode .ms-dropdown {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+
+html.light-mode .ms-option:hover {
+    background-color: var(--option-hover-bg);
+}
+
+html.light-mode .ms-option label {
+    color: var(--text-light);
+}
+
+html.light-mode .mini-tabs {
+    background-color: #e2e8f0;
+    border-color: #cbd5e0;
+}
+
+html.light-mode .mini-tab:hover {
+    color: var(--text-light);
+    background-color: rgba(0,0,0,0.05);
+}
+
+html.light-mode .mini-tab.active {
+    color: var(--text-light);
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+html.light-mode .btn-export-full {
+    color: var(--text-light);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+html.light-mode .btn-export-full:hover {
+    border-color: var(--primary-green);
+    color: var(--primary-green);
+}
+
+html.light-mode .results-count {
+    color: var(--text-light);
+}
+
+/* Modals */
+html.light-mode .modal {
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+html.light-mode .modal-content {
+    background-color: var(--modal-bg) !important;
+    border-color: var(--modal-border) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+html.light-mode .modal-content h2,
+html.light-mode .modal-content h3 {
+    color: var(--text-light) !important;
+    border-bottom-color: var(--card-border) !important;
+}
+
+html.light-mode .modal-content p,
+html.light-mode #confirmMessage {
+    color: var(--text-muted) !important;
+}
+
+html.light-mode .modal-obs {
+    background-color: #f7fafc;
+    border-color: #e2e8f0;
+    color: #4a5568;
+}
+
+html.light-mode .close-btn {
+    color: #888;
+}
+
+html.light-mode .close-btn:hover {
+    color: #1a202c;
+}
+
+html.light-mode .btn-preview {
+    background-color: #f7fafc;
+    border-color: #e2e8f0;
+    color: #4a5568;
+}
+
+html.light-mode .btn-preview:hover {
+    background-color: #edf2f7;
+}
+
+html.light-mode .btn-soft-gray {
+    background-color: #e2e8f0;
+    border-color: #cbd5e0;
+    color: #4a5568 !important;
+}
+
+html.light-mode .btn-soft-gray:hover {
+    background-color: #cbd5e0;
+    color: #1a202c !important;
+}
+
+/* Preview Modal */
+html.light-mode .preview-toolbar {
+    background-color: #ffffff;
+    border-bottom-color: #cbd5e0;
+}
+
+html.light-mode .preview-toolbar-title {
+    color: #1a202c;
+}
+
+html.light-mode .btn-preview-action {
+    background-color: #ffffff;
+    color: #4a5568;
+    border-color: #cbd5e0;
+}
+
+html.light-mode .btn-preview-action:hover {
+    background-color: #edf2f7;
+    color: #1a202c;
+}
+
+html.light-mode .btn-close-preview {
+    background-color: rgba(255, 75, 75, 0.1);
+    border-color: rgba(255, 75, 75, 0.2);
+    color: #ff4b4b;
+}
+
+html.light-mode .btn-close-preview:hover {
+    background-color: rgba(255, 75, 75, 0.2);
+    color: #ff4b4b;
+}
+
+html.light-mode .preview-info {
+    background-color: #ffffff;
+    border-left-color: #cbd5e0;
+    color: #4a5568;
+}
+
+html.light-mode .preview-info strong {
+    color: #1a202c;
+}
+
+html.light-mode .preview-info-obs {
+    background-color: #f7fafc;
+    border-color: #e2e8f0;
+}
+
+/* Preview Modal Toggle Tabs Active Indicators */
+.btn-preview-toggle-tab {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.btn-preview-toggle-tab.active {
+    box-shadow: 0 0 0 2px var(--primary-green), 0 0 12px rgba(46, 160, 67, 0.45) !important;
+    font-weight: bold !important;
+    transform: translateY(-1px);
+}
+
+html.light-mode .btn-preview-toggle-tab.active {
+    box-shadow: 0 0 0 2px var(--primary-green), 0 0 12px rgba(39, 174, 96, 0.35) !important;
+}
+
+/* Lists and Cards */
+html.light-mode #left-panel-inbox-oficios > div,
+html.light-mode #lista-autos-container > div > div,
+html.light-mode #lista-externos-container > div > div {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+html.light-mode #left-panel-inbox-oficios > div:hover,
+html.light-mode #lista-autos-container > div > div:hover,
+html.light-mode #lista-externos-container > div > div:hover {
+    background-color: #f7fafc !important;
+    border-color: #cbd5e0 !important;
+}
+
+html.light-mode #left-panel-inbox-oficios > div[style*="background-color: rgba(46, 204, 113, 0.1)"],
+html.light-mode #lista-autos-container > div > div[style*="background-color: rgba(46, 204, 113, 0.1)"] {
+    background-color: rgba(46, 204, 113, 0.15) !important;
+    border-color: var(--primary-green) !important;
+}
+
+html.light-mode #left-panel-inbox-oficios > div[style*="background-color: rgba(142, 68, 173, 0.1)"],
+html.light-mode #lista-externos-container > div > div[style*="background-color: rgba(142, 68, 173, 0.1)"] {
+    background-color: rgba(142, 68, 173, 0.15) !important;
+    border-color: #8e44ad !important;
+}
+
+/* Detalhes */
+html.light-mode #right-panel-detalhes-oficios,
+html.light-mode #right-panel-detalhes-autos,
+html.light-mode #right-panel-detalhes-ext {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.03);
+}
+
+html.light-mode #right-panel-detalhes-oficios div,
+html.light-mode #right-panel-detalhes-autos div,
+html.light-mode #right-panel-detalhes-ext div,
+html.light-mode #right-panel-detalhes-oficios span,
+html.light-mode #right-panel-detalhes-autos span,
+html.light-mode #right-panel-detalhes-ext span {
+    color: var(--text-light);
+}
+
+html.light-mode #right-panel-detalhes-oficios strong,
+html.light-mode #right-panel-detalhes-autos strong,
+html.light-mode #right-panel-detalhes-ext strong {
+    color: #1a202c;
+}
+
+/* Override dark styles inside cards */
+html.light-mode div[style*="background-color: #222"] {
+    background-color: #f7fafc !important;
+}
+html.light-mode div[style*="color: #ccc"],
+html.light-mode div[style*="color: #aaa"],
+html.light-mode div[style*="color: #888"],
+html.light-mode div[style*="color: #777"] {
+    color: var(--text-muted) !important;
+}
+
+html.light-mode div[style*="border-top: 1px solid #333"] {
+    border-top-color: #cbd5e0 !important;
+}
+
+html.light-mode div[style*="border-bottom: 1px solid #333"] {
+    border-bottom-color: #cbd5e0 !important;
+}
+
+html.light-mode div[style*="color: #fff"],
+html.light-mode div[style*="color: rgb(255, 255, 255)"] {
+    color: var(--text-light) !important;
+}
+
+/* Specific details panels overrides */
+html.light-mode #right-panel-detalhes-oficios div[style*="background-color: #222"],
+html.light-mode #right-panel-detalhes-autos div[style*="background-color: #222"],
+html.light-mode #right-panel-detalhes-ext div[style*="background-color: #222"] {
+    background-color: #f7fafc !important;
+    border: 1px solid #e2e8f0;
+}
+
+/* Exclude colored elements like green, red, yellow from getting overridden */
+html.light-mode .status-red,
+html.light-mode [style*="color: #ff4b4b"],
+html.light-mode [style*="color: rgb(255, 75, 75)"],
+html.light-mode [style*="color: #c0392b"],
+html.light-mode [style*="color: #e74c3c"] {
+    color: #c0392b !important;
+}
+html.light-mode .status-green,
+html.light-mode [style*="color: #00fa9a"],
+html.light-mode [style*="color: rgb(0, 250, 154)"],
+html.light-mode [style*="color: var(--primary-green)"],
+html.light-mode [style*="color: #27ae60"],
+html.light-mode [style*="color: #2ecc71"] {
+    color: #27ae60 !important;
+}
+html.light-mode .status-yellow,
+html.light-mode [style*="color: #ffff00"],
+html.light-mode [style*="color: #f39c12"],
+html.light-mode [style*="color: #f1c40f"],
+html.light-mode [style*="color: #e67e22"] {
+    color: #d87a00 !important; /* Slightly darker orange/yellow for contrast on light background */
+}
+
+html.light-mode #fab-novo-oficio,
+html.light-mode #fab-novo-auto,
+html.light-mode #fab-novo-externo {
+    background-color: #ffffff !important;
+    border-color: #cbd5e0 !important;
+    color: #1a202c !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
+html.light-mode #fab-novo-oficio:hover,
+html.light-mode #fab-novo-auto:hover,
+html.light-mode #fab-novo-externo:hover {
+    background-color: #f7fafc !important;
+    border-color: #a0aec0 !important;
+}
+
+/* Toast */
+html.light-mode .toast {
+    background-color: var(--toast-bg);
+    color: var(--toast-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border: 1px solid #cbd5e0;
+    border-left: 5px solid var(--primary-green);
+}
+
+html.light-mode .toast.error {
+    border-left-color: #ff4b4b;
+}
+
+html.light-mode .toast-msg {
+    color: var(--text-light);
+}
+
+/* Scrollbars */
+html.light-mode ::-webkit-scrollbar-track {
+    background: #f4f6f9;
+}
+html.light-mode ::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+}
+html.light-mode ::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* Document Type Tag (TIPO) styling overrides in Light Mode */
+html.light-mode #right-panel-detalhes-oficios div[style*="background-color: rgba(255,255,255,0.1)"],
+html.light-mode #right-panel-detalhes-autos div[style*="background-color: rgba(255,255,255,0.1)"],
+html.light-mode #right-panel-detalhes-ext div[style*="background-color: rgba(255,255,255,0.1)"],
+html.light-mode #right-panel-detalhes-oficios div[style*="background-color: rgba(255, 255, 255, 0.1)"],
+html.light-mode #right-panel-detalhes-autos div[style*="background-color: rgba(255, 255, 255, 0.1)"],
+html.light-mode #right-panel-detalhes-ext div[style*="background-color: rgba(255, 255, 255, 0.1)"] {
+    background-color: #edf2f7 !important;
+    color: #2d3748 !important;
+    border: 1px solid #cbd5e0 !important;
+}
+
+/* Alert banners styling overrides in Light Mode */
+html.light-mode .alert-info {
+    background-color: rgba(39, 174, 96, 0.1) !important;
+    border-color: rgba(39, 174, 96, 0.3) !important;
+    color: #27ae60 !important; /* Verde floresta escuro altamente legível */
+}
+
+html.light-mode .alert-danger {
+    background-color: rgba(192, 41, 43, 0.1) !important;
+    border-color: rgba(192, 41, 43, 0.3) !important;
+    color: #c0392b !important; /* Vermelho escuro altamente legível */
+}
+
+/* Select inputs styling overrides in Light Mode */
+html.light-mode select {
+    background-color: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
+    color: var(--input-color) !important;
+}
+
+/* Upload & Anexar PDF Original button styling overrides in Light Mode */
+html.light-mode .btn-upload,
+html.light-mode button[style*="background-color: #34495e"] {
+    background-color: rgba(140, 86, 51, 0.08) !important;
+    border-color: #8c5633 !important;
+    color: #8c5633 !important;
+}
+html.light-mode .btn-upload:hover,
+html.light-mode button[style*="background-color: #34495e"]:hover {
+    background-color: rgba(140, 86, 51, 0.15) !important;
+    border-color: #a05a2c !important;
+    color: #a05a2c !important;
+}
+
+/* Initial search info banner styling overrides in Light Mode */
+html.light-mode #cards-container div[style*="background-color: #0e1117"],
+html.light-mode #cards-container div[style*="background-color: rgb(14, 17, 23)"] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: var(--text-light) !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02) !important;
 }

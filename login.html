@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | C.O.R.I.N.O.</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=9">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body class="login-body">
@@ -13,6 +13,11 @@
             <h1 class="logo login-logo">🌲 DIFLOR</h1>
             <p class="subtitle">C.O.R.I.N.O.</p>
         </div>
+
+        <div id="login-info-msg" style="color: #f39c12; font-size: 13px; text-align: center; margin-bottom: 20px; display: none; background: rgba(243, 156, 18, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(243, 156, 18, 0.25); font-weight: 600; line-height: 1.4;">
+            Sessão encerrada por inatividade
+        </div>
+
         
         <div class="filter-group" style="margin-bottom: 20px;">
             <label>Utilizador</label>
@@ -99,11 +104,59 @@
             btn.style.opacity = '1';
         }
 
+        async function preCarregarDados() {
+            console.log("Iniciando pré-carregamento de dados em segundo plano...");
+            
+            // Ofícios
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ acao: "buscar_dados" })
+            }).then(r => r.json()).then(resultado => {
+                if (resultado.status === 'success') {
+                    localStorage.setItem('corino_temp_raw_dados', JSON.stringify(resultado.dados));
+                    console.log("Pré-carregamento: Ofícios carregados.");
+                }
+            }).catch(e => console.error("Erro no pré-carregamento de Ofícios:", e));
+
+            // Autos
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ acao: "buscar_autos" })
+            }).then(r => r.json()).then(resultado => {
+                if (resultado.status === 'success') {
+                    localStorage.setItem('corino_temp_raw_autos', JSON.stringify(resultado.dados));
+                    console.log("Pré-carregamento: Autos carregados.");
+                }
+            }).catch(e => console.error("Erro no pré-carregamento de Autos:", e));
+
+            // Ofícios Externos
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ acao: "buscar_externos" })
+            }).then(r => r.json()).then(resultado => {
+                if (resultado.status === 'success') {
+                    localStorage.setItem('corino_temp_raw_externos', JSON.stringify(resultado.dados));
+                    console.log("Pré-carregamento: Ofícios Externos carregados.");
+                }
+            }).catch(e => console.error("Erro no pré-carregamento de Ofícios Externos:", e));
+        }
+
         // Adiciona os event listeners após o DOM ser carregado
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('username').addEventListener('keypress', (event) => { if (event.key === "Enter") fazerLogin(); });
             document.getElementById('password').addEventListener('keypress', (event) => { if (event.key === "Enter") fazerLogin(); });
             document.getElementById('btnLogin').addEventListener('click', fazerLogin);
+            
+            // Exibe mensagem caso tenha sido deslogado por inatividade
+            const reason = sessionStorage.getItem('corino_logout_reason');
+            if (reason === 'inactivity') {
+                const infoMsg = document.getElementById('login-info-msg');
+                if (infoMsg) infoMsg.style.display = 'block';
+                sessionStorage.removeItem('corino_logout_reason');
+            }
+
+            // Pré-carrega os dados em segundo plano
+            preCarregarDados();
         });
     </script>
 </body>

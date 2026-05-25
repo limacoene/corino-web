@@ -44,3 +44,27 @@ function extrairIdDrive(url) {
     if (match) return match[1];
     return null;
 }
+
+/**
+ * Alterna a visualização no iframe de preview de documentos e atualiza o estado visual (ativação) das abas.
+ */
+function alternarVisualizacaoPreview(btn, url, downloadUrl) {
+    const iframe = document.getElementById('previewFrame');
+    if (iframe) {
+        iframe.src = url;
+    }
+    const downloadBtn = document.getElementById('btn-download-preview');
+    if (downloadBtn) {
+        downloadBtn.href = downloadUrl;
+    }
+    
+    // Remove classe ativa de outros botões e aplica ao atual
+    const container = btn.parentElement;
+    if (container) {
+        const botoes = container.querySelectorAll('.btn-preview-toggle-tab');
+        botoes.forEach(b => {
+            b.classList.remove('active');
+        });
+    }
+    btn.classList.add('active');
+}
