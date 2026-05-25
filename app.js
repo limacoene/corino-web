@@ -905,7 +905,11 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         oficioSelecionadoMockup = dados[0];
     } else if (oficioSelecionadoMockup) {
         const exists = dados.find(r => r['NUP'] === oficioSelecionadoMockup['NUP']);
-        if (!exists) oficioSelecionadoMockup = dados[0];
+        if (exists) {
+            oficioSelecionadoMockup = exists;
+        } else {
+            oficioSelecionadoMockup = dados[0];
+        }
     }
 
     container.style.display = 'flex';
@@ -1001,7 +1005,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
     if (oficioSelecionadoMockup) {
         const linha = oficioSelecionadoMockup;
-        const index = dadosExibidos.indexOf(linha);
+        const index = dadosExibidos.findIndex(r => r['NUP'] === linha['NUP']);
         const infoStatus = obterInfoDinamicaStatus(linha);
         const obs = (linha['OBSERVAÇÃO'] || '').trim();
         const linkRaw = linha['LINK_OFICIO'] || '';
@@ -1855,7 +1859,19 @@ function abrirPreview(url, index) {
         btnDownload.href = url;
     }
 
-    const linha = dadosExibidos[index];
+    // Failsafe: Obtém o registro de forma robusta e segura
+    let linha = (index >= 0 && index < dadosExibidos.length) ? dadosExibidos[index] : null;
+    if (!linha) {
+        // Se o index for inválido (-1 ou fora de limites), busca por NUP comparando com o mockup ativo
+        const targetNup = oficioSelecionadoMockup ? oficioSelecionadoMockup['NUP'] : '';
+        linha = dadosCoringa.find(r => r['NUP'] === targetNup) || dadosExibidos.find(r => r['NUP'] === targetNup) || oficioSelecionadoMockup;
+    }
+    
+    // Se ainda assim não encontrar, aborta com aviso
+    if (!linha) {
+        mostrarToast("Erro ao carregar detalhes do documento.", "error");
+        return;
+    }
     const infoStatus = obterInfoDinamicaStatus(linha);
     const obs = (linha['OBSERVAÇÃO'] || '').trim();
     const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
