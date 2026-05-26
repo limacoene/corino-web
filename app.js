@@ -1570,6 +1570,9 @@ async function avaliarResposta(event, nup, decisao) {
 }
 
 async function atualizarStatusCI(event, nup, novoStatus) {
+    const btn = event ? event.currentTarget : null;
+    const textoOriginal = btn ? btn.innerHTML : '';
+
     let confirmou = false;
     let msg = '';
     let options = {};
@@ -1611,12 +1614,11 @@ async function atualizarStatusCI(event, nup, novoStatus) {
         return;
     }
 
-    const btn = event.currentTarget;
-    const textoOriginal = btn.innerHTML;
-
-    btn.innerHTML = '⏳ A processar...';
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
+    if (btn) {
+        btn.innerHTML = '⏳ A processar...';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+    }
 
     try {
         const payload = {
@@ -1652,16 +1654,20 @@ async function atualizarStatusCI(event, nup, novoStatus) {
             }
         } else {
             mostrarToast('Operação Cancelada ou Sem Permissão: ' + (resultado.message || 'Erro Desconhecido'), 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-            btn.style.opacity = '1';
+            if (btn) {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
         }
     } catch (error) {
         console.error(error);
         mostrarToast('Erro de comunicação. A internet pode ter falhado.', 'error');
-        btn.innerHTML = textoOriginal;
-        btn.disabled = false;
-        btn.style.opacity = '1';
+        if (btn) {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
     }
 }
 
