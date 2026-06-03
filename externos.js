@@ -534,27 +534,25 @@ function abrirPreviewExterno(event, url, nup) {
     const modal = document.getElementById('previewModal');
     const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 
-    if (!document.getElementById('preview-wrapper-id')) {
-        modal.className = 'preview-modal';
-        modal.innerHTML = `
-            <div class="preview-wrapper" id="preview-wrapper-id">
-                <div class="preview-toolbar">
-                    <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
-                    <div class="preview-toolbar-buttons">
-                        <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
-                        <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
-                        <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
-                    </div>
-                </div>
-                <div class="preview-body">
-                    <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
-                    <div id="previewInfo" class="preview-info">
-                        <div id="previewInfoContent"></div>
-                    </div>
+    modal.className = 'preview-modal';
+    modal.innerHTML = `
+        <div class="preview-wrapper" id="preview-wrapper-id">
+            <div class="preview-toolbar">
+                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
+                <div class="preview-toolbar-buttons">
+                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
+                    <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
+                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
                 </div>
             </div>
-        `;
-    }
+            <div class="preview-body">
+                <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
+                <div id="previewInfo" class="preview-info">
+                    <div id="previewInfoContent"></div>
+                </div>
+            </div>
+        </div>
+    `;
 
     let previewUrl = url;
     const fileId = extrairIdDrive(url);

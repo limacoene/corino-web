@@ -7,6 +7,9 @@ if (!usuarioAtivo) {
     if (usuarioAtivo.perfil !== 'gerencia') {
         const btnDistribuicao = document.getElementById('btn-menu-distribuicao');
         if (btnDistribuicao) btnDistribuicao.style.display = 'none';
+
+        const btnCartasDistribuicao = document.getElementById('btn-menu-cartas-distribuicao');
+        if (btnCartasDistribuicao) btnCartasDistribuicao.style.display = 'none';
     }
 
     if (usuarioAtivo.perfil === 'gerencia_consulta') {
@@ -17,6 +20,16 @@ if (!usuarioAtivo) {
         if (btnAndamento) btnAndamento.style.display = 'none';
         if (btnAtrasados) btnAtrasados.style.display = 'none';
         if (btnRespondidos) btnRespondidos.style.display = 'none';
+
+        const btnCartasAndamento = document.getElementById('btn-menu-cartas-andamento');
+        const btnCartasAtrasados = document.getElementById('btn-menu-cartas-atrasados');
+        const btnCartasRevisao = document.getElementById('btn-menu-cartas-revisao');
+        const btnCartasAssinatura = document.getElementById('btn-menu-cartas-assinatura');
+
+        if (btnCartasAndamento) btnCartasAndamento.style.display = 'none';
+        if (btnCartasAtrasados) btnCartasAtrasados.style.display = 'none';
+        if (btnCartasRevisao) btnCartasRevisao.style.display = 'none';
+        if (btnCartasAssinatura) btnCartasAssinatura.style.display = 'none';
     }
 
     // Ocultar Autos de Infração para GEAMB
@@ -171,6 +184,9 @@ async function iniciarSistema() {
         if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.perfil === 'tecnico')) {
             const btnResp = document.getElementById('btn-menu-respondidos');
             if (btnResp) btnResp.style.display = 'block';
+
+            const btnCartasResp = document.getElementById('btn-menu-cartas-revisao');
+            if (btnCartasResp) btnCartasResp.style.display = 'block';
         }
 
         if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
@@ -298,7 +314,7 @@ async function iniciarSistema() {
             }
             atualizarBadgesNotificacao(dadosCoringa);
 
-            if (filtroAtivo !== 'autos' && filtroAtivo !== 'externos') {
+            if (filtroAtivo !== 'autos' && filtroAtivo !== 'externos' && !filtroAtivo.startsWith('cartas')) {
                 aplicarFiltros();
             }
         }).catch(erro => {
@@ -312,6 +328,7 @@ async function iniciarSistema() {
         });
 
         carregarAutos();
+        if (typeof carregarCartas === 'function') carregarCartas();
     } catch (erro) {
         if (!localStorage.getItem(`corino_cache_dados_coringa_${usuarioAtivo ? usuarioAtivo.username : 'guest'}`)) {
             document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
@@ -434,14 +451,18 @@ function mudarAbaPrincipal(tipo) {
     document.getElementById('aba-respondidos').style.display = (tipo === 'respondidos') ? 'block' : 'none';
     document.getElementById('aba-autos').style.display = (tipo === 'autos') ? 'block' : 'none';
     document.getElementById('aba-externos').style.display = (tipo === 'externos') ? 'block' : 'none';
+    const abaCartas = document.getElementById('aba-cartas');
+    if (abaCartas) abaCartas.style.display = (tipo.startsWith('cartas')) ? 'block' : 'none';
 
     const fabOficio = document.getElementById('fab-novo-oficio');
     const fabAuto = document.getElementById('fab-novo-auto');
     const fabExterno = document.getElementById('fab-novo-externo');
+    const fabCarta = document.getElementById('fab-novo-carta');
 
     if (fabOficio) fabOficio.style.display = 'none';
     if (fabAuto) fabAuto.style.display = 'none';
     if (fabExterno) fabExterno.style.display = 'none';
+    if (fabCarta) fabCarta.style.display = 'none';
 
     if (usuarioAtivo && usuarioAtivo.perfil !== 'tecnico') {
         if (tipo === 'todos' && fabOficio) fabOficio.style.display = 'flex';
@@ -453,9 +474,11 @@ function mudarAbaPrincipal(tipo) {
         }
 
         if (tipo === 'externos' && fabExterno) fabExterno.style.display = 'flex';
+
+        if (tipo.startsWith('cartas') && fabCarta && usuarioAtivo.perfil === 'gerencia') fabCarta.style.display = 'flex';
     }
 
-    if (tipo === 'autos' || tipo === 'externos') {
+    if (tipo === 'autos' || tipo === 'externos' || tipo.startsWith('cartas')) {
         document.getElementById('export-section').style.display = 'none';
         document.getElementById('cards-container').innerHTML = ''; // LIMPEZA DA ABA ANTERIOR (CORREÇÃO DE SOBREPOSIÇÃO)
     } else {
@@ -470,10 +493,59 @@ function mudarAbaPrincipal(tipo) {
         carregarExternos();
     }
 
+    if (tipo.startsWith('cartas')) {
+        const filterStatusSelect = document.getElementById('filtro-cartas-status');
+        if (filterStatusSelect) {
+            if (tipo === 'cartas-distribuicao') {
+                filterStatusSelect.value = 'AGUARDANDO DISTRIBUIÇÃO';
+            } else if (tipo === 'cartas-andamento') {
+                filterStatusSelect.value = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+            } else if (tipo === 'cartas-revisao') {
+                filterStatusSelect.value = 'REVISÃO';
+            } else if (tipo === 'cartas-assinatura') {
+                filterStatusSelect.value = 'AGUARDANDO ASSINATURA';
+            } else {
+                filterStatusSelect.value = ''; // Consulta Geral / Painel de Atrasos
+            }
+        }
+
+        const titleEl = document.querySelector('#aba-cartas .page-title');
+        if (titleEl) {
+            if (tipo === 'cartas-distribuicao') {
+                titleEl.innerHTML = '📥 Cartas Consulta - Aguardando Distribuição';
+            } else if (tipo === 'cartas-andamento') {
+                titleEl.innerHTML = '⏳ Cartas Consulta - Em Andamento';
+            } else if (tipo === 'cartas-revisao') {
+                titleEl.innerHTML = '📁 Cartas Consulta - Aguardando Revisão';
+            } else if (tipo === 'cartas-assinatura') {
+                titleEl.innerHTML = '✍️ Cartas Consulta - Aguardando Assinatura';
+            } else if (tipo === 'cartas-atrasados') {
+                titleEl.innerHTML = '🚨 Cartas Consulta - Painel de Atrasos';
+            } else {
+                titleEl.innerHTML = '✉️ Controle de Cartas Consulta';
+            }
+        }
+
+        const miniTabsCartas = document.getElementById('mini-tabs-cartas');
+        if (miniTabsCartas) {
+            if (usuarioAtivo && usuarioAtivo.perfil === 'gerencia') {
+                miniTabsCartas.style.display = 'flex';
+            } else {
+                miniTabsCartas.style.display = 'none';
+            }
+        }
+        if (typeof carregarCartas === 'function') {
+            carregarCartas();
+        }
+        if (typeof aplicarFiltrosCartas === 'function') {
+            aplicarFiltrosCartas();
+        }
+    }
+
     atualizarVisualSubAbas();
     limparInputsDeFiltro();
 
-    if (tipo !== 'autos' && tipo !== 'externos') {
+    if (tipo !== 'autos' && tipo !== 'externos' && !tipo.startsWith('cartas')) {
         aplicarFiltros();
     }
 
@@ -504,19 +576,40 @@ function setSubAba(aba) {
 
 function atualizarVisualSubAbas() {
     document.querySelectorAll('.mini-tab').forEach(b => b.classList.remove('active'));
-    const container = document.getElementById(`mini-tabs-${filtroAtivo}`);
+    
+    let idContainer = `mini-tabs-${filtroAtivo}`;
+    if (filtroAtivo.startsWith('cartas')) {
+        idContainer = 'mini-tabs-cartas';
+    }
+    
+    const container = document.getElementById(idContainer);
     if (container) {
         Array.from(container.children).forEach(btn => {
-            if (btn.textContent === subAbaAtiva) btn.classList.add('active');
+            if (filtroAtivo.startsWith('cartas')) {
+                if (typeof subAbaCartasAtiva !== 'undefined') {
+                    if (btn.textContent === subAbaCartasAtiva) btn.classList.add('active');
+                } else {
+                    btn.classList.add('active');
+                }
+            } else {
+                if (btn.textContent === subAbaAtiva) btn.classList.add('active');
+            }
         });
     }
 }
 
 function limparInputsDeFiltro() {
-    ['cgNup', 'cgCarms', 'andNup', 'atrNup', 'respNup', 'filtro-ext-nup', 'filtro-ext-carms', 'filtro-ext-tecnico', 'filtro-ext-remetente'].forEach(id => {
+    ['cgNup', 'cgCarms', 'andNup', 'atrNup', 'respNup', 'filtro-ext-nup', 'filtro-ext-carms', 'filtro-ext-tecnico', 'filtro-ext-remetente', 'filtro-cartas-nup', 'filtro-cartas-req'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+    const selectTec = document.getElementById('filtro-cartas-tec');
+    if (selectTec) selectTec.value = '';
+    const selectStatus = document.getElementById('filtro-cartas-status');
+    if (selectStatus && !filtroAtivo.startsWith('cartas-')) selectStatus.value = '';
+    const selectPrioridade = document.getElementById('filtro-cartas-prioridade');
+    if (selectPrioridade) selectPrioridade.value = '';
+
     const idsCustom = ['cgGerencia', 'cgMunicipio', 'cgStatus', 'cgTecnico', 'andTecnico', 'andStatus', 'atrTecnico', 'atrStatus', 'respTecnico'];
     idsCustom.forEach(idBase => {
         const dropdown = document.getElementById(`dd-${idBase}`);
@@ -590,7 +683,7 @@ function checarTermoBusca(r, nupTermo, oficioTermo) {
 }
 
 function aplicarFiltros() {
-    if (filtroAtivo === 'autos' || filtroAtivo === 'externos') { // CORREÇÃO DE SOBREPOSIÇÃO
+    if (filtroAtivo === 'autos' || filtroAtivo === 'externos' || filtroAtivo === 'cartas') { // CORREÇÃO DE SOBREPOSIÇÃO
         document.getElementById('cards-container').innerHTML = '';
         document.getElementById('export-section').style.display = 'none';
         return;
@@ -1832,30 +1925,28 @@ function abrirPreview(url, index) {
     const modal = document.getElementById('previewModal');
     const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 
-    if (!document.getElementById('preview-wrapper-id')) {
-        modal.className = 'preview-modal';
-        modal.innerHTML = `
-            <div class="preview-wrapper" id="preview-wrapper-id">
-                <div class="preview-toolbar">
-                    <div class="preview-toolbar-title" style="display: flex; align-items: center;">
-                        ${iconeOlhoGrande} Pré-visualização de Documento
-                    </div>
-                    <div class="preview-toolbar-buttons">
-                        <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
-                        
-                        <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
-                        <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
-                    </div>
+    modal.className = 'preview-modal';
+    modal.innerHTML = `
+        <div class="preview-wrapper" id="preview-wrapper-id">
+            <div class="preview-toolbar">
+                <div class="preview-toolbar-title" style="display: flex; align-items: center;">
+                    ${iconeOlhoGrande} Pré-visualização de Documento
                 </div>
-                <div class="preview-body">
-                    <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
-                    <div id="previewInfo" class="preview-info">
-                        <div id="previewInfoContent"></div>
-                    </div>
+                <div class="preview-toolbar-buttons">
+                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
+                    
+                    <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
+                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
                 </div>
             </div>
-        `;
-    }
+            <div class="preview-body">
+                <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
+                <div id="previewInfo" class="preview-info">
+                    <div id="previewInfoContent"></div>
+                </div>
+            </div>
+        </div>
+    `;
 
     const btnDownload = document.getElementById('btn-download-preview');
     const fileId = extrairIdDrive(url);
@@ -1974,10 +2065,36 @@ function togglePreviewInfo() {
     }
 }
 
+function alternarVisualizacaoPreview(btn, urlPreview, urlDownload) {
+    const botoes = btn.parentElement.querySelectorAll('.btn-preview-toggle-tab');
+    botoes.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const iframe = document.getElementById('previewFrame');
+    if (iframe) {
+        iframe.style.display = 'block';
+        iframe.src = urlPreview;
+    }
+
+    const gisContainer = document.getElementById('gisMapContainerModal');
+    if (gisContainer) gisContainer.style.display = 'none';
+
+    const btnDownload = document.getElementById('btn-download-preview');
+    if (btnDownload) btnDownload.href = urlDownload;
+}
+
 function fecharPreview() {
-    document.getElementById('previewModal').style.display = 'none';
-    const frame = document.getElementById('previewFrame');
-    if (frame) frame.src = '';
+    const modal = document.getElementById('previewModal');
+    if (!modal) return;
+    
+    if (window.mapaGisModal) {
+        window.mapaGisModal.remove();
+        window.mapaGisModal = null;
+        window.camadaGeoJsonModal = null;
+    }
+    
+    modal.style.display = 'none';
+    modal.innerHTML = '';
 }
 
 function abrirModalAtribuirTecnicoOficio(nup) {
@@ -2150,6 +2267,33 @@ function atualizarBadgesNotificacao(dados) {
         atualizarBadgeDOM('badge-menu-respondidos', totalRespPendentes);
         atualizarBadgeDOM('badge-tab-pendentes', totalRespPendentes);
     }
+
+    // BADGES CARTAS CONSULTA
+    let cartasFiltradas = typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : [];
+    if (usuarioAtivo.perfil === 'tecnico') {
+        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
+        cartasFiltradas = cartasFiltradas.filter(r => (r['TÉCNICO/ADM'] || r['TECNICO/ADM'] || '').toUpperCase().trim() === tecnicoLogado);
+    }
+
+    let totalCartasDistribuicao = cartasFiltradas.filter(r => (r['STATUS'] || '').toUpperCase().trim() === 'AGUARDANDO DISTRIBUIÇÃO').length;
+    let totalCartasAndamento = cartasFiltradas.filter(r => (r['STATUS'] || '').toUpperCase().trim() === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA').length;
+    let totalCartasRevisao = cartasFiltradas.filter(r => {
+        const statusGeral = (r['STATUS'] || '').toUpperCase().trim();
+        const statusResp = (r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        return statusGeral === 'REVISÃO' && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO';
+    }).length;
+    let totalCartasAssinatura = cartasFiltradas.filter(r => (r['STATUS'] || '').toUpperCase().trim() === 'AGUARDANDO ASSINATURA').length;
+    let totalCartasAtrasados = cartasFiltradas.filter(r => {
+        const status = (r['STATUS'] || '').toUpperCase().trim();
+        const diasRestantes = Number(r['DIAS RESTANTES']);
+        return !isNaN(diasRestantes) && diasRestantes < 0 && status !== 'TRAMITADO' && status !== 'ARQUIVADO';
+    }).length;
+
+    atualizarBadgeDOM('badge-menu-cartas-distribuicao', totalCartasDistribuicao);
+    atualizarBadgeDOM('badge-menu-cartas-andamento', totalCartasAndamento);
+    atualizarBadgeDOM('badge-menu-cartas-atrasados', totalCartasAtrasados);
+    atualizarBadgeDOM('badge-menu-cartas-revisao', totalCartasRevisao);
+    atualizarBadgeDOM('badge-menu-cartas-assinatura', totalCartasAssinatura);
 }
 
 function atualizarBadgeDOM(id, count) {
@@ -2464,9 +2608,19 @@ function configurarDragAndDrop(inputId, labelId, updateCallback) {
         let files = dt.files;
 
         if (files && files.length > 0) {
-            if (files[0].type !== 'application/pdf' && !files[0].name.toLowerCase().endsWith('.pdf')) {
-                mostrarToast('Apenas ficheiros PDF são permitidos.', 'error');
-                return;
+            const acceptedTypes = input.getAttribute('accept') || '';
+            const fileName = files[0].name.toLowerCase();
+            
+            if (acceptedTypes.includes('.zip')) {
+                if (!fileName.endsWith('.zip')) {
+                    mostrarToast('Apenas ficheiros ZIP são permitidos para o Shapefile.', 'error');
+                    return;
+                }
+            } else {
+                if (files[0].type !== 'application/pdf' && !fileName.endsWith('.pdf')) {
+                    mostrarToast('Apenas ficheiros PDF são permitidos.', 'error');
+                    return;
+                }
             }
             input.files = files;
             updateCallback(input);
