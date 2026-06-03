@@ -212,15 +212,70 @@ function renderTabelaAutos(dados) {
     if (autoSelecionadoMockup) {
         const s = autoSelecionadoMockup;
         const status = (s['STATUS ATUAL'] || '').toUpperCase();
+        const linkResposta = s['LINK DA RESPOSTA'] || s['LINK RESPOSTA'] || s['LINK_RESPOSTA'] || '';
+        const temResposta = linkResposta && linkResposta.startsWith('http');
+        const statusResp = (s['STATUS-RESPOSTA'] || s['STATUS DA RESPOSTA'] || '').toUpperCase();
+
+        const isGestor = usuarioAtivo && usuarioAtivo.perfil === 'gerencia';
+        const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
+
         let linkPreviewBtn = '';
         if (s['LINK NUP'] && String(s['LINK NUP']).trim() !== '') {
             linkPreviewBtn = `<button onclick="abrirPreviewAuto(event, '${s['LINK NUP']}', '${s['NUP']}')" class="btn-preview-action" style="padding: 8px 15px; font-size: 13px; background-color: rgba(46, 204, 113, 0.1); border-color: var(--primary-green); color: var(--primary-green); font-weight: bold;">👁️ Abrir PDF do Processo</button>`;
         }
+
         let actionButtons = '';
-        if (status === 'AGUARDANDO MANIFESTAÇÃO') {
-            actionButtons = `<button class="btn-drive btn-upload" style="width: auto; padding: 10px 20px; font-size: 14px;" onclick="mostrarToast('Mockup: Abre modal de Anexar Manifestação.', 'info')">📎 Enviar Resposta</button>`;
-        } else if (status === 'REVISÃO') {
-            actionButtons = `<button class="btn-drive" style="background-color: #27ae60; border-color: #1e8449; width: auto; padding: 10px 20px; font-size: 14px;" onclick="mostrarToast('Mockup: Aprova a manifestação.', 'info')">✅ Aprovar</button> <button class="btn-drive" style="background-color: #c0392b; border-color: #a93226; width: auto; padding: 10px 20px; font-size: 14px;" onclick="mostrarToast('Mockup: Reprova a manifestação.', 'info')">❌ Reprovar</button>`;
+        let htmlResposta = '';
+
+        if (temResposta) {
+            const respId = extrairIdDrive(linkResposta);
+            let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">🔗 Abrir Resposta</a>`;
+            if (respId) {
+                const respPrev = `https://drive.google.com/file/d/${respId}/preview`;
+                botaoResp = `<button onclick="abrirPreviewAuto(event, '${respPrev}', '${s['NUP']}')" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0;">👁️ Ver Resposta</button>`;
+            }
+
+            let btnRetirar = '';
+            if (usuarioAtivo && (isTecnico || isGestor)) {
+                const isAprovado = statusResp === 'APROVADO';
+                if (!isGestor && isAprovado) {
+                    btnRetirar = `<div style="padding: 8px 12px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px; font-weight: bold; border-radius: 4px;">🔒 Aprovado</div>`;
+                } else {
+                    btnRetirar = `<button onclick="removerDocumentoAuto(event, '${s['NUP']}')" class="btn-drive btn-red-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0;">🗑️ Retirar Resposta</button>`;
+                }
+            }
+
+            let htmlMotivoReprovacao = '';
+            const motivo = s['MOTIVO DA AVALIAÇÃO'] || s['MOTIVO_AVALIACAO'] || '';
+            if (statusResp === 'REPROVADO' && motivo) {
+                htmlMotivoReprovacao = `<div style="margin-top: 10px; padding: 10px; background-color: rgba(231, 76, 60, 0.1); border-left: 4px solid #e74c3c; color: #ffcccc; font-size: 13px; border-radius: 4px; grid-column: span 2;"><strong>Motivo da Reprovação:</strong><br>${motivo}</div>`;
+            }
+
+            htmlResposta = `
+                <div style="margin: 20px 0 0 0; padding: 15px; background-color: rgba(140, 86, 51, 0.05); border: 1px solid rgba(140, 86, 51, 0.3); border-radius: 6px; grid-column: span 2;">
+                    <div style="color: #e67e22; font-weight: bold; margin-bottom: 10px; font-size: 13px;">📁 Manifestação/Resposta Técnica:</div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        ${botaoResp}
+                        ${btnRetirar}
+                    </div>
+                    ${htmlMotivoReprovacao}
+                </div>
+            `;
+        }
+
+        if (status === 'AGUARDANDO MANIFESTAÇÃO' && !temResposta && isTecnico) {
+            actionButtons = `<button class="btn-drive btn-upload" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0;" onclick="anexarDocumentoAuto(event, '${s['NUP']}')">📎 Enviar Resposta</button>`;
+        } else if (status === 'REVISÃO' && isGestor && temResposta && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO') {
+            actionButtons = `
+                <button class="btn-drive" style="background-color: #27ae60; border-color: #1e8449; width: auto; padding: 10px 20px; font-size: 14px; margin: 0;" onclick="avaliarRespostaAuto(event, '${s['NUP']}', 'APROVADO')">✅ Aprovar</button>
+                <button class="btn-drive" style="background-color: #c0392b; border-color: #a93226; width: auto; padding: 10px 20px; font-size: 14px; margin: 0;" onclick="avaliarRespostaAuto(event, '${s['NUP']}', 'REPROVADO')">❌ Reprovar</button>
+            `;
+        }
+
+        let htmlDiretoriaBotoes = '';
+        const isSemTecnico = !s['TÉCNICO'] || s['TÉCNICO'] === '-' || s['TÉCNICO'] === 'S/T' || s['TÉCNICO'] === 'Sem Técnico' || s['TÉCNICO'] === 'Não atribuído' || s['TÉCNICO'].trim() === '';
+        if (isGestor && isSemTecnico) {
+            htmlDiretoriaBotoes = `<button onclick="abrirModalAtribuirTecnico('${s['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
         }
 
         rightPanel.innerHTML = `
@@ -233,8 +288,16 @@ function renderTabelaAutos(dados) {
                 <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;"><div style="font-size: 11px; color: #888; margin-bottom: 4px;">LAUDO DE CONSTATAÇÃO</div><div style="font-size: 14px; color: #fff; font-weight: 500; word-break: break-word;">${s['LAUDO DE CONSTATAÇÃO'] || '-'}</div></div>
                 <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;"><div style="font-size: 11px; color: #888; margin-bottom: 4px;">TÉCNICO RESPONSÁVEL</div><div style="font-size: 14px; color: #fff; font-weight: 500;">${s['TÉCNICO'] || '-'}</div></div>
                 <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;"><div style="font-size: 11px; color: #888; margin-bottom: 4px;">FORMATO DO PROCESSO</div><div style="font-size: 14px; color: #fff; font-weight: 500;">${s['FISICO/E-MS'] || '-'}</div></div>
+                ${htmlResposta}
             </div>
-            <div style="display: flex; gap: 15px; margin-top: auto; padding-top: 20px; border-top: 1px solid #333;">${linkPreviewBtn}<div style="flex-grow: 1; display: flex; justify-content: flex-end; gap: 10px;">${actionButtons}</div></div>
+            ${s['OBSERVAÇÕES'] ? `<div class="modal-obs" style="margin: 0 0 20px 0;"><strong>Observações:</strong><br>${s['OBSERVAÇÕES']}</div>` : ''}
+            <div style="display: flex; gap: 15px; margin-top: auto; padding-top: 20px; border-top: 1px solid #333;">
+                ${linkPreviewBtn}
+                <div style="flex-grow: 1; display: flex; justify-content: flex-end; gap: 10px;">
+                    ${actionButtons}
+                </div>
+            </div>
+            ${htmlDiretoriaBotoes}
         `;
     }
     container.appendChild(leftPanel);
@@ -258,21 +321,25 @@ function abrirPreviewAuto(event, url, nup) {
     const modal = document.getElementById('previewModal');
     const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 
-    if (!document.getElementById('preview-wrapper-id')) {
-        modal.className = 'preview-modal';
-        modal.innerHTML = `
-            <div class="preview-wrapper" id="preview-wrapper-id">
-                <div class="preview-toolbar">
-                    <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
-                    <div class="preview-toolbar-buttons">
-                        <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
-                        <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
-                        <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
-                    </div>
+    modal.className = 'preview-modal';
+    modal.innerHTML = `
+        <div class="preview-wrapper" id="preview-wrapper-id">
+            <div class="preview-toolbar">
+                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
+                <div class="preview-toolbar-buttons">
+                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
+                    <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
+                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
                 </div>
-                <div class="preview-body"><iframe id="previewFrame" class="preview-iframe" src=""></iframe><div id="previewInfo" class="preview-info"><div id="previewInfoContent"></div></div></div>
-            </div>`;
-    }
+            </div>
+            <div class="preview-body">
+                <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
+                <div id="previewInfo" class="preview-info">
+                    <div id="previewInfoContent"></div>
+                </div>
+            </div>
+        </div>
+    `;
 
     let previewUrl = url;
     const fileId = extrairIdDrive(url);
@@ -290,7 +357,7 @@ function abrirPreviewAuto(event, url, nup) {
 
     let badgeTipo = linha['TIPO'] ? `<span style="display: inline-block; margin-top: 6px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; background-color: ${corBadgeTipo}; color: ${corTextoTipo}; border: 1px solid ${corTextoTipo};">${iconTipo}${linha['TIPO']}</span>` : '-';
 
-    document.getElementById('previewInfoContent').innerHTML = `
+    let contentHTML = `
         <div class="preview-info-item">📌 <strong>NUP:</strong> ${linha['NUP']}</div>
         <div class="preview-info-item">👤 <strong>Requerente:</strong> ${linha['REQUERENTE'] || '-'}</div>
         <div class="preview-info-item">⚖️ <strong>Auto de Infração:</strong> ${linha['AUTO DE INFRAÇÃO'] || '-'}</div>
@@ -304,11 +371,65 @@ function abrirPreviewAuto(event, url, nup) {
         <div class="preview-info-item">📄 <strong>Tipo:</strong><br>${badgeTipo}</div>
     `;
 
+    // Response file toggle
+    const linkResposta = linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '';
+    let respPreviewUrl = '';
+    let respId = null;
+    if (linkResposta && linkResposta.startsWith('http')) {
+        respId = extrairIdDrive(linkResposta);
+        if (respId) respPreviewUrl = `https://drive.google.com/file/d/${respId}/preview`;
+    }
+
+    const linkDrive = linha['LINK NUP'] || linha['LINK-NUP'] || linha['LINK DO NUP'] || linha['LINK_NUP'] || '';
+    let principalPreviewUrl = '';
+    let principalId = null;
+    if (linkDrive && linkDrive.startsWith('http')) {
+        principalId = extrairIdDrive(linkDrive);
+        if (principalId) principalPreviewUrl = `https://drive.google.com/file/d/${principalId}/preview`;
+    }
+
+    let toggleBtn = '';
+    if (respPreviewUrl && principalPreviewUrl) {
+        let downloadPrincipalUrlFull = principalId ? `https://drive.google.com/uc?export=download&id=${principalId}` : linkDrive;
+        let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
+
+        const isPrincipalActive = (url === principalPreviewUrl || url === linkDrive);
+        const activePrincipalClass = isPrincipalActive ? 'active' : '';
+        const activeRespClass = !isPrincipalActive ? 'active' : '';
+
+        toggleBtn = `
+             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                 <button onclick="alternarVisualizacaoPreview(this, '${principalPreviewUrl}', '${downloadPrincipalUrlFull}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activePrincipalClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Processo Original</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${downloadRespUrlFull}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+             </div>
+         `;
+    }
+
+    // Ações de Avaliação da resposta dentro do Preview
+    let acoesDiflorPreview = '';
+    const statusRespAval = (linha['STATUS-RESPOSTA'] || linha['STATUS DA RESPOSTA'] || '').toUpperCase();
+    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
+        acoesDiflorPreview = `
+            <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
+                <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
+                <div style="display: flex; gap: 10px; flex-direction: column;">
+                    <button onclick="avaliarRespostaAuto(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive btn-green-outline">✅ Aprovar Resposta</button>
+                    <button onclick="avaliarRespostaAuto(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive btn-red-outline">❌ Reprovar Resposta</button>
+                </div>
+            </div>
+        `;
+    }
+
+    const contentDiv = document.getElementById('previewInfoContent');
+    contentDiv.innerHTML = toggleBtn + contentHTML + acoesDiflorPreview;
+
     document.getElementById('previewFrame').src = previewUrl;
     modal.style.display = 'flex';
 }
 
 function abrirModalAtribuirTecnico(nup) {
+    const titleEl = document.getElementById('atribuirTecnicoModalTitle');
+    if (titleEl) titleEl.innerText = '👤 Distribuir Auto';
     document.getElementById('atrAutoNup').value = nup;
     const select = document.getElementById('atrAutoTecnico');
     select.innerHTML = '';
@@ -319,10 +440,18 @@ function abrirModalAtribuirTecnico(nup) {
     document.getElementById('atribuirTecnicoModal').style.display = 'flex';
 }
 
-function fecharModalAtribuirTecnico() { document.getElementById('atribuirTecnicoModal').style.display = 'none'; }
+function fecharModalAtribuirTecnico() { 
+    document.getElementById('atribuirTecnicoModal').style.display = 'none'; 
+    document.getElementById('atrAutoNup').value = '';
+    document.getElementById('atrAutoTecnico').value = '';
+}
 
 async function salvarAtribuicaoTecnico() {
     const nup = document.getElementById('atrAutoNup').value;
+    if (nup && nup.startsWith('__CARTA__')) {
+        await salvarAtribuicaoTecnicoCarta();
+        return;
+    }
     const tecnico = document.getElementById('atrAutoTecnico').value;
     if (!tecnico) { mostrarToast('Selecione um técnico para atribuir.', 'error'); return; }
 
@@ -333,10 +462,13 @@ async function salvarAtribuicaoTecnico() {
     // OPTIMISTIC UPDATE
     const autoRef = dadosAutosGlobais.find(a => a['NUP'] === nup);
     let tecnicoOriginal = '';
+    let statusOriginal = '';
 
     if (autoRef) {
         tecnicoOriginal = autoRef['TÉCNICO'];
+        statusOriginal = autoRef['STATUS ATUAL'];
         autoRef['TÉCNICO'] = tecnico;
+        autoRef['STATUS ATUAL'] = 'AGUARDANDO MANIFESTAÇÃO';
     }
 
     mostrarToast('Técnico atribuído localmente. Sincronizando em background...', 'success');
@@ -348,7 +480,7 @@ async function salvarAtribuicaoTecnico() {
     btn.disabled = false;
 
     try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch(APPS_SCRIPT_URL, {
             method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico })
         });
@@ -364,6 +496,7 @@ async function salvarAtribuicaoTecnico() {
         mostrarToast('Falha na internet ao atribuir técnico. (Revertendo)', 'error');
         if (autoRef) {
             autoRef['TÉCNICO'] = tecnicoOriginal;
+            autoRef['STATUS ATUAL'] = statusOriginal;
         }
         filtrarAutos();
         atualizarCacheAutos();
@@ -531,4 +664,119 @@ async function salvarNovoAuto() {
 // Inicia o drag & drop deste ecrã se a função do app.js já estiver ativa
 if (typeof configurarDragAndDrop === 'function') {
     configurarDragAndDrop('cadAutoArquivo', 'cadAutoArquivoLabel', updateFileNameAuto);
+}
+
+/**
+ * Técnico: anexa o PDF de resposta ao Auto de Infração e envia para o backend
+ */
+function anexarDocumentoAuto(event, nup) {
+    const btn = event.currentTarget;
+    const textoOriginal = btn.innerHTML;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.accept = 'application/pdf';
+
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader(); reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+
+            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Auto_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "auto" };
+            const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const resultado = await resposta.json();
+
+            if (resultado.status === 'success') {
+                mostrarToast('Resposta anexada com sucesso!', 'success');
+                const target = dadosAutosGlobais.find(r => r['NUP'] === nup);
+                if (target) {
+                    target['LINK DA RESPOSTA'] = resultado.url;
+                    target['STATUS ATUAL'] = "REVISÃO";
+                    target['STATUS-RESPOSTA'] = "";
+                    target['MOTIVO DA AVALIAÇÃO'] = "";
+                }
+                filtrarAutos();
+                atualizarCacheAutos();
+            } else {
+                mostrarToast('Erro: ' + resultado.message, 'error');
+                btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
+            }
+        } catch (error) { mostrarToast('Erro de comunicação.', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1'; }
+    };
+    fileInput.click();
+}
+
+/**
+ * Remove o PDF de resposta do Auto de Infração
+ */
+async function removerDocumentoAuto(event, nup) {
+    if (event) event.stopPropagation();
+    const btn = event.currentTarget;
+    const result = await mostrarConfirmacao('Deseja desvincular a resposta deste Auto de Infração?', { titulo: 'Confirmar Remoção', textoBotao: '🗑️ Sim, Remover' });
+    if (!result.confirmou) return;
+
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ A remover...'; btn.disabled = true;
+
+    try {
+        const payload = { acao: "remover_resposta", nup: nup };
+        const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const resultado = await resposta.json();
+
+        if (resultado.status === 'success') {
+            mostrarToast('Documento desvinculado.', 'success');
+            const target = dadosAutosGlobais.find(r => r['NUP'] === nup);
+            if (target) {
+                target['LINK DA RESPOSTA'] = "";
+                target['STATUS ATUAL'] = "AGUARDANDO MANIFESTAÇÃO";
+                target['STATUS-RESPOSTA'] = "";
+                target['MOTIVO DA AVALIAÇÃO'] = "";
+            }
+            filtrarAutos();
+            atualizarCacheAutos();
+        } else {
+            mostrarToast('Erro: ' + resultado.message, 'error'); btn.innerHTML = textoOriginal; btn.disabled = false;
+        }
+    } catch (error) { mostrarToast('Erro de rede.', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; }
+}
+
+/**
+ * Avalia (aprova/reprova) a resposta do Auto de Infração
+ */
+async function avaliarRespostaAuto(event, nup, decisao) {
+    if (event) event.stopPropagation();
+    const btn = event.currentTarget;
+    const conf = decisao === 'APROVADO' ? { titulo: 'Aprovar', textoBotao: '✅ Aprovar', corBotao: '#27ae60' } : { titulo: 'Reprovar', textoBotao: '❌ Reprovar', corBotao: '#c0392b', exigeMotivo: true };
+    const result = await mostrarConfirmacao(`Deseja ${decisao === 'APROVADO' ? 'aprovar' : 'reprovar'} esta resposta?`, conf);
+    if (!result.confirmou) return;
+
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ A processar...'; btn.disabled = true;
+
+    try {
+        const payload = { acao: "avaliar_resposta", nup: nup, decisao: decisao, motivo: result.motivo || '' };
+        const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const resultado = await resposta.json();
+
+        if (resultado.status === 'success') {
+            mostrarToast(`Processo ${decisao.toLowerCase()}!`, 'success');
+            const target = dadosAutosGlobais.find(r => r['NUP'] === nup);
+            if (target) {
+                target['STATUS-RESPOSTA'] = decisao;
+                target['MOTIVO DA AVALIAÇÃO'] = result.motivo || "";
+                target['STATUS ATUAL'] = (decisao === 'APROVADO') ? "FAZER DESPACHO" : "AGUARDANDO MANIFESTAÇÃO";
+            }
+            filtrarAutos();
+            atualizarCacheAutos();
+            fecharPreview();
+        } else {
+            mostrarToast('Erro: ' + resultado.message, 'error'); btn.innerHTML = textoOriginal; btn.disabled = false;
+        }
+    } catch (error) { mostrarToast('Erro de rede.', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; }
 }

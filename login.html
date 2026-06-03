@@ -139,6 +139,15 @@
                     console.log("Pré-carregamento: Ofícios Externos carregados.");
                 }
             }).catch(e => console.error("Erro no pré-carregamento de Ofícios Externos:", e));
+
+            // Cartas Consulta
+            const urlCartas = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH-FB2y0K914aswDdtivgD5AJv6fpnUIPQpU2XmMHrIvXbRcDbgWdrv_VJBKLZesNueg9Q8AfNUXP2/pub?gid=94503283&single=true&output=csv";
+            fetch(urlCartas)
+            .then(r => r.text())
+            .then(resultadoCsv => {
+                localStorage.setItem('corino_temp_raw_cartas', resultadoCsv);
+                console.log("Pré-carregamento: Cartas Consulta carregadas.");
+            }).catch(e => console.error("Erro no pré-carregamento de Cartas Consulta:", e));
         }
 
         // Adiciona os event listeners após o DOM ser carregado
