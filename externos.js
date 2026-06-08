@@ -269,7 +269,11 @@ function renderTabelaExternos(dados) {
         }
 
         let acoesDiflor = '';
-        if (usuarioAtivo && usuarioAtivo.username === 'diflor' && temResposta) {
+        const tecExt = (s['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+        const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecExt] || 'S/G';
+        const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
+
+        if (podeAvaliar && temResposta) {
             const statusResp = (s['STATUS-RESPOSTA'] || s['STATUS DA RESPOSTA'] || '').toUpperCase();
             if (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO') {
                 acoesDiflor = `
@@ -282,7 +286,7 @@ function renderTabelaExternos(dados) {
         }
 
         let htmlDiretoriaBotoes = '';
-        const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil === 'gerencia';
+        const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
         const isSemTecnico = !s['TÉCNICO/ADMIN'] || s['TÉCNICO/ADMIN'] === '-' || s['TÉCNICO/ADMIN'] === 'S/T' || s['TÉCNICO/ADMIN'] === 'Sem Técnico' || s['TÉCNICO/ADMIN'] === 'Não atribuído';
 
         if (isGestorFinalidade && isSemTecnico) {
@@ -362,6 +366,14 @@ function filtrarExternos() {
             const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
             const matchTecnico = tecRow.toUpperCase().trim() === tecnicoLogado;
             if (!matchTecnico) return false;
+        }
+
+        // Restrição de Gerência para GCAR / GEAA
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+            if (!semTecnico) {
+                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRow.toUpperCase().trim()] || 'S/G';
+                if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+            }
         }
 
         const isFinalizado = statusRow === 'RESPONDIDO' || statusRow === 'ARQUIVADO' || statusRow === 'TRAMITADO' || statusRow === 'FINALIZADO';
@@ -652,7 +664,11 @@ function abrirPreviewExterno(event, url, nup) {
     // Ações da Diretoria (Diflor) para avaliar a resposta dentro da pré-visualização
     let acoesDiflorPreview = '';
     const statusRespAval = (linha['STATUS-RESPOSTA'] || linha['STATUS DA RESPOSTA'] || '').toUpperCase();
-    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
+    const tecExt = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecExt] || 'S/G';
+    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
+
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>

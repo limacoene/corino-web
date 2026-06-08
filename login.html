@@ -78,7 +78,8 @@
                     const dadosUsuario = {
                         username: user,
                         perfil: resultado.perfil,
-                        nomePlanilha: resultado.nomePlanilha
+                        nomePlanilha: resultado.nomePlanilha,
+                        setor: resultado.setor // <--- Mapeamento do setor
                     };
                     
                     sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));

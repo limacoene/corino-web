@@ -216,7 +216,7 @@ function renderTabelaAutos(dados) {
         const temResposta = linkResposta && linkResposta.startsWith('http');
         const statusResp = (s['STATUS-RESPOSTA'] || s['STATUS DA RESPOSTA'] || '').toUpperCase();
 
-        const isGestor = usuarioAtivo && usuarioAtivo.perfil === 'gerencia';
+        const isGestor = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
         const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
 
         let linkPreviewBtn = '';
@@ -408,7 +408,11 @@ function abrirPreviewAuto(event, url, nup) {
     // Ações de Avaliação da resposta dentro do Preview
     let acoesDiflorPreview = '';
     const statusRespAval = (linha['STATUS-RESPOSTA'] || linha['STATUS DA RESPOSTA'] || '').toUpperCase();
-    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
+    const tecAuto = (linha['TÉCNICO'] || '').trim().toUpperCase();
+    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecAuto] || 'S/G';
+    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
+
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
@@ -548,10 +552,22 @@ async function carregarAutos() {
         try {
             const dadosBrutos = JSON.parse(tempRawAutos);
             let novosDados = [];
-            if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
-                novosDados = dadosBrutos.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
-            } else { 
-                novosDados = dadosBrutos; 
+            if (usuarioAtivo) {
+                if (usuarioAtivo.perfil === 'tecnico') {
+                    novosDados = dadosBrutos.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
+                } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+                    novosDados = dadosBrutos.filter(linha => {
+                        const tec = (linha['TÉCNICO'] || '').trim().toUpperCase();
+                        const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+                        if (!semTecnico) {
+                            return MAPA_TECNICOS_SETORES[tec] === usuarioAtivo.setor;
+                        } else {
+                            return (linha['SETOR'] || '').trim().toUpperCase() === usuarioAtivo.setor;
+                        }
+                    });
+                } else {
+                    novosDados = dadosBrutos;
+                }
             }
             localStorage.setItem(keyAutos, JSON.stringify(novosDados));
             localStorage.removeItem('corino_temp_raw_autos');
@@ -586,9 +602,23 @@ async function carregarAutos() {
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
             let novosDados = [];
-            if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
-                novosDados = resultado.dados.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
-            } else { novosDados = resultado.dados; }
+            if (usuarioAtivo) {
+                if (usuarioAtivo.perfil === 'tecnico') {
+                    novosDados = resultado.dados.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
+                } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+                    novosDados = resultado.dados.filter(linha => {
+                        const tec = (linha['TÉCNICO'] || '').trim().toUpperCase();
+                        const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+                        if (!semTecnico) {
+                            return MAPA_TECNICOS_SETORES[tec] === usuarioAtivo.setor;
+                        } else {
+                            return (linha['SETOR'] || '').trim().toUpperCase() === usuarioAtivo.setor;
+                        }
+                    });
+                } else {
+                    novosDados = resultado.dados;
+                }
+            }
             
             dadosAutosGlobais = novosDados;
             atualizarCacheAutos();

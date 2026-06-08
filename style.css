@@ -1892,7 +1892,8 @@ html.light-mode .btn-preview-toggle-tab.active {
 /* Lists and Cards */
 html.light-mode #left-panel-inbox-oficios > div,
 html.light-mode #lista-autos-container > div > div,
-html.light-mode #lista-externos-container > div > div {
+html.light-mode #lista-externos-container > div > div,
+html.light-mode #left-panel-cartas > div {
     background-color: #ffffff !important;
     border-color: #e2e8f0 !important;
     box-shadow: 0 4px 6px rgba(0,0,0,0.02);
@@ -1900,13 +1901,16 @@ html.light-mode #lista-externos-container > div > div {
 
 html.light-mode #left-panel-inbox-oficios > div:hover,
 html.light-mode #lista-autos-container > div > div:hover,
-html.light-mode #lista-externos-container > div > div:hover {
+html.light-mode #lista-externos-container > div > div:hover,
+html.light-mode #left-panel-cartas > div:hover {
     background-color: #f7fafc !important;
     border-color: #cbd5e0 !important;
 }
 
 html.light-mode #left-panel-inbox-oficios > div[style*="background-color: rgba(46, 204, 113, 0.1)"],
-html.light-mode #lista-autos-container > div > div[style*="background-color: rgba(46, 204, 113, 0.1)"] {
+html.light-mode #lista-autos-container > div > div[style*="background-color: rgba(46, 204, 113, 0.1)"],
+html.light-mode #left-panel-cartas > div[style*="background-color: rgba(46, 204, 113, 0.1)"],
+html.light-mode #left-panel-cartas > div[style*="background-color:rgba(46, 204, 113, 0.1)"] {
     background-color: rgba(46, 204, 113, 0.15) !important;
     border-color: var(--primary-green) !important;
 }
@@ -1920,7 +1924,8 @@ html.light-mode #lista-externos-container > div > div[style*="background-color: 
 /* Detalhes */
 html.light-mode #right-panel-detalhes-oficios,
 html.light-mode #right-panel-detalhes-autos,
-html.light-mode #right-panel-detalhes-ext {
+html.light-mode #right-panel-detalhes-ext,
+html.light-mode #right-panel-cartas {
     background-color: #ffffff !important;
     border-color: #e2e8f0 !important;
     box-shadow: 0 10px 25px rgba(0,0,0,0.03);
@@ -1929,71 +1934,111 @@ html.light-mode #right-panel-detalhes-ext {
 html.light-mode #right-panel-detalhes-oficios div,
 html.light-mode #right-panel-detalhes-autos div,
 html.light-mode #right-panel-detalhes-ext div,
+html.light-mode #right-panel-cartas div,
 html.light-mode #right-panel-detalhes-oficios span,
 html.light-mode #right-panel-detalhes-autos span,
-html.light-mode #right-panel-detalhes-ext span {
-    color: var(--text-light);
+html.light-mode #right-panel-detalhes-ext span,
+html.light-mode #right-panel-cartas span {
+    color: var(--text-light) !important;
 }
 
 html.light-mode #right-panel-detalhes-oficios strong,
 html.light-mode #right-panel-detalhes-autos strong,
-html.light-mode #right-panel-detalhes-ext strong {
-    color: #1a202c;
+html.light-mode #right-panel-detalhes-ext strong,
+html.light-mode #right-panel-cartas strong {
+    color: #1a202c !important;
 }
 
 /* Override dark styles inside cards */
-html.light-mode div[style*="background-color: #222"] {
+html.light-mode div[style*="background-color: #222"],
+html.light-mode div[style*="background-color:#222"],
+html.light-mode [style*="background-color: #1a252f"],
+html.light-mode [style*="background-color:#1a252f"] {
     background-color: #f7fafc !important;
 }
 html.light-mode div[style*="color: #ccc"],
+html.light-mode div[style*="color:#ccc"],
 html.light-mode div[style*="color: #aaa"],
+html.light-mode div[style*="color:#aaa"],
 html.light-mode div[style*="color: #888"],
-html.light-mode div[style*="color: #777"] {
+html.light-mode div[style*="color:#888"],
+html.light-mode div[style*="color: #777"],
+html.light-mode div[style*="color:#777"],
+html.light-mode [style*="color: #ddd"],
+html.light-mode [style*="color:#ddd"] {
     color: var(--text-muted) !important;
 }
 
-html.light-mode div[style*="border-top: 1px solid #333"] {
+html.light-mode div[style*="border-top: 1px solid #333"],
+html.light-mode div[style*="border-top:1px solid #333"] {
     border-top-color: #cbd5e0 !important;
 }
 
-html.light-mode div[style*="border-bottom: 1px solid #333"] {
+html.light-mode div[style*="border-bottom: 1px solid #333"],
+html.light-mode div[style*="border-bottom:1px solid #333"] {
     border-bottom-color: #cbd5e0 !important;
 }
 
+html.light-mode [style*="border: 1px solid #2c3e50"],
+html.light-mode [style*="border:1px solid #2c3e50"] {
+    border-color: #cbd5e0 !important;
+}
+
 html.light-mode div[style*="color: #fff"],
-html.light-mode div[style*="color: rgb(255, 255, 255)"] {
+html.light-mode div[style*="color:#fff"],
+html.light-mode div[style*="color: rgb(255, 255, 255)"],
+html.light-mode div[style*="color: white"],
+html.light-mode div[style*="color:white"],
+html.light-mode strong[style*="color: white"],
+html.light-mode strong[style*="color:white"] {
     color: var(--text-light) !important;
 }
 
 /* Specific details panels overrides */
 html.light-mode #right-panel-detalhes-oficios div[style*="background-color: #222"],
 html.light-mode #right-panel-detalhes-autos div[style*="background-color: #222"],
-html.light-mode #right-panel-detalhes-ext div[style*="background-color: #222"] {
+html.light-mode #right-panel-detalhes-ext div[style*="background-color: #222"],
+html.light-mode #right-panel-cartas div[style*="background-color: #222"],
+html.light-mode #right-panel-cartas div[style*="background-color:#222"],
+html.light-mode div[style*="background-color: #1a252f"],
+html.light-mode div[style*="background-color:#1a252f"] {
     background-color: #f7fafc !important;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #cbd5e0 !important;
 }
 
 /* Exclude colored elements like green, red, yellow from getting overridden */
 html.light-mode .status-red,
 html.light-mode [style*="color: #ff4b4b"],
+html.light-mode [style*="color:#ff4b4b"],
 html.light-mode [style*="color: rgb(255, 75, 75)"],
 html.light-mode [style*="color: #c0392b"],
-html.light-mode [style*="color: #e74c3c"] {
+html.light-mode [style*="color:#c0392b"],
+html.light-mode [style*="color: #e74c3c"],
+html.light-mode [style*="color:#e74c3c"] {
     color: #c0392b !important;
 }
 html.light-mode .status-green,
 html.light-mode [style*="color: #00fa9a"],
+html.light-mode [style*="color:#00fa9a"],
 html.light-mode [style*="color: rgb(0, 250, 154)"],
 html.light-mode [style*="color: var(--primary-green)"],
 html.light-mode [style*="color: #27ae60"],
-html.light-mode [style*="color: #2ecc71"] {
+html.light-mode [style*="color:#27ae60"],
+html.light-mode [style*="color: #2ecc71"],
+html.light-mode [style*="color:#2ecc71"] {
     color: #27ae60 !important;
 }
 html.light-mode .status-yellow,
 html.light-mode [style*="color: #ffff00"],
+html.light-mode [style*="color:#ffff00"],
 html.light-mode [style*="color: #f39c12"],
+html.light-mode [style*="color:#f39c12"],
 html.light-mode [style*="color: #f1c40f"],
-html.light-mode [style*="color: #e67e22"] {
+html.light-mode [style*="color:#f1c40f"],
+html.light-mode [style*="color: #e67e22"],
+html.light-mode [style*="color:#e67e22"],
+html.light-mode [style*="color: #ffa500"],
+html.light-mode [style*="color:#ffa500"] {
     color: #d87a00 !important; /* Slightly darker orange/yellow for contrast on light background */
 }
 
@@ -2045,12 +2090,24 @@ html.light-mode ::-webkit-scrollbar-thumb:hover {
 html.light-mode #right-panel-detalhes-oficios div[style*="background-color: rgba(255,255,255,0.1)"],
 html.light-mode #right-panel-detalhes-autos div[style*="background-color: rgba(255,255,255,0.1)"],
 html.light-mode #right-panel-detalhes-ext div[style*="background-color: rgba(255,255,255,0.1)"],
+html.light-mode #right-panel-cartas div[style*="background-color: rgba(255,255,255,0.1)"],
+html.light-mode #right-panel-cartas div[style*="background-color:rgba(255,255,255,0.1)"],
+html.light-mode #right-panel-cartas div[style*="background-color: rgba(255,255,255,0.03)"],
+html.light-mode #right-panel-cartas div[style*="background-color:rgba(255,255,255,0.03)"],
 html.light-mode #right-panel-detalhes-oficios div[style*="background-color: rgba(255, 255, 255, 0.1)"],
 html.light-mode #right-panel-detalhes-autos div[style*="background-color: rgba(255, 255, 255, 0.1)"],
-html.light-mode #right-panel-detalhes-ext div[style*="background-color: rgba(255, 255, 255, 0.1)"] {
+html.light-mode #right-panel-detalhes-ext div[style*="background-color: rgba(255, 255, 255, 0.1)"],
+html.light-mode #right-panel-cartas div[style*="background-color: rgba(255, 255, 255, 0.1)"],
+html.light-mode #right-panel-cartas div[style*="background-color: rgba(255, 255, 255, 0.03)"] {
     background-color: #edf2f7 !important;
     color: #2d3748 !important;
     border: 1px solid #cbd5e0 !important;
+}
+
+html.light-mode #right-panel-cartas div[style*="background:rgba(255,255,255,0.02)"],
+html.light-mode #right-panel-cartas div[style*="background: rgba(255, 255, 255, 0.02)"] {
+    background-color: #f7fafc !important;
+    border-color: #cbd5e0 !important;
 }
 
 /* Alert banners styling overrides in Light Mode */
@@ -2089,7 +2146,11 @@ html.light-mode button[style*="background-color: #34495e"]:hover {
 
 /* Initial search info banner styling overrides in Light Mode */
 html.light-mode #cards-container div[style*="background-color: #0e1117"],
-html.light-mode #cards-container div[style*="background-color: rgb(14, 17, 23)"] {
+html.light-mode #cards-container div[style*="background-color: rgb(14, 17, 23)"],
+html.light-mode #cartas-tabela-view div[style*="background-color: #0e1117"],
+html.light-mode #cartas-tabela-view div[style*="background-color:#0e1117"],
+html.light-mode #cartas-tabela-view div[style*="background-color: rgb(14, 17, 23)"],
+html.light-mode #cartas-tabela-view div[style*="background-color:rgb(14, 17, 23)"] {
     background-color: #ffffff !important;
     border-color: #e2e8f0 !important;
     color: var(--text-light) !important;
