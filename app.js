@@ -4,7 +4,8 @@ if (!usuarioAtivo) {
     window.location.href = 'login.html';
 } else {
     // Ocultar aba de Aguardando Distribuição para quem não for da Diretoria
-    if (usuarioAtivo.perfil !== 'gerencia') {
+    // Ocultar aba de Aguardando Distribuição para quem não for Gerência (DIFLOR, GCAR, GEAA)
+    if (!usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'gerencia_consulta') {
         const btnDistribuicao = document.getElementById('btn-menu-distribuicao');
         if (btnDistribuicao) btnDistribuicao.style.display = 'none';
 
@@ -181,7 +182,7 @@ async function iniciarSistema() {
             displayDiv.innerText = `${usuarioAtivo.nomePlanilha} (${textoPerfil})`;
         }
 
-        if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.perfil === 'tecnico')) {
+        if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.perfil === 'gerencia_gcar' || usuarioAtivo.perfil === 'gerencia_geaa' || usuarioAtivo.perfil === 'tecnico')) {
             const btnResp = document.getElementById('btn-menu-respondidos');
             if (btnResp) btnResp.style.display = 'block';
 
@@ -215,13 +216,26 @@ async function iniciarSistema() {
                         const statusVisual = obterStatusVisual(linha);
                         const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
 
-                        if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+                        if (semTecnico && isFinalizado && !usuarioAtivo.perfil.startsWith('gerencia')) {
                             return false;
                         }
 
                         if (usuarioAtivo.perfil === 'tecnico') {
                             const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                            return tec === tecnicoLogado;
+                            if (tec !== tecnicoLogado) {
+                                return false;
+                            }
+                        }
+
+                        // Gerências setoriais (GCAR / GEAA) só visualizam processos de competência direta
+                        if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+                            if (!semTecnico) {
+                                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                                if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+                            } else {
+                                const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
+                                if (gerenciaRegistro !== usuarioAtivo.setor) return false;
+                            }
                         }
 
                         return true;
@@ -281,13 +295,24 @@ async function iniciarSistema() {
                     const statusVisual = obterStatusVisual(linha);
                     const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
 
-                    if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+                    if (semTecnico && isFinalizado && !usuarioAtivo.perfil.startsWith('gerencia')) {
                         return false;
                     }
 
                     if (usuarioAtivo.perfil === 'tecnico') {
                         const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
                         return tec === tecnicoLogado;
+                    }
+
+                    // Gerências setoriais (GCAR / GEAA) só visualizam processos de competência direta
+                    if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+                        if (!semTecnico) {
+                            const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                            if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+                        } else {
+                            const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
+                            if (gerenciaRegistro !== usuarioAtivo.setor) return false;
+                        }
                     }
 
                     return true;
@@ -701,7 +726,7 @@ function aplicarFiltros() {
             const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
 
             // 1. Ocultar processos "Sem Técnico" + "Finalizado" para não-gestores
-            if (semTecnico && isFinalizado && usuarioAtivo.perfil !== 'gerencia') {
+            if (semTecnico && isFinalizado && !usuarioAtivo.perfil.startsWith('gerencia')) {
                 return false;
             }
 
@@ -710,6 +735,17 @@ function aplicarFiltros() {
                 const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
                 if (tec !== tecnicoLogado) {
                     return false;
+                }
+            }
+
+            // 3. Gerências setoriais (GCAR / GEAA) só visualizam processos de competência direta
+            if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+                if (!semTecnico) {
+                    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                    if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+                } else {
+                    const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
+                    if (gerenciaRegistro !== usuarioAtivo.setor) return false;
                 }
             }
 
@@ -773,7 +809,16 @@ function aplicarFiltros() {
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca, ofTermo);
             r._matchInfo = busca.info;
-            return (subAbaAtiva === 'Geral' || r['GERÊNCIA'] === subAbaAtiva)
+            
+            // Obtém o nome do técnico do registro e localiza seu setor no mapa interno do código.
+            // Se o registro não tiver técnico associado (aguardando distribuição), o setor de competência é a Gerência do registro.
+            const tecnicoDoRegistro = (r['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+            const semTecnico = tecnicoDoRegistro === '' || tecnicoDoRegistro === '-' || tecnicoDoRegistro === 'S/T';
+            const setorRegistro = semTecnico
+                ? (r['GERÊNCIA'] || '').trim().toUpperCase()
+                : (MAPA_TECNICOS_SETORES[tecnicoDoRegistro] || 'S/G');
+            
+            return (subAbaAtiva === 'Geral' || setorRegistro === subAbaAtiva)
                 && busca.match;
         });
 
@@ -802,7 +847,12 @@ function aplicarFiltros() {
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca, ofTermo);
             r._matchInfo = busca.info;
-            return (subAbaAtiva === 'Geral' || r['GERÊNCIA'] === subAbaAtiva)
+            
+            // Obtém o nome do técnico do registro e localiza seu setor no mapa interno do código
+            const tecnicoDoRegistro = (r['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+            const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecnicoDoRegistro] || 'S/G';
+            
+            return (subAbaAtiva === 'Geral' || setorInternoDoTecnico === subAbaAtiva)
                 && busca.match
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']))
                 && (stss.length === 0 || stss.includes('todos') || stss.includes(r['STATUS']));
@@ -851,7 +901,12 @@ function aplicarFiltros() {
         filtrados = filtrados.filter(r => {
             const busca = checarTermoBusca(r, termoBusca, ofTermo);
             r._matchInfo = busca.info;
-            return (subAbaAtiva === 'Geral' || r['GERÊNCIA'] === subAbaAtiva)
+            
+            // Obtém o nome do técnico do registro e localiza seu setor no mapa interno do código
+            const tecnicoDoRegistro = (r['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+            const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecnicoDoRegistro] || 'S/G';
+            
+            return (subAbaAtiva === 'Geral' || setorInternoDoTecnico === subAbaAtiva)
                 && busca.match
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']))
                 && (stss.length === 0 || stss.includes('todos') || stss.includes(r['STATUS']));
@@ -1111,11 +1166,11 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
         const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
 
-        if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
+        if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil.startsWith('gerencia'))) {
             if (temRespostaVinculada) {
                 const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
                 const isFazerCI = (linha['STATUS'] || '').toUpperCase().trim().replace(/\./g, '') === 'FAZER CI';
-                const isGestor = usuarioAtivo.perfil === 'gerencia';
+                const isGestor = usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
 
                 let blockRemoval = false;
                 if (!isGestor && (isAprovadoBackend || isFazerCI)) {
@@ -1795,11 +1850,11 @@ function abrirModal(index) {
     const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
     const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
 
-    if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
+    if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil.startsWith('gerencia'))) {
         if (temRespostaVinculada) {
             const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
             const isFazerCI = (linha['STATUS'] || '').toUpperCase().trim().replace(/\./g, '') === 'FAZER CI';
-            const isGestor = usuarioAtivo.perfil === 'gerencia';
+            const isGestor = usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
 
             let blockRemoval = false;
             if (!isGestor && (isAprovadoBackend || isFazerCI)) {
@@ -1843,7 +1898,7 @@ function abrirModal(index) {
     }
 
     let htmlDiretoriaBotoes = '';
-    const isGestorFinalidade = usuarioAtivo.perfil === 'gerencia';
+    const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
     const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
     const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
 
@@ -2039,7 +2094,11 @@ function abrirPreview(url, index) {
     let acoesDiflorPreview = '';
     const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
     const isLinkRespostaValido = linha['LINK_RESPOSTA'] && linha['LINK_RESPOSTA'].trim() !== '' && linha['LINK_RESPOSTA'].trim() !== '-';
-    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && isLinkRespostaValido) {
+    const tecRegistro = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRegistro] || 'S/G';
+    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
+    
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && isLinkRespostaValido) {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
@@ -2249,19 +2308,35 @@ function atualizarBadgesNotificacao(dados) {
         atualizarBadgeDOM('badge-menu-andamento', totalAndamento);
         atualizarBadgeDOM('badge-menu-atrasados', totalAtrasados);
 
-    } else if (usuarioAtivo.username === 'diflor') {
+    } else if (usuarioAtivo.perfil.startsWith('gerencia')) {
         totalRespPendentes = dados.filter(r => {
             const linkResposta = r['LINK_RESPOSTA'];
             const temLink = linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-';
             const statusResposta = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
             const statusGeral = (r['STATUS'] || '').toUpperCase().trim();
 
-            return (temLink || statusGeral === 'REVISÃO') &&
+            const matchFiltroGeral = (temLink || statusGeral === 'REVISÃO') &&
                 statusGeral === 'REVISÃO' &&
                 statusGeral !== 'TRAMITADO' &&
                 statusGeral !== 'ARQUIVADO' &&
                 statusResposta !== 'APROVADO' &&
                 statusResposta !== 'REPROVADO';
+            
+            if (!matchFiltroGeral) return false;
+
+            if (usuarioAtivo.username !== 'diflor') {
+                const tec = (r['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+                const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+                if (!semTecnico) {
+                    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                    if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+                } else {
+                    const gerenciaRegistro = (r['GERÊNCIA'] || '').trim().toUpperCase();
+                    if (gerenciaRegistro !== usuarioAtivo.setor) return false;
+                }
+            }
+
+            return true;
         }).length;
 
         atualizarBadgeDOM('badge-menu-respondidos', totalRespPendentes);
@@ -2273,6 +2348,18 @@ function atualizarBadgesNotificacao(dados) {
     if (usuarioAtivo.perfil === 'tecnico') {
         const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
         cartasFiltradas = cartasFiltradas.filter(r => (r['TÉCNICO/ADM'] || r['TECNICO/ADM'] || '').toUpperCase().trim() === tecnicoLogado);
+    } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+        cartasFiltradas = cartasFiltradas.filter(r => {
+            const tec = String(r['TÉCNICO/ADM'] || r['TECNICO/ADM'] || '').toUpperCase().trim();
+            const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO';
+            const gerenciaRow = String(r['GERÊNCIA'] || '').toUpperCase().trim();
+            if (!semTecnico) {
+                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                return (setorInternoDoTecnico === usuarioAtivo.setor);
+            } else {
+                return (gerenciaRow === usuarioAtivo.setor);
+            }
+        });
     }
 
     let totalCartasDistribuicao = cartasFiltradas.filter(r => (r['STATUS'] || '').toUpperCase().trim() === 'AGUARDANDO DISTRIBUIÇÃO').length;
@@ -2341,15 +2428,41 @@ const opcoesTipoAba1 = [
     "CARTA CONSULTA"
 ];
 
-const opcoesAutoTecnico = [
-    "ALLAN", "ALEXANDRE", "ANDERSON", "ADRIANA", "BARBARA", "BEATRIZ", "CRISTIANE",
-    "CARLA", "CARLOS JULIANO", "DIANESSA", "ELERI", "ELEN MARA", "ETEVALDO",
-    "FABIANA", "FRANCIELLY", "GABRIELA", "HELLEN", "HERUS", "HELEN CAROLINE",
-    "HILBATY", "HENRIQUE", "JOSÉ RENATO", "JOELTHON", "JONIEL", "JEAN PIERRE",
-    "LIVYA", "LUCIANO", "LARISSA", "MAX SANDER", "MARIA", "MARIANA OPP", "MARIANA SH",
-    "MICHAEL", "MILKA", "MATEUS", "NETO", "RHOANDER", "RODRIGO", "JHONATAN",
-    "SUZIELLY"
-];
+// MAPA INTERNO DE TÉCNICOS E SEUS RESPECTIVOS SETORES (SUB-ABAS)
+const MAPA_TECNICOS_SETORES = {
+    "JHONATAN": "DIFLOR",
+    "RODRIGO": "GEAA",
+    "MARIANA OPP": "GEAA",
+    "ELERI": "GCAR",
+    "MILKA": "GCAR",
+    "JOELTHON": "GEAA",
+    "BEATRIZ": "GEAA",
+    "ANDERSON": "GEAA",
+    "HELEN CAROLINE": "GCAR",
+    
+    "MARIANA SH": "GEAA",
+    "LARISSA": "GCAR",
+    "ALEXANDRE": "GEAA",
+    "MATEUS": "GEAA",
+    
+    "MARIA": "GEAA",
+    "MICHAEL": "GCAR",
+    "FABIANA": "GCAR",
+    "CARLOS JULIANO": "GCAR",
+    "JOSÉ RENATO": "GEAA",
+    "CRISTIANE": "GCAR",
+    "HILBATY": "GCAR",
+    "FRANCIELLY": "GCAR",
+    "JEAN PIERRE": "GEAA",
+    "CARLA": "GEAA",
+    "SUZIELLY": "GEAA",
+    "MAX SANDER": "GEAA",
+    "ETEVALDO": "GEAA",
+    "ALLAN": "GEAA"
+};
+
+// Mantém o array simples apenas para popular os seletores (<select>) da interface
+const opcoesAutoTecnico = Object.keys(MAPA_TECNICOS_SETORES).sort();
 
 const opcoesGerencia = [
     "DIFLOR",

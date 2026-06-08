@@ -1088,6 +1088,17 @@ function aplicarFiltrosCartas() {
             matchesTecnicoLogado = (tecRow === tecLogado);
         }
 
+        // Restrição de Gerência para GCAR / GEAA
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+            const semTecnico = tecRow === '' || tecRow === '-' || tecRow === 'S/T' || tecRow === 'SEM TÉCNICO' || tecRow === 'NÃO ATRIBUÍDO';
+            if (!semTecnico) {
+                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRow] || 'S/G';
+                if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+            } else {
+                if (gerenciaRow !== usuarioAtivo.setor) return false;
+            }
+        }
+
         const isAtrasadoProcess = (Number(r['DIAS RESTANTES']) < 0 && statusRow !== 'TRAMITADO' && statusRow !== 'ARQUIVADO');
         const matchesAtrasoTab = (filtroAtivo !== 'cartas-atrasados' || isAtrasadoProcess);
 
@@ -1336,7 +1347,11 @@ function abrirModalPreviewCartas(index) {
     // Ações Diretoria
     let acoesDiflorPreview = '';
     const statusRespAval = (linha['STATUS DA RESPOSTA'] || '').toUpperCase();
-    if (usuarioAtivo && usuarioAtivo.username === 'diflor' && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && (linkManifestacao.trim().startsWith('http') || linkDeclaracao.trim().startsWith('http'))) {
+    const tecRowCarta = String(linha['TÉCNICO/ADM'] || linha['TECNICO/ADM'] || '').toUpperCase().trim();
+    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRowCarta] || 'S/G';
+    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
+
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && (linkManifestacao.trim().startsWith('http') || linkDeclaracao.trim().startsWith('http'))) {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>

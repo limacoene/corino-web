@@ -49,37 +49,39 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
 
     var USUARIOS = {
-      "diflor":       {senha:"gonçaloalves",perfil:"gerencia",         nomePlanilha:"DIRETORIA FLORESTAL"},
-      "geamb":        {senha:"usop1",        perfil:"gerencia_consulta",nomePlanilha:"GERÊNCIA DE ASSUNTOS AMBIENTAIS"},
-      "jhonatan":     {senha:"dev1",         perfil:"tecnico",          nomePlanilha:"JHONATAN"},
-      "rcosta":       {senha:"mutumdev",     perfil:"tecnico",          nomePlanilha:"RODRIGO"},
-      "marianaopp":   {senha:"marianaopp",   perfil:"tecnico",          nomePlanilha:"MARIANA OPP"},
-      "erafael":      {senha:"epaulino",     perfil:"tecnico",          nomePlanilha:"ELERI"},
-      "mandressa":    {senha:"mbrito",       perfil:"tecnico",          nomePlanilha:"MILKA"},
-      "jribeiro":     {senha:"jferreira",    perfil:"tecnico",          nomePlanilha:"JOELTHON"},
-      "bcarneiro":    {senha:"boliveira",    perfil:"tecnico",          nomePlanilha:"BEATRIZ"},
-      "aoliveira":    {senha:"atavares",     perfil:"tecnico",          nomePlanilha:"ANDERSON"},
-      "hcrodrigues":  {senha:"hcorrea",      perfil:"tecnico",          nomePlanilha:"HELEN CAROLINE"},
-      "mshinzato":    {senha:"muemura",      perfil:"tecnico",          nomePlanilha:"MARIANA SH"},
-      "lpires":       {senha:"lcarmo",       perfil:"tecnico",          nomePlanilha:"LARISSA"},
-      "adpaula":      {senha:"adivino",      perfil:"tecnico",          nomePlanilha:"ALEXANDRE"},
-      "mruginski":    {senha:"mmarochi",     perfil:"tecnico",          nomePlanilha:"MATEUS"},
-      "mgarcia":      {senha:"mcorona",      perfil:"tecnico",          nomePlanilha:"MARIA"},
-      "maguirre":     {senha:"mpereira",     perfil:"tecnico",          nomePlanilha:"MICHAEL"},
-      "fvasconcellos":{senha:"fananias",     perfil:"tecnico",          nomePlanilha:"FABIANA"},
-      "cfonseca":     {senha:"csilva",       perfil:"tecnico",          nomePlanilha:"CARLOS JULIANO"},
-      "jcampos":      {senha:"jazedias",     perfil:"tecnico",          nomePlanilha:"JOSÉ RENATO"},
-      "cbarauna":     {senha:"coliveira",    perfil:"tecnico",          nomePlanilha:"CRISTIANE"},
-      "hsilva":       {senha:"hrodrigues",   perfil:"tecnico",          nomePlanilha:"HILBATY"},
-      "fgortega":     {senha:"fgama",        perfil:"tecnico",          nomePlanilha:"FRANCIELLY"},
-      "jpierre":      {senha:"jcosta",       perfil:"tecnico",          nomePlanilha:"JEAN PIERRE"},
-      "ccaroline":    {senha:"carlant",      perfil:"tecnico",          nomePlanilha:"CARLA"},
-      "snagel":       {senha:"ssilva",       perfil:"tecnico",          nomePlanilha:"SUZIELLY"},
-      "msander":      {senha:"mmacedo",      perfil:"tecnico",          nomePlanilha:"MAX SANDER"},
-      "emesquita":    {senha:"mesquita13",   perfil:"tecnico",          nomePlanilha:"ETEVALDO"},
-      "gcar":         {senha:"gcar1281",     perfil:"gerencia_gcar",    nomePlanilha:"GCAR"},
-      "geaa":         {senha:"geaa2026",     perfil:"gerencia_geaa",    nomePlanilha:"GEAA"},
-      "acanjos":      {senha:"101215",       perfil:"tecnico",          nomePlanilha:"ALLAN"}
+      "diflor":       {senha:"gonçaloalves",perfil:"gerencia",         nomePlanilha:"DIRETORIA FLORESTAL",           setor:"DIFLOR"},
+      "geamb":        {senha:"usop1",        perfil:"gerencia_consulta",nomePlanilha:"GERÊNCIA DE ASSUNTOS AMBIENTAIS",setor:"GEAMB"},
+      "gcar":         {senha:"gcar1281",     perfil:"gerencia_gcar",    nomePlanilha:"GCAR",                          setor:"GCAR"},
+      "geaa":         {senha:"geaa2026",     perfil:"gerencia_geaa",    nomePlanilha:"GEAA",                          setor:"GEAA"},
+      
+      // Técnicos vinculados internamente aos seus setores
+      "jhonatan":     {senha:"dev1",         perfil:"tecnico",          nomePlanilha:"JHONATAN",     setor:"DIFLOR"},
+      "rcosta":       {senha:"mutumdev",     perfil:"tecnico",          nomePlanilha:"RODRIGO",      setor:"GEAA"},
+      "marianaopp":   {senha:"marianaopp",   perfil:"tecnico",          nomePlanilha:"MARIANA OPP",  setor:"GEAA"},
+      "erafael":      {senha:"epaulino",     perfil:"tecnico",          nomePlanilha:"ELERI",        setor:"GCAR"},
+      "mandressa":    {senha:"mbrito",       perfil:"tecnico",          nomePlanilha:"MILKA",        setor:"GCAR"},
+      "jribeiro":     {senha:"jferreira",    perfil:"tecnico",          nomePlanilha:"JOELTHON",     setor:"GEAA"},
+      "bcarneiro":    {senha:"boliveira",    perfil:"tecnico",          nomePlanilha:"BEATRIZ",      setor:"GEAA"},
+      "aoliveira":    {senha:"atavares",     perfil:"tecnico",          nomePlanilha:"ANDERSON",     setor:"GEAA"},
+      "hcrodrigues":  {senha:"hcorrea",      perfil:"tecnico",          nomePlanilha:"HELEN CAROLINE",setor:"GCAR"},
+      "mshinzato":    {senha:"muemura",      perfil:"tecnico",          nomePlanilha:"MARIANA SH",   setor:"GEAA"},
+      "lpires":       {senha:"lcarmo",       perfil:"tecnico",          nomePlanilha:"LARISSA",      setor:"GCAR"},
+      "adpaula":      {senha:"adivino",      perfil:"tecnico",          nomePlanilha:"ALEXANDRE",    setor:"GEAA"},
+      "mruginski":    {senha:"mmarochi",     perfil:"tecnico",          nomePlanilha:"MATEUS",       setor:"GEAA"},
+      "mgarcia":      {senha:"mcorona",      perfil:"tecnico",          nomePlanilha:"MARIA",        setor:"GEAA"},
+      "maguirre":     {senha:"mpereira",     perfil:"tecnico",          nomePlanilha:"MICHAEL",      setor:"GCAR"},
+      "fvasconcellos":{senha:"fananias",     perfil:"tecnico",          nomePlanilha:"FABIANA",      setor:"GCAR"},
+      "cfonseca":     {senha:"csilva",       perfil:"tecnico",          nomePlanilha:"CARLOS JULIANO",setor:"GCAR"},
+      "jcampos":      {senha:"jazedias",     perfil:"tecnico",          nomePlanilha:"JOSÉ RENATO",  setor:"GEAA"},
+      "cbarauna":     {senha:"coliveira",    perfil:"tecnico",          nomePlanilha:"CRISTIANE",    setor:"GCAR"},
+      "hsilva":       {senha:"hrodrigues",   perfil:"tecnico",          nomePlanilha:"HILBATY",      setor:"GCAR"},
+      "fgortega":     {senha:"fgama",        perfil:"tecnico",          nomePlanilha:"FRANCIELLY",   setor:"GCAR"},
+      "jpierre":      {senha:"jcosta",       perfil:"tecnico",          nomePlanilha:"JEAN PIERRE",  setor:"GEAA"},
+      "ccaroline":    {senha:"carlant",      perfil:"tecnico",          nomePlanilha:"CARLA",        setor:"GEAA"},
+      "snagel":       {senha:"ssilva",       perfil:"tecnico",          nomePlanilha:"SUZIELLY",     setor:"GEAA"},
+      "msander":      {senha:"mmacedo",      perfil:"tecnico",          nomePlanilha:"MAX SANDER",   setor:"GEAA"},
+      "emesquita":    {senha:"mesquita13",   perfil:"tecnico",          nomePlanilha:"ETEVALDO",     setor:"GEAA"},
+      "acanjos":      {senha:"101215",       perfil:"tecnico",          nomePlanilha:"ALLAN",        setor:"GEAA"}
     };
 
     var sheetDb = SpreadsheetApp.getActiveSpreadsheet();
@@ -95,7 +97,12 @@ function doPost(e) {
     if (data.acao === "login") {
       var u = data.username, p = data.password;
       if (USUARIOS[u] && USUARIOS[u].senha === p) {
-        return ContentService.createTextOutput(JSON.stringify({status:"success",perfil:USUARIOS[u].perfil,nomePlanilha:USUARIOS[u].nomePlanilha})).setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "success",
+          perfil: USUARIOS[u].perfil,
+          nomePlanilha: USUARIOS[u].nomePlanilha,
+          setor: USUARIOS[u].setor // <--- Enviando o setor mapeado internamente
+        })).setMimeType(ContentService.MimeType.JSON);
       }
       return ContentService.createTextOutput(JSON.stringify({status:"error",message:"Utilizador ou palavra-passe incorretos."})).setMimeType(ContentService.MimeType.JSON);
     }
