@@ -485,7 +485,7 @@ async function salvarAtribuicaoTecnico() {
 
     try {
         const resposta = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            method: 'POST',
             body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico })
         });
         const resultado = await resposta.json();
@@ -596,7 +596,7 @@ async function carregarAutos() {
 
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            method: 'POST',
             body: JSON.stringify({ acao: "buscar_autos" })
         });
         const resultado = await resposta.json();
@@ -680,10 +680,18 @@ async function salvarNovoAuto() {
 
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+            method: 'POST', body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
-        if (resultado.status === 'success') { mostrarToast('Auto sincronizado com sucesso!', 'success'); }
+        if (resultado.status === 'success') {
+            mostrarToast('Auto sincronizado com sucesso!', 'success');
+            if (resultado.url) {
+                novoItem['LINK NUP'] = resultado.url;
+                novoItem['LINK-NUP'] = resultado.url;
+                atualizarCacheAutos();
+                filtrarAutos();
+            }
+        }
         else { mostrarToast('Erro: ' + resultado.message + ' (Revertendo)', 'error'); dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos(); atualizarCacheAutos(); }
     } catch (e) {
         console.error(e); mostrarToast('Falha na internet ao salvar Auto. (Revertendo)', 'error');

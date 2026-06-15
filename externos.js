@@ -437,7 +437,7 @@ async function carregarExternos() {
 
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            method: 'POST',
             body: JSON.stringify({ acao: "buscar_externos" })
         });
         const resultado = await resposta.json();
@@ -523,10 +523,19 @@ async function salvarNovoExterno() {
 
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+            method: 'POST', body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
-        if (resultado.status === 'success') { mostrarToast('Sincronizado com sucesso!', 'success'); }
+        if (resultado.status === 'success') {
+            mostrarToast('Sincronizado com sucesso!', 'success');
+            if (resultado.url) {
+                novoItem['LINK DO NUP'] = resultado.url;
+                novoItem['LINK-NUP'] = resultado.url;
+                novoItem['LINK'] = resultado.url;
+                atualizarCacheExternos();
+                filtrarExternos();
+            }
+        }
         else { 
             mostrarToast('Erro: ' + resultado.message, 'error'); 
             dadosExternosGlobais = dadosExternosGlobais.filter(item => item !== novoItem); 
@@ -898,7 +907,7 @@ async function salvarAtribuicaoTecnicoExterno() {
     try {
         const payload = { acao: "atribuir_tecnico_externo", nup: nup, tecnico: tecnico };
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+            method: 'POST', body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
 
