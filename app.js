@@ -1472,7 +1472,6 @@ function anexarDocumento(event, nup) {
 
             const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(payload)
             });
 
@@ -1599,7 +1598,6 @@ async function removerDocumento(event, nup) {
 
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
 
@@ -1678,7 +1676,6 @@ async function avaliarResposta(event, nup, decisao) {
 
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
 
@@ -1778,7 +1775,6 @@ async function atualizarStatusCI(event, nup, novoStatus) {
 
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
 
@@ -2219,7 +2215,7 @@ async function salvarAtribuicaoTecnicoOficio() {
     try {
         const payload = { acao: "atribuir_tecnico_oficio", nup: nup, tecnico: tecnico };
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+            method: 'POST', body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
 
@@ -2631,19 +2627,31 @@ async function salvarNovoOficio() {
     };
 
     const novoObj = {
+        'DATA': payload.data_oficio || '-',
         'NUP': payload.nup,
+        'COMARCA': payload.comarca || '-',
         'OFÍCIO N.': payload.oficio_n,
-        'DATA': payload.data_oficio,
-        'PRAZO': payload.prazo,
-        'TIPO': payload.tipo,
-        'COMARCA': payload.comarca,
-        'TÉCNICO/ADMIN': payload.tecnico,
-        'GERÊNCIA': payload.gerencia,
-        'CARMS': payload.carms,
-        'REFERÊNCIA': payload.referencia,
-        'OBSERVAÇÃO': payload.observacao,
+        'TIPO': payload.tipo || '-',
+        'REFERÊNCIA': payload.referencia || '-',
+        'PRAZO': payload.prazo || '-',
+        'DIAS RESTANTES': payload.prazo ? payload.prazo + ' dias' : '-',
+        'CARMS': payload.carms || '-',
+        'STATUS DO CAR': '-',
+        'TÉCNICO/ADMIN': payload.tecnico || 'S/T',
+        'GERÊNCIA': payload.gerencia || 'S/G',
         'STATUS': 'AGUARDANDO DISTRIBUIÇÃO',
-        'DIAS RESTANTES': payload.prazo ? payload.prazo + ' dias' : '-'
+        'STATUS_RESPOSTA': '',
+        'MOTIVO_AVALIACAO': '',
+        'DATA_DISTRIBUICAO': '',
+        'E-MS': '-',
+        'CBRS': '-',
+        'OBSERVAÇÃO': payload.observacao || '-',
+        'LINK_OFICIO': '',
+        'LINK_RESPOSTA': '',
+        'OFICIO_INICIAL': '',
+        'NUP_INICIAL': '',
+        'LINK_INICIAL': '',
+        'REITERACOES': []
     };
 
     dadosCoringa.unshift(novoObj);
@@ -2660,13 +2668,17 @@ async function salvarNovoOficio() {
     try {
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
             method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify(payload)
         });
 
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
             mostrarToast('Ofício sincronizado com a nuvem com sucesso!', 'success');
+            if (resultado.url) {
+                novoObj['LINK_OFICIO'] = resultado.url;
+                atualizarCacheOficios();
+                aplicarFiltros();
+            }
         } else {
             mostrarToast('Erro do Servidor ao salvar ofício: ' + resultado.message + ' (Revertendo)', 'error');
             dadosCoringa = dadosCoringa.filter(item => item !== novoObj);

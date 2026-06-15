@@ -256,7 +256,7 @@ function doPost(e) {
       abaSel.appendRow(novaLinha);
       if(abaTramitacao)abaTramitacao.appendRow([dataAtual,data.nup,"OFÍCIO CADASTRADO NO SISTEMA",data.tecnico]);
       SpreadsheetApp.flush();
-      return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({status:"success", url:linkDrive})).setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── BUSCAR AUTOS ───────────────────────────────────────
