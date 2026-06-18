@@ -258,6 +258,12 @@ async function iniciarSistema() {
         if (cacheSalvo) {
             try {
                 dadosCoringa = JSON.parse(cacheSalvo);
+                if (Array.isArray(dadosCoringa)) {
+                    dadosCoringa.forEach(linha => {
+                        const diasRestantesVal = calcularDiasRestantes(linha['DATA'], linha['PRAZO']);
+                        linha['DIAS RESTANTES'] = !isNaN(diasRestantesVal) ? String(diasRestantesVal) : '-';
+                    });
+                }
                 carregouDeCache = true;
 
                 const loadingEl = document.getElementById('loading');
@@ -286,6 +292,12 @@ async function iniciarSistema() {
         }
 
         buscarDadosGoogleSheets().then(dadosBrutos => {
+            if (Array.isArray(dadosBrutos)) {
+                dadosBrutos.forEach(linha => {
+                    const diasRestantesVal = calcularDiasRestantes(linha['DATA'], linha['PRAZO']);
+                    linha['DIAS RESTANTES'] = !isNaN(diasRestantesVal) ? String(diasRestantesVal) : '-';
+                });
+            }
             let novosDados = [];
             if (usuarioAtivo) {
                 novosDados = dadosBrutos.filter(linha => {
@@ -2634,7 +2646,7 @@ async function salvarNovoOficio() {
         'TIPO': payload.tipo || '-',
         'REFERÊNCIA': payload.referencia || '-',
         'PRAZO': payload.prazo || '-',
-        'DIAS RESTANTES': payload.prazo ? payload.prazo + ' dias' : '-',
+        'DIAS RESTANTES': (payload.data_oficio && payload.prazo) ? String(calcularDiasRestantes(payload.data_oficio, payload.prazo)) : '-',
         'CARMS': payload.carms || '-',
         'STATUS DO CAR': '-',
         'TÉCNICO/ADMIN': payload.tecnico || 'S/T',

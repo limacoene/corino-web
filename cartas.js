@@ -200,22 +200,7 @@ async function salvarNovaCarta() {
     };
 
     // Calcular dias restantes inicial para a inserção otimista
-    let diasRestantes = NaN;
-    if (payload.data_repasse && payload.prazo) {
-        const numPrazo = parseInt(payload.prazo);
-        if (!isNaN(numPrazo)) {
-            const partes = payload.data_repasse.split('/');
-            if (partes.length === 3) {
-                const dataRep = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
-                const dataVencimento = new Date(dataRep.getTime() + (numPrazo * 24 * 60 * 60 * 1000));
-                const hoje = new Date();
-                hoje.setHours(0, 0, 0, 0);
-                dataVencimento.setHours(0, 0, 0, 0);
-                const diffTime = dataVencimento.getTime() - hoje.getTime();
-                diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            }
-        }
-    }
+    const diasRestantes = calcularDiasRestantes(payload.data_repasse, payload.prazo);
 
     // Optimistic update: insere localmente de imediato
     const novoItem = {
@@ -395,27 +380,7 @@ function processarCSVTextCartas(csvText) {
         const prazo = row['PRAZO'] || row['PRAZO DE RESPOSTA'] || row['PRAZO (DIAS)'] || '';
         row['PRAZO'] = prazo;
 
-        let diasRestantes = NaN;
-        if (dataRepasse && dataRepasse !== '-' && prazo && prazo !== '-') {
-            const numPrazo = parseInt(String(prazo).replace(/\D/g, ''));
-            if (!isNaN(numPrazo)) {
-                const partes = dataRepasse.split('/');
-                if (partes.length === 3) {
-                    const dia = parseInt(partes[0]);
-                    const mes = parseInt(partes[1]) - 1;
-                    const ano = parseInt(partes[2]);
-                    const dataRep = new Date(ano, mes, dia);
-                    const dataVencimento = new Date(dataRep.getTime() + (numPrazo * 24 * 60 * 60 * 1000));
-                    
-                    const hoje = new Date();
-                    hoje.setHours(0, 0, 0, 0);
-                    dataVencimento.setHours(0, 0, 0, 0);
-                    
-                    const diffTime = dataVencimento.getTime() - hoje.getTime();
-                    diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                }
-            }
-        }
+        const diasRestantes = calcularDiasRestantes(dataRepasse, prazo);
         row['DIAS RESTANTES'] = String(diasRestantes);
 
         rows.push(row);
