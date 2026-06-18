@@ -67,4 +67,91 @@ function alternarVisualizacaoPreview(btn, url, downloadUrl) {
         });
     }
     btn.classList.add('active');
-}
+}
+
+/**
+ * Calcula a quantidade de dias restantes para um determinado prazo.
+ * Suporta prazos em dias corridos (ex: "15 DIAS" ou apenas "15") e dias úteis (ex: "15 DIAS UTEIS" ou "15 DIAS ÚTEIS").
+ * @param {string|Date} dataInicioStr - Data inicial (DD/MM/YYYY ou objeto Date ou string ISO)
+ * @param {string|number} prazoStr - Prazo (ex: "15 DIAS", "15 DIAS UTEIS", 15, "15")
+ * @returns {number} Número de dias restantes (pode ser negativo) ou NaN se inválido
+ */
+function calcularDiasRestantes(dataInicioStr, prazoStr) {
+    if (!dataInicioStr || dataInicioStr === '-' || !prazoStr || prazoStr === '-') {
+        return NaN;
+    }
+
+    // Parse dataInicioStr (DD/MM/YYYY ou Date ou string genérica)
+    let dataInicio;
+    if (dataInicioStr instanceof Date) {
+        dataInicio = new Date(dataInicioStr);
+    } else {
+        const partes = String(dataInicioStr).split('/');
+        if (partes.length === 3) {
+            dataInicio = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
+        } else {
+            dataInicio = new Date(dataInicioStr);
+        }
+    }
+
+    if (isNaN(dataInicio.getTime())) return NaN;
+
+    // Parse prazoStr (extrai o número)
+    const numPrazo = parseInt(String(prazoStr).replace(/\D/g, ''), 10);
+    if (isNaN(numPrazo)) return NaN;
+
+    const prazoLower = String(prazoStr).toLowerCase();
+    const esUteis = prazoLower.includes('uteis') || prazoLower.includes('úteis');
+
+    // 1. CÁLCULO DA DATA DE VENCIMENTO
+    let dataVencimento = new Date(dataInicio);
+    if (esUteis) {
+        // Adiciona dias úteis (pulando sábados e domingos)
+        let diasAdicionados = 0;
+        while (diasAdicionados < numPrazo) {
+            dataVencimento.setDate(dataVencimento.getDate() + 1);
+            const diaDaSemana = dataVencimento.getDay(); // 0 = Domingo, 6 = Sábado
+            if (diaDaSemana !== 0 && diaDaSemana !== 6) {
+                diasAdicionados++;
+            }
+        }
+    } else {
+        // Adiciona dias corridos
+        dataVencimento.setDate(dataVencimento.getDate() + numPrazo);
+    }
+
+    // 2. CÁLCULO DOS DIAS RESTANTES (Contagem regressiva coerente)
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    dataVencimento.setHours(0, 0, 0, 0);
+
+    let diasRestantes = 0;
+    if (esUteis) {
+        // Contagem regressiva em dias úteis
+        let tempContador = new Date(hoje);
+        if (tempContador < dataVencimento) {
+            while (tempContador < dataVencimento) {
+                tempContador.setDate(tempContador.getDate() + 1);
+                const diaDaSemana = tempContador.getDay();
+                if (diaDaSemana !== 0 && diaDaSemana !== 6) {
+                    diasRestantes++;
+                }
+            }
+        } else if (tempContador > dataVencimento) {
+            // Se já venceu, conta dias úteis negativos
+            while (tempContador > dataVencimento) {
+                const diaDaSemana = tempContador.getDay();
+                if (diaDaSemana !== 0 && diaDaSemana !== 6) {
+                    diasRestantes--;
+                }
+                tempContador.setDate(tempContador.getDate() - 1);
+            }
+        }
+    } else {
+        // Contagem regressiva em dias corridos
+        const diffTime = dataVencimento.getTime() - hoje.getTime();
+        diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    return diasRestantes;
+}
