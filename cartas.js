@@ -547,6 +547,12 @@ async function preloadShapesCartas() {
                         });
                         geojson = { type: "FeatureCollection", features: allFeatures };
                     }
+                    
+                    // Reprojetar coordenadas UTM para WGS84 se necessário
+                    if (typeof normalizarProjecaoShapefile === 'function') {
+                        geojson = await normalizarProjecaoShapefile(buffer, geojson, r['COMARCA']);
+                    }
+                    
                     cacheShapesCartas[nup] = geojson;
                     console.log(`[Preload] Preloaded shapefile for NUP: ${nup}`);
                 }
@@ -1457,6 +1463,13 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
                     features: allFeatures
                 };
             }
+
+            // Reprojetar coordenadas UTM para WGS84 se necessário
+            if (typeof normalizarProjecaoShapefile === 'function') {
+                const comarca = record ? record['COMARCA'] : '';
+                geojson = await normalizarProjecaoShapefile(buffer, geojson, comarca);
+            }
+
             if (nup) {
                 cacheShapesCartas[nup] = geojson;
             }
