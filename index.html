@@ -67,6 +67,16 @@
                             <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
+                    <button class="menu-btn" id="btn-menu-comunicacao" onclick="mudarAbaPrincipal('comunicacao')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📢 Fazer Comunicação</span> <span id="badge-menu-comunicacao" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-assinatura-oficios" onclick="mudarAbaPrincipal('assinatura-oficios')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>✍️ Aguardand. Assinatura</span> <span id="badge-menu-assinatura-oficios" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
                 </div>
             </div>
 
@@ -86,7 +96,32 @@
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content collapsed" id="mod-externos">
-                    <button class="menu-btn" id="btn-menu-externos" onclick="mudarAbaPrincipal('externos')">📬 Controle de Externos</button>
+                    <button class="menu-btn" id="btn-menu-externos" onclick="mudarAbaPrincipal('externos')">🔍 Consulta Geral</button>
+                    <button class="menu-btn" id="btn-menu-externos-distribuicao" onclick="mudarAbaPrincipal('externos-distribuicao')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-externos-distribuicao" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-externos-andamento" onclick="mudarAbaPrincipal('externos-andamento')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>⏳ Em Andamento</span> <span id="badge-menu-externos-andamento" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-externos-revisao" onclick="mudarAbaPrincipal('externos-revisao')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-externos-revisao" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-externos-despacho" onclick="mudarAbaPrincipal('externos-despacho')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📢 Fazer Despacho</span> <span id="badge-menu-externos-despacho" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-externos-assinatura" onclick="mudarAbaPrincipal('externos-assinatura')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>✍️ Aguard. Assinatura</span> <span id="badge-menu-externos-assinatura" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
                 </div>
             </div>
 
@@ -115,6 +150,11 @@
                     <button class="menu-btn" id="btn-menu-cartas-revisao" onclick="mudarAbaPrincipal('cartas-revisao')" style="display: none; margin-top: 5px; color: #ffa500;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             <span>📁 Aguardando Revisão</span> <span id="badge-menu-cartas-revisao" class="notification-badge" style="display: none;">0</span>
+                        </div>
+                    </button>
+                    <button class="menu-btn" id="btn-menu-cartas-despacho" onclick="mudarAbaPrincipal('cartas-despacho')">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>📢 Fazer Despacho</span> <span id="badge-menu-cartas-despacho" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-cartas-assinatura" onclick="mudarAbaPrincipal('cartas-assinatura')">
@@ -296,7 +336,6 @@
             <div class="mini-tabs" id="mini-tabs-respondidos">
                 <button class="mini-tab active" id="btn-tab-todos" onclick="setSubAba('Geral')">Geral</button>
                 <button class="mini-tab" id="btn-tab-pendentes" onclick="setSubAba('Pendentes')">Pendentes</button>
-                <button class="mini-tab" id="btn-tab-aprovados" onclick="setSubAba('Aprovados')">Aprovados</button>
                 <button class="mini-tab" id="btn-tab-reprovados" onclick="setSubAba('Reprovados')">Reprovados</button>
             </div>
             <div class="advanced-filters">
@@ -315,6 +354,54 @@
                             <div class="ms-display"></div>
                             <div class="ms-dropdown" id="dd-respTecnico"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA: FAZER COMUNICAÇÃO -->
+        <div id="aba-comunicacao" class="tab-section" style="display: none;">
+            <h2 class="page-title">📢 Fazer Comunicação (C.I.)</h2>
+            <div id="alerta-comunicacao" class="alert-banner alert-info">Há 0 processos aguardando realização de C.I. no sistema.</div>
+            <div class="mini-tabs" id="mini-tabs-comunicacao">
+                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
+                <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
+                <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
+            </div>
+            <div class="advanced-filters">
+                <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="comNup" oninput="maskNUP(event); aplicarFiltros()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="comOficio" oninput="aplicarFiltros()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA: AGUARDAND. ASSINATURA -->
+        <div id="aba-assinatura-oficios" class="tab-section" style="display: none;">
+            <h2 class="page-title">✍️ Aguardando Assinatura</h2>
+            <div id="alerta-assinatura-oficios" class="alert-banner alert-info">Há 0 processos aguardando assinatura no sistema.</div>
+            <div class="mini-tabs" id="mini-tabs-assinatura-oficios">
+                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAba('DIFLOR')">DIFLOR</button>
+                <button class="mini-tab" onclick="setSubAba('GCAR')">GCAR</button>
+                <button class="mini-tab" onclick="setSubAba('GEAA')">GEAA</button>
+            </div>
+            <div class="advanced-filters">
+                <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                    <div class="filter-group">
+                        <label>NUP</label>
+                        <input type="text" id="assNup" oninput="maskNUP(event); aplicarFiltros()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Ofício N.</label>
+                        <input type="text" id="assOficio" oninput="aplicarFiltros()">
                     </div>
                 </div>
             </div>
@@ -376,12 +463,20 @@
         <!-- ABA: OFÍCIOS EXTERNOS -->
         <div id="aba-externos" class="tab-section" style="display: none;">
             <h2 class="page-title">🏢 Ofícios Externos</h2>
-            <div class="mini-tabs" id="mini-tabs-externos">
-                <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
-                <button class="mini-tab" onclick="setSubAba('Aguard. Distribuição')">Aguard. Distribuição</button>
-                <button class="mini-tab" onclick="setSubAba('Em Andamento')">Em Andamento</button>
-                <button class="mini-tab" onclick="setSubAba('Aguardando Revisão')">Aguardando Revisão</button>
+
+            <div class="mini-tabs" id="mini-tabs-externos" style="display: none; margin-bottom: 20px;">
+                <button class="mini-tab active" onclick="setSubAbaExternos('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAbaExternos('DIFLOR')">DIFLOR</button>
+                <button class="mini-tab" onclick="setSubAbaExternos('GCAR')">GCAR</button>
+                <button class="mini-tab" onclick="setSubAbaExternos('GEAA')">GEAA</button>
             </div>
+
+            <div class="mini-tabs" id="mini-tabs-externos-revisao" style="display: none; margin-bottom: 20px;">
+                <button class="mini-tab active" onclick="setSubAbaExternosRevisao('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAbaExternosRevisao('Pendentes')">Pendentes</button>
+                <button class="mini-tab" onclick="setSubAbaExternosRevisao('Reprovados')">Reprovados</button>
+            </div>
+
             <div class="advanced-filters">
                 <div class="filter-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                     <div class="filter-group">
@@ -396,6 +491,18 @@
                         <label>Técnico</label>
                         <select id="filtro-ext-tecnico" onchange="filtrarExternos()" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
                             <option value="">-- Todos os Técnicos --</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="filtro-ext-status" onchange="filtrarExternos()" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                            <option value="">-- Todos os Status --</option>
+                            <option value="AGUARDANDO DISTRIBUIÇÃO">AGUARDANDO DISTRIBUIÇÃO</option>
+                            <option value="AGUARDANDO MANIFESTAÇÃO TÉCNICA">AGUARDANDO MANIFESTAÇÃO TÉCNICA</option>
+                            <option value="REVISÃO">REVISÃO</option>
+                            <option value="FAZER DESPACHO">FAZER DESPACHO</option>
+                            <option value="AGUARDANDO ASSINATURA">AGUARDANDO ASSINATURA</option>
+                            <option value="FINALIZADO">FINALIZADO</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -418,6 +525,12 @@
                 <button class="mini-tab" onclick="setSubAbaCartas('DIFLOR')">DIFLOR</button>
                 <button class="mini-tab" onclick="setSubAbaCartas('GCAR')">GCAR</button>
                 <button class="mini-tab" onclick="setSubAbaCartas('GEAA')">GEAA</button>
+            </div>
+            
+            <div class="mini-tabs" id="mini-tabs-cartas-revisao" style="display: none; margin-bottom: 20px;">
+                <button class="mini-tab active" onclick="setSubAbaCartasRevisao('Geral')">Geral</button>
+                <button class="mini-tab" onclick="setSubAbaCartasRevisao('Pendentes')">Pendentes</button>
+                <button class="mini-tab" onclick="setSubAbaCartasRevisao('Reprovados')">Reprovados</button>
             </div>
             
             <details class="advanced-filters" open>
@@ -447,8 +560,10 @@
                             <option value="AGUARDANDO DISTRIBUIÇÃO">AGUARDANDO DISTRIBUIÇÃO</option>
                             <option value="AGUARDANDO MANIFESTAÇÃO TÉCNICA">AGUARDANDO MANIFESTAÇÃO TÉCNICA</option>
                             <option value="REVISÃO">REVISÃO</option>
+                            <option value="FAZER DESPACHO">FAZER DESPACHO</option>
                             <option value="AGUARDANDO ASSINATURA">AGUARDANDO ASSINATURA</option>
                             <option value="TRAMITADO">TRAMITADO</option>
+                            <option value="FINALIZADO">FINALIZADO</option>
                         </select>
                     </div>
                     
@@ -561,18 +676,18 @@
                 </div>
                 <div class="filter-group">
                     <label>Prazo (Quantidade de Dias)</label>
-                    <input type="number" id="cadPrazo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                    <input type="number" id="cadPrazo">
                 </div>
                 <div class="filter-group">
                     <label>Tipo de Prazo</label>
-                    <select id="cadTipoPrazo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                    <select id="cadTipoPrazo">
                         <option value="corridos">Dias Corridos</option>
                         <option value="uteis">Dias Úteis</option>
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>Tipo de Documento</label>
-                    <select id="cadTipo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                    <select id="cadTipo"></select>
                 </div>
                 <div class="filter-group">
                     <label>Município / Comarca</label>
@@ -580,11 +695,11 @@
                 </div>
                 <div class="filter-group">
                     <label>Técnico</label>
-                    <select id="cadTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                    <select id="cadTecnico"></select>
                 </div>
                 <div class="filter-group">
                     <label>Gerência</label>
-                    <select id="cadGerencia" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;"></select>
+                    <select id="cadGerencia"></select>
                 </div>
                 <div class="filter-group">
                     <label>CARMS / CAR</label>
@@ -596,7 +711,7 @@
                 </div>
                 <div class="filter-group" style="grid-column: span 2;">
                     <label>Observação</label>
-                    <textarea id="cadObservacao" style="width: 100%; height: 80px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; resize: vertical;"></textarea>
+                    <textarea id="cadObservacao"></textarea>
                 </div>
                 <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
                     <label>Anexar Ficheiro PDF</label>

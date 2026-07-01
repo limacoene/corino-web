@@ -59,16 +59,22 @@ function obterPrimeiraCoordenada(coords, tipo) {
 }
 
 /**
+ * Detecta se uma feature específica está em coordenadas UTM (métricas)
+ */
+function verificarSeFeatureEhUTM(feature) {
+    if (!feature || !feature.geometry || !feature.geometry.coordinates) return false;
+    const coord = obterPrimeiraCoordenada(feature.geometry.coordinates, feature.geometry.type);
+    return coord && (Math.abs(coord[0]) > 180 || Math.abs(coord[1]) > 90);
+}
+
+/**
  * Detecta se as coordenadas de um GeoJSON são provavelmente UTM (métricas)
  */
 function verificarSeGeoJsonEhUTM(geojson) {
     if (!geojson || !geojson.features || geojson.features.length === 0) return false;
     for (let feature of geojson.features) {
-        if (feature.geometry && feature.geometry.coordinates) {
-            const coord = obterPrimeiraCoordenada(feature.geometry.coordinates, feature.geometry.type);
-            if (coord && (Math.abs(coord[0]) > 180 || Math.abs(coord[1]) > 90)) {
-                return true;
-            }
+        if (verificarSeFeatureEhUTM(feature)) {
+            return true;
         }
     }
     return false;
@@ -184,15 +190,23 @@ function reprojetarGeoJson(geojson, fromProjStr) {
     if (geojson.type === 'FeatureCollection') {
         geojson.features.forEach(f => {
             if (f.geometry && f.geometry.coordinates) {
-                f.geometry.coordinates = processCoordinates(f.geometry.coordinates, f.geometry.type);
+                if (verificarSeFeatureEhUTM(f)) {
+                    f.geometry.coordinates = processCoordinates(f.geometry.coordinates, f.geometry.type);
+                }
             }
         });
     } else if (geojson.type === 'Feature') {
         if (geojson.geometry && geojson.geometry.coordinates) {
-            geojson.geometry.coordinates = processCoordinates(geojson.geometry.coordinates, geojson.geometry.type);
+            if (verificarSeFeatureEhUTM(geojson)) {
+                geojson.geometry.coordinates = processCoordinates(geojson.geometry.coordinates, geojson.geometry.type);
+            }
         }
     } else if (geojson.geometry && geojson.geometry.coordinates) {
-        geojson.coordinates = processCoordinates(geojson.geometry.coordinates, geojson.geometry.type);
+        const coord = obterPrimeiraCoordenada(geojson.geometry.coordinates, geojson.geometry.type);
+        const ehUtm = coord && (Math.abs(coord[0]) > 180 || Math.abs(coord[1]) > 90);
+        if (ehUtm) {
+            geojson.coordinates = processCoordinates(geojson.geometry.coordinates, geojson.geometry.type);
+        }
     }
     
     return geojson;

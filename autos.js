@@ -642,7 +642,8 @@ async function carregarAutos() {
 async function salvarNovoAuto() {
     const nup = document.getElementById('cadAutoNup').value.trim();
     const req = document.getElementById('cadAutoRequerente').value.trim();
-    if (!nup || !req) { mostrarToast('NUP e Requerente são obrigatórios!', 'error'); return; }
+    const dataRepasse = document.getElementById('cadAutoData').value.trim();
+    if (!nup || !req || !dataRepasse) { mostrarToast('NUP, Requerente e Data de Repasse são obrigatórios!', 'error'); return; }
 
     const btn = document.getElementById('btnSalvarCadastroAuto');
     const textoOriginal = btn.innerHTML;
