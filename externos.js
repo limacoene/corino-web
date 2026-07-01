@@ -64,6 +64,12 @@ function abrirModalCadastroExterno() {
         dateFormat: "d/m/Y",
         allowInput: true
     });
+
+    // Definir data de hoje por padrão no campo de recebimento
+    const recPicker = document.getElementById('cadExtDataRec');
+    if (recPicker && recPicker._flatpickr) {
+        recPicker._flatpickr.setDate(new Date());
+    }
 }
 
 function fecharModalCadastroExterno() {
@@ -95,7 +101,7 @@ function renderTabelaExternos(dados) {
     container.innerHTML = '';
 
     if (!dados || dados.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #888; background-color: #1a1a1a; border-radius: 8px; border: 1px solid #333;">Nenhum Ofício Externo encontrado.</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted); background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--card-border);">Nenhum Ofício Externo encontrado.</div>';
         cont.innerText = 'Exibindo 0 resultados.';
         return;
     }
@@ -293,6 +299,23 @@ function renderTabelaExternos(dados) {
             htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoExterno('${nupVal}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
         }
 
+        if (isGestorFinalidade) {
+            const rawStatus = (s['STATUS'] || '').toUpperCase().trim();
+            if (rawStatus === 'FAZER DESPACHO' || rawStatus === 'FAZER CI') {
+                htmlDiretoriaBotoes += `
+                    <div style="margin-top:15px;padding:15px;background-color:rgba(41,128,185,0.07);border:1px solid rgba(41,128,185,0.3);border-radius:6px;">
+                        <strong style="color:#2980b9;font-size:13px;display:block;margin-bottom:10px;">📋 Ações de Fluxo (Despacho):</strong>
+                        <button onclick="atualizarStatusExt(event, '${nupVal}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin: 0; font-size: 14px;">✅ Confirmar Realização do Despacho</button>
+                    </div>`;
+            } else if (rawStatus === 'AGUARDANDO ASSINATURA') {
+                htmlDiretoriaBotoes += `
+                    <div style="margin-top:15px;padding:15px;background-color:rgba(142,68,173,0.07);border:1px solid rgba(142,68,173,0.3);border-radius:6px;">
+                        <strong style="color:#8e44ad;font-size:13px;display:block;margin-bottom:10px;">📋 Ações de Fluxo (Assinatura):</strong>
+                        <button onclick="atualizarStatusExt(event, '${nupVal}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin: 0; font-size: 14px;">✍️ Confirmar Assinatura Realizada</button>
+                    </div>`;
+            }
+        }
+
         rightPanel.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 20px;">
                 <div>
@@ -340,11 +363,25 @@ function filtrarExternos() {
     const fCarmsEl = document.getElementById('filtro-ext-carms');
     const fTecnicoEl = document.getElementById('filtro-ext-tecnico');
     const fRemetenteEl = document.getElementById('filtro-ext-remetente');
+    const fStatusEl = document.getElementById('filtro-ext-status');
 
     const nup = fNupEl ? fNupEl.value.toLowerCase().trim() : '';
     const carms = fCarmsEl ? fCarmsEl.value.toLowerCase().trim() : '';
     const tecnico = fTecnicoEl ? fTecnicoEl.value.toLowerCase().trim() : '';
     const remetente = fRemetenteEl ? fRemetenteEl.value.toLowerCase().trim() : '';
+    const status = fStatusEl ? fStatusEl.value.toUpperCase().trim() : '';
+
+    // Se estiver na Consulta Geral, não exibir nada a menos que haja algum termo de busca inserido
+    if (subAbaAtiva === 'Geral') {
+        const temFiltroPreenchido = nup !== '' || carms !== '' || tecnico !== '' || remetente !== '' || status !== '';
+        if (!temFiltroPreenchido) {
+            renderTabelaExternos([]);
+            if (typeof atualizarBadgesNotificacao === 'function') {
+                atualizarBadgesNotificacao(dadosCoringa);
+            }
+            return;
+        }
+    }
 
     const filtrados = dadosExternosGlobais.filter(r => {
         const nupRow = r['NUP'] || '';
@@ -353,10 +390,20 @@ function filtrarExternos() {
         const remetenteRow = r['REMETENTE'] || '';
         const statusRow = (r['STATUS'] || '').toUpperCase().trim();
 
+        let matchesStatusFilter = true;
+        if (status) {
+            if (status === 'FINALIZADO') {
+                matchesStatusFilter = (statusRow === 'RESPONDIDO' || statusRow === 'ARQUIVADO' || statusRow === 'TRAMITADO' || statusRow === 'FINALIZADO');
+            } else {
+                matchesStatusFilter = (statusRow === status);
+            }
+        }
+
         const matchNormais = (!nup || String(nupRow).toLowerCase().includes(nup))
             && (!carms || String(carmsRow).toLowerCase().includes(carms))
             && (!tecnico || String(tecRow).toLowerCase().includes(tecnico))
-            && (!remetente || String(remetenteRow).toLowerCase().includes(remetente));
+            && (!remetente || String(remetenteRow).toLowerCase().includes(remetente))
+            && matchesStatusFilter;
 
         if (!matchNormais) return false;
 
@@ -380,6 +427,24 @@ function filtrarExternos() {
         const linkResposta = r['LINK DA RESPOSTA'] || r['LINK RESPOSTA'] || r['LINK_RESPOSTA'] || '';
         const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
 
+        let matchesSubAba = true;
+        if (subAbaAtiva === 'Aguardando Revisão') {
+            const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
+            if (subAbaExternosRevisaoAtiva === 'Pendentes') {
+                matchesSubAba = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
+            } else if (subAbaExternosRevisaoAtiva === 'Reprovados') {
+                matchesSubAba = (statusResp === 'REPROVADO');
+            }
+        } else {
+            if (typeof subAbaExternosAtiva !== 'undefined' && subAbaExternosAtiva !== 'Geral') {
+                const gerenciaRow = String(r['CARMS'] || '').toUpperCase().trim();
+                const tecSector = semTecnico ? 'S/T' : (MAPA_TECNICOS_SETORES[tecRow.toUpperCase().trim()] || 'S/G');
+                matchesSubAba = (gerenciaRow.includes(subAbaExternosAtiva) || tecSector === subAbaExternosAtiva);
+            }
+        }
+
+        if (!matchesSubAba) return false;
+
         // =====================================================================
         // REGRAS DE FILTRAGEM DAS SUB-ABAS (SITUAÇÃO GERAL RECONFIGURADA)
         // =====================================================================
@@ -387,16 +452,23 @@ function filtrarExternos() {
             // Retorna estritamente TRUE para permitir TRAMITADOS e ARQUIVADOS na listagem total
             return true;
         } else if (subAbaAtiva === 'Aguard. Distribuição') {
-            return semTecnico && !isFinalizado && !hasResposta;
+            return semTecnico && !isFinalizado && !hasResposta && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
         } else if (subAbaAtiva === 'Em Andamento') {
-            return !semTecnico && statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+            return !semTecnico && (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA') && !hasResposta && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
         } else if (subAbaAtiva === 'Aguardando Revisão') {
-            return (hasResposta || statusRow === 'REVISÃO') && !isFinalizado;
+            return (hasResposta || statusRow === 'REVISÃO' || statusRow === 'REVISAO') && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && !isFinalizado;
+        } else if (subAbaAtiva === 'Fazer Despacho') {
+            return (statusRow === 'FAZER DESPACHO' || statusRow === 'FAZER CI') && !isFinalizado;
+        } else if (subAbaAtiva === 'Aguardando Assinatura') {
+            return statusRow === 'AGUARDANDO ASSINATURA' && !isFinalizado;
         }
 
-        return true;
+        return false;
     });
     renderTabelaExternos(filtrados);
+    if (typeof atualizarBadgesNotificacao === 'function') {
+        atualizarBadgesNotificacao(dadosCoringa);
+    }
 }
 
 async function carregarExternos() {
@@ -463,7 +535,8 @@ async function carregarExternos() {
 async function salvarNovoExterno() {
     const nup = document.getElementById('cadExtNup').value.trim();
     const remetente = document.getElementById('cadExtRemetente').value.trim();
-    if (!nup || !remetente) { mostrarToast('NUP e Remetente são obrigatórios!', 'error'); return; }
+    const dataRecebimento = document.getElementById('cadExtDataRec').value.trim();
+    if (!nup || !remetente || !dataRecebimento) { mostrarToast('NUP, Remetente e Data do Recebimento são obrigatórios!', 'error'); return; }
 
     const btn = document.getElementById('btnSalvarCadastroExt');
     const textoOriginal = btn.innerHTML;
@@ -839,7 +912,7 @@ async function avaliarRespostaExt(event, nup, decisao) {
             if (target) {
                 target['STATUS-RESPOSTA'] = decisao;
                 target['MOTIVO DA AVALIAÇÃO'] = result.motivo || "";
-                target['STATUS'] = (decisao === 'APROVADO') ? "FAZER CI" : "AGUARDANDO MANIFESTAÇÃO TÉCNICA";
+                target['STATUS'] = (decisao === 'APROVADO') ? "FAZER DESPACHO" : "AGUARDANDO MANIFESTAÇÃO TÉCNICA";
             }
             filtrarExternos();
             atualizarCacheExternos();
@@ -932,6 +1005,143 @@ async function salvarAtribuicaoTecnicoExterno() {
         filtrarExternos();
         atualizarCacheExternos();
     }
+}
+
+/**
+ * Realiza a transição de status dos Ofícios Externos (Fazer Despacho / Confirmar Assinatura)
+ */
+async function atualizarStatusExt(event, nup, novoStatus) {
+    const btn = event ? event.currentTarget : null;
+    const textoOriginal = btn ? btn.innerHTML : '';
+
+    let msg = '';
+    let options = {};
+
+    if (novoStatus === 'AGUARDANDO ASSINATURA') {
+        msg = "Tem certeza de que deseja confirmar a realização do despacho para este processo?\n\nO status mudará para Aguardando Assinatura.";
+        options = {
+            titulo: "Confirmar Realização de Despacho",
+            textoBotao: "✅ Confirmar Despacho",
+            corBotao: "#2980b9",
+            corBorda: "#1c5986",
+            corBordaTop: "#2980b9",
+            icone: "📑"
+        };
+    } else if (novoStatus === 'FINALIZADO') {
+        msg = "Tem certeza de que deseja confirmar a assinatura realizada para este processo?\n\nO status mudará para Finalizado e o ciclo de vida deste processo será encerrado.";
+        options = {
+            titulo: "Confirmar Assinatura Realizada",
+            textoBotao: "✍️ Confirmar Assinatura",
+            corBotao: "#8e44ad",
+            corBorda: "#6c3483",
+            corBordaTop: "#8e44ad",
+            icone: "✍️"
+        };
+    } else {
+        msg = `Tem certeza de que deseja alterar o status para ${novoStatus}?`;
+        options = {
+            titulo: "Confirmar Alteração de Status",
+            textoBotao: "Confirmar",
+            corBotao: "#27ae60",
+            corBorda: "#1e824c",
+            corBordaTop: "#27ae60",
+            icone: "🔄"
+        };
+    }
+
+    const resultadoConfirmacao = await mostrarConfirmacao(msg, options);
+    if (!resultadoConfirmacao.confirmou) {
+        return;
+    }
+
+    if (btn) {
+        btn.innerHTML = '⏳ A processar...';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+    }
+
+    try {
+        const payload = {
+            acao: "atualizar_status_ci", // abasProcessos no script inclui abaExternos!
+            nup: nup,
+            novoStatus: novoStatus,
+            username: usuarioAtivo.username || ''
+        };
+
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status status atualizado com sucesso!', 'success');
+
+            const target = dadosExternosGlobais.find(r => r['NUP'] === nup);
+            if (target) {
+                target['STATUS'] = novoStatus;
+            }
+            atualizarCacheExternos();
+            filtrarExternos();
+
+            // Atualiza os badges globais
+            atualizarBadgesNotificacao(dadosCoringa);
+        } else {
+            mostrarToast('Operação Cancelada ou Sem Permissão: ' + (resultado.message || 'Erro Desconhecido'), 'error');
+            if (btn) {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        mostrarToast('Erro de comunicação. A internet pode ter falhado.', 'error');
+        if (btn) {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+}
+
+let subAbaExternosAtiva = 'Geral';
+let subAbaExternosRevisaoAtiva = 'Geral';
+
+/**
+ * Define a sub-aba de setor ativa para Ofícios Externos e atualiza os filtros
+ */
+function setSubAbaExternos(aba) {
+    subAbaExternosAtiva = aba;
+    const container = document.getElementById('mini-tabs-externos');
+    if (container) {
+        Array.from(container.children).forEach(btn => {
+            if (btn.textContent === aba) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    filtrarExternos();
+}
+
+/**
+ * Define a sub-aba de revisão ativa para Ofícios Externos e atualiza os filtros
+ */
+function setSubAbaExternosRevisao(aba) {
+    subAbaExternosRevisaoAtiva = aba;
+    const container = document.getElementById('mini-tabs-externos-revisao');
+    if (container) {
+        Array.from(container.children).forEach(btn => {
+            if (btn.textContent === aba) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    filtrarExternos();
 }
 
 if (typeof configurarDragAndDrop === 'function') {

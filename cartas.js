@@ -36,7 +36,8 @@ function abrirModalCadastroCarta() {
         flatpickr('.date-picker-carta', {
             locale: 'pt',
             dateFormat: 'd/m/Y',
-            allowInput: true
+            allowInput: true,
+            defaultDate: new Date()
         });
     }
 }
@@ -107,11 +108,12 @@ function updateFileNameCarta(input) {
  */
 async function salvarNovaCarta() {
     const nup = document.getElementById('cadCartaNup').value.trim();
+    const dataRepasse = document.getElementById('cadCartaDataRepasse').value.trim();
     const requerente = document.getElementById('cadCartaRequerente').value.trim();
     const gerencia = document.getElementById('cadCartaGerencia').value.trim();
 
-    if (!nup || !requerente || !gerencia) {
-        mostrarToast('NUP, Requerente e Gerência são obrigatórios!', 'error');
+    if (!nup || !dataRepasse || !requerente || !gerencia) {
+        mostrarToast('NUP, Data do Repasse, Requerente e Gerência são obrigatórios!', 'error');
         return;
     }
 
@@ -200,14 +202,14 @@ async function salvarNovaCarta() {
     };
 
     // Calcular dias restantes inicial para a inserção otimista
-    const diasRestantes = calcularDiasRestantes(payload.data_repasse, payload.prazo);
+    const diasRestantes = (payload.data_repasse && payload.prazo) ? calcularDiasRestantes(payload.data_repasse, payload.prazo) : '-';
 
     // Optimistic update: insere localmente de imediato
     const novoItem = {
         'NUP': payload.nup,
         'DATA DO REPASSE': payload.data_repasse,
         'PRAZO': payload.prazo,
-        'DIAS RESTANTES': String(diasRestantes),
+        'DIAS RESTANTES': isNaN(diasRestantes) ? '-' : String(diasRestantes),
         'REQUERENTE': payload.requerente,
         'GERÊNCIA': payload.gerencia,
         'PRIORIDADE': payload.prioridade,
@@ -362,6 +364,7 @@ function processarCSVTextCartas(csvText) {
         }
 
         // Normalizações obrigatórias para compatibilidade de chaves e filtros robustos
+        row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || row['CARMS'] || '-';
         row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
         row['STATUS'] = normalizarStatusCartas(row['STATUS']);
         row['FÍSICO/E-MS'] = row['FISICO/E-MS'] || row['FÍSICO/E-MS'] || '-';
@@ -374,6 +377,24 @@ function processarCSVTextCartas(csvText) {
         row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || '';
         row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
         row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
+
+        // Se tem resposta anexada e o status da resposta não é APROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
+        // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
+        const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
+        const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
+        const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
+        const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
+
+        if (hasResposta && statusResp !== 'APROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+            row['STATUS'] = 'REVISÃO';
+        }
+
+        // Se a resposta está APROVADA mas o status geral ainda diz AGUARDANDO MANIFESTAÇÃO TÉCNICA ou REVISÃO,
+        // movemos automaticamente para FAZER DESPACHO no frontend para evitar inconsistências de dados históricos.
+        const statusGeralNovo = (row['STATUS'] || '').toUpperCase().trim();
+        if (statusResp === 'APROVADO' && (statusGeralNovo === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeralNovo === 'AGUARDANDO MANIFESTACAO TECNICA' || statusGeralNovo === 'REVISÃO' || statusGeralNovo === 'REVISAO')) {
+            row['STATUS'] = 'FAZER DESPACHO';
+        }
 
         // Prazos e Dias Restantes (Coluna Q na Planilha)
         const dataRepasse = row['DATA DO REPASSE'] || row['DATA DE REPASSE'] || row['DATA'] || '';
@@ -593,6 +614,29 @@ function setSubAbaCartas(aba) {
     aplicarFiltrosCartas();
 }
 
+let subAbaCartasRevisaoAtiva = 'Geral';
+
+/**
+ * Define a sub-aba ativa de revisão de Cartas Consulta e atualiza os filtros
+ */
+function setSubAbaCartasRevisao(aba) {
+    subAbaCartasRevisaoAtiva = aba;
+    
+    // Atualiza o estado visual das mini-tabs de revisão de cartas
+    const container = document.getElementById('mini-tabs-cartas-revisao');
+    if (container) {
+        Array.from(container.children).forEach(btn => {
+            if (btn.textContent === aba) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    
+    aplicarFiltrosCartas();
+}
+
 /**
  * Preenche as opções de filtros no Painel Lateral
  */
@@ -651,7 +695,7 @@ function renderTabelaView(dados) {
     if (!dados || dados.length === 0) {
         container.style.display = 'grid';
         container.innerHTML = `
-            <div style="width: 100%; background-color: #0e1117; border: 1px solid #1a252f; border-radius: 8px; padding: 25px; text-align: center; color: #777;">
+            <div style="width: 100%; background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 25px; text-align: center; color: var(--text-muted);">
                 📭 Nenhum registo de Carta Consulta encontrado.
             </div>
         `;
@@ -943,6 +987,25 @@ function renderTabelaView(dados) {
                 </div>`;
         }
 
+        // ── NOVO: AÇÕES DE STATUS DA CARTA (DESPACHO / ASSINATURA) ────────
+        let htmlAcoesStatusCarta = '';
+        if (isGestor) {
+            const statusGeralFormatado = statusStr.replace(/\./g, '').trim().toUpperCase();
+            if (statusGeralFormatado === 'FAZER DESPACHO') {
+                htmlAcoesStatusCarta = `
+                    <div style="margin-top:15px;padding:15px;background-color:rgba(41,128,185,0.07);border:1px solid rgba(41,128,185,0.3);border-radius:6px;">
+                        <strong style="color:#2980b9;font-size:13px;display:block;margin-bottom:10px;">📋 Ações de Fluxo (Despacho):</strong>
+                        <button onclick="atualizarStatusCarta(event, '${nupVal}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin: 0; font-size: 14px;">✅ Confirmar Realização do Despacho</button>
+                    </div>`;
+            } else if (statusGeralFormatado === 'AGUARDANDO ASSINATURA') {
+                htmlAcoesStatusCarta = `
+                    <div style="margin-top:15px;padding:15px;background-color:rgba(142,68,173,0.07);border:1px solid rgba(142,68,173,0.3);border-radius:6px;">
+                        <strong style="color:#8e44ad;font-size:13px;display:block;margin-bottom:10px;">📋 Ações de Fluxo (Assinatura):</strong>
+                        <button onclick="atualizarStatusCarta(event, '${nupVal}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin: 0; font-size: 14px;">✍️ Confirmar Assinatura Realizada</button>
+                    </div>`;
+            }
+        }
+
         // ── BOTÃO ATRIBUIR TÉCNICO (diretoria, sem técnico) ─────────────────
         let htmlAtribuirTecnico = '';
         const isSemTecnico = !linha['TÉCNICO/ADM'] || 
@@ -1012,6 +1075,7 @@ function renderTabelaView(dados) {
             ${htmlObs}
             ${htmlBlocoResposta}
             ${htmlAcoesDiretoria}
+            ${htmlAcoesStatusCarta}
 
             <div style="margin-top:auto;padding-top:20px;border-top:1px solid #333;">
                 ${htmlBotoesAcao ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">${htmlBotoesAcao}</div>` : ''}
@@ -1050,7 +1114,21 @@ function aplicarFiltrosCartas() {
         const prioridadeRow = String(r['PRIORIDADE'] || '').toUpperCase();
         const gerenciaRow = String(r['GERÊNCIA'] || '').toUpperCase().trim();
 
-        const matchesSubAba = (subAbaCartasAtiva === 'Geral' || gerenciaRow === subAbaCartasAtiva);
+        let matchesSubAba = true;
+        if (filtroAtivo === 'cartas-revisao') {
+            const statusResp = String(r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+            if (subAbaCartasRevisaoAtiva === 'Pendentes') {
+                matchesSubAba = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
+            } else if (subAbaCartasRevisaoAtiva === 'Reprovados') {
+                matchesSubAba = (statusResp === 'REPROVADO');
+            }
+        } else {
+            const semTecnico = tecRow === '' || tecRow === '-' || tecRow === 'S/T' || tecRow === 'SEM TÉCNICO' || tecRow === 'NÃO ATRIBUÍDO';
+            const setorRegistro = semTecnico
+                ? gerenciaRow
+                : (MAPA_TECNICOS_SETORES[tecRow] || 'S/G');
+            matchesSubAba = (subAbaCartasAtiva === 'Geral' || setorRegistro === subAbaCartasAtiva);
+        }
 
         let matchesTecnicoLogado = true;
         if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
@@ -1069,7 +1147,7 @@ function aplicarFiltrosCartas() {
             }
         }
 
-        const isAtrasadoProcess = (Number(r['DIAS RESTANTES']) < 0 && statusRow !== 'TRAMITADO' && statusRow !== 'ARQUIVADO');
+        const isAtrasadoProcess = (Number(r['DIAS RESTANTES']) < 0 && statusRow !== 'TRAMITADO' && statusRow !== 'ARQUIVADO' && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO' && statusRow !== 'FAZER DESPACHO' && statusRow !== 'AGUARDANDO ASSINATURA' && statusRow !== 'FINALIZADO');
         const matchesAtrasoTab = (filtroAtivo !== 'cartas-atrasados' || isAtrasadoProcess);
 
         return matchesSubAba
@@ -1802,7 +1880,7 @@ async function avaliarRespostaCarta(event, nup, decisao) {
             if (target) {
                 target['STATUS DA RESPOSTA'] = decisao;
                 target['MOTIVO DA AVALIAÇÃO'] = result.motivo || '';
-                target['STATUS'] = decisao === 'APROVADO' ? 'AGUARDANDO ASSINATURA' : 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+                target['STATUS'] = decisao === 'APROVADO' ? 'FAZER DESPACHO' : 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
             }
             atualizarCacheCartas();
             aplicarFiltrosCartas();
@@ -2104,6 +2182,110 @@ async function removerDocumentoRespostaCarta(event, nup, tipo) {
         }
     } catch (error) {
         mostrarToast('Erro de comunicação.', 'error');
+    }
+}
+
+/**
+ * Realiza a transição de status das Cartas Consulta (Fazer Despacho / Confirmar Assinatura)
+ */
+async function atualizarStatusCarta(event, nup, novoStatus) {
+    const btn = event ? event.currentTarget : null;
+    const textoOriginal = btn ? btn.innerHTML : '';
+
+    let msg = '';
+    let options = {};
+
+    if (novoStatus === 'AGUARDANDO ASSINATURA') {
+        msg = "Tem certeza de que deseja confirmar a realização do despacho para este processo?\n\nO status mudará para Aguardando Assinatura.";
+        options = {
+            titulo: "Confirmar Realização de Despacho",
+            textoBotao: "✅ Confirmar Despacho",
+            corBotao: "#2980b9",
+            corBorda: "#1c5986",
+            corBordaTop: "#2980b9",
+            icone: "📑"
+        };
+    } else if (novoStatus === 'FINALIZADO') {
+        msg = "Tem certeza de que deseja confirmar a assinatura realizada para este processo?\n\nO status mudará para Finalizado e o ciclo de vida deste processo será encerrado.";
+        options = {
+            titulo: "Confirmar Assinatura Realizada",
+            textoBotao: "✍️ Confirmar Assinatura",
+            corBotao: "#8e44ad",
+            corBorda: "#6c3483",
+            corBordaTop: "#8e44ad",
+            icone: "✍️"
+        };
+    } else {
+        msg = `Tem certeza de que deseja alterar o status para ${novoStatus}?`;
+        options = {
+            titulo: "Confirmar Alteração de Status",
+            textoBotao: "Confirmar",
+            corBotao: "#27ae60",
+            corBorda: "#1e824c",
+            corBordaTop: "#27ae60",
+            icone: "🔄"
+        };
+    }
+
+    const resultadoConfirmacao = await mostrarConfirmacao(msg, options);
+    if (!resultadoConfirmacao.confirmou) {
+        return;
+    }
+
+    if (btn) {
+        btn.innerHTML = '⏳ A processar...';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+    }
+
+    try {
+        const payload = {
+            acao: "atualizar_status_ci",
+            nup: nup,
+            novoStatus: novoStatus,
+            username: usuarioAtivo.username || ''
+        };
+
+        const resposta = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status atualizado com sucesso!', 'success');
+
+            const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
+            if (target) {
+                target['STATUS'] = novoStatus;
+            }
+            atualizarCacheCartas();
+            aplicarFiltrosCartas();
+
+            // Atualiza os badges globais
+            atualizarBadgesNotificacao(dadosCoringa);
+            
+            // Recarrega os detalhes no painel lateral
+            if (cartaSelecionada && cartaSelecionada['NUP'] === nup) {
+                cartaSelecionada = target;
+            }
+            renderTabelaView(cartasExibidas);
+        } else {
+            mostrarToast('Operação Cancelada ou Sem Permissão: ' + (resultado.message || 'Erro Desconhecido'), 'error');
+            if (btn) {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        mostrarToast('Erro de comunicação. A internet pode ter falhado.', 'error');
+        if (btn) {
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
     }
 }
 
