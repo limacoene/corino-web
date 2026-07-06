@@ -1004,18 +1004,37 @@ function renderTabelaView(dados) {
                         <button onclick="atualizarStatusCarta(event, '${nupVal}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin: 0; font-size: 14px;">✍️ Confirmar Assinatura Realizada</button>
                     </div>`;
             }
-        }
+            
+            const isSemTecnico = !linha['TÉCNICO/ADM'] || 
+                                 linha['TÉCNICO/ADM'] === '-' || 
+                                 linha['TÉCNICO/ADM'] === 'S/T' || 
+                                 linha['TÉCNICO/ADM'] === 'Sem Técnico' || 
+                                 linha['TÉCNICO/ADM'] === 'Não atribuído' || 
+                                 linha['TÉCNICO/ADM'].trim() === '';
 
-        // ── BOTÃO ATRIBUIR TÉCNICO (diretoria, sem técnico) ─────────────────
-        let htmlAtribuirTecnico = '';
-        const isSemTecnico = !linha['TÉCNICO/ADM'] || 
-                             linha['TÉCNICO/ADM'] === '-' || 
-                             linha['TÉCNICO/ADM'] === 'S/T' || 
-                             linha['TÉCNICO/ADM'] === 'Sem Técnico' || 
-                             linha['TÉCNICO/ADM'] === 'Não atribuído' || 
-                             linha['TÉCNICO/ADM'].trim() === '';
-        if (isGestor && isSemTecnico) {
-            htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;">👤 Distribuir / Atribuir Técnico</button>`;
+            let htmlAtribuirTecnico = '';
+            if (isSemTecnico) {
+                htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;">👤 Distribuir / Atribuir Técnico</button>`;
+            } else {
+                htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;">👤 Redistribuir Técnico</button>`;
+            }
+            
+            const rawStatus = (linha['STATUS'] || '').toUpperCase().trim();
+            const opcoesCartaStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "FINALIZADO", "DEVOLVIDO"];
+            let optionsHtml = opcoesCartaStatus.map(st => `<option value="${st}" ${st === rawStatus ? 'selected' : ''}>${st}</option>`).join('');
+            
+            htmlAcoesStatusCarta += `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="changeStatusSelectCarta-${nupVal}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
+                            ${optionsHtml}
+                        </select>
+                        <button onclick="salvarStatusManualCarta(event, '${nupVal}')" id="btnSalvarStatusCarta-${nupVal}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+                    </div>
+                </div>
+                ${htmlAtribuirTecnico}
+            `;
         }
 
         const infoStatus = obterStatusVisual(linha);
@@ -1890,6 +1909,60 @@ async function avaliarRespostaCarta(event, nup, decisao) {
             btn.innerHTML = textoOriginal; btn.disabled = false;
         }
     } catch (err) { mostrarToast('Erro de rede.', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; }
+}
+
+async function salvarStatusManualCarta(event, nup) {
+    if (event) event.preventDefault();
+    const select = document.getElementById(`changeStatusSelectCarta-${nup}`);
+    const novoStatus = select ? select.value : '';
+    if (!novoStatus) return;
+
+    const btn = document.getElementById(`btnSalvarStatusCarta-${nup}`);
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '? ...'; btn.disabled = true;
+
+    // Optimistic Update
+    const ref = dadosCartasGlobais.find(a => (a['NUP'] || a['PROCESSO'] || a['PROCESSO/NUP']) === nup);
+    let statusOriginal = '';
+    if (ref) {
+        statusOriginal = ref['STATUS'];
+        ref['STATUS'] = novoStatus;
+        if (ref['STATUS ATUAL']) ref['STATUS ATUAL'] = novoStatus;
+    }
+
+    mostrarToast('Status alterado localmente. Sincronizando...', 'success');
+    filtrarCartas();
+    atualizarCacheCartas();
+
+    try {
+        const resposta = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                acao: "alterar_status_manual_generico",
+                tipoAba: "carta",
+                nup: nup,
+                novoStatus: novoStatus,
+                username: usuarioLogado.username || "sistema"
+            })
+        });
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status confirmado na nuvem!', 'success');
+        } else {
+            throw new Error(resultado.message);
+        }
+    } catch (e) {
+        console.error(e);
+        mostrarToast('Falha na internet ao alterar status. (Revertendo)', 'error');
+        if (ref) {
+            ref['STATUS'] = statusOriginal;
+            if (ref['STATUS ATUAL']) ref['STATUS ATUAL'] = statusOriginal;
+        }
+        filtrarCartas();
+        atualizarCacheCartas();
+    } finally {
+        if(btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
+    }
 }
 
 /**

@@ -295,8 +295,28 @@ function renderTabelaExternos(dados) {
         const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
         const isSemTecnico = !s['TÉCNICO/ADMIN'] || s['TÉCNICO/ADMIN'] === '-' || s['TÉCNICO/ADMIN'] === 'S/T' || s['TÉCNICO/ADMIN'] === 'Sem Técnico' || s['TÉCNICO/ADMIN'] === 'Não atribuído';
 
-        if (isGestorFinalidade && isSemTecnico) {
-            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoExterno('${nupVal}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+        if (isGestorFinalidade) {
+            if (isSemTecnico) {
+                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoExterno('${nupVal}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+            } else {
+                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoExterno('${nupVal}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Redistribuir Técnico</button>`;
+            }
+            
+            const rawStatus = (s['STATUS'] || '').toUpperCase().trim();
+            const opcoesExtStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER DESPACHO", "FAZER CI", "AGUARDANDO ASSINATURA", "FINALIZADO", "DEVOLVIDO"];
+            let optionsHtml = opcoesExtStatus.map(st => `<option value="${st}" ${st === rawStatus ? 'selected' : ''}>${st}</option>`).join('');
+            
+            htmlDiretoriaBotoes += `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="changeStatusSelectExt-${nupVal}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
+                            ${optionsHtml}
+                        </select>
+                        <button onclick="salvarStatusManualExterno(event, '${nupVal}')" id="btnSalvarStatusExt-${nupVal}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+                    </div>
+                </div>
+            `;
         }
 
         if (isGestorFinalidade) {
@@ -940,6 +960,60 @@ function abrirModalAtribuirTecnicoExterno(nup) {
 
 function fecharModalAtribuirTecnicoExterno() {
     document.getElementById('atribuirTecnicoExternoModal').style.display = 'none';
+}
+
+async function salvarStatusManualExterno(event, nup) {
+    if (event) event.preventDefault();
+    const select = document.getElementById(`changeStatusSelectExt-${nup}`);
+    const novoStatus = select ? select.value : '';
+    if (!novoStatus) return;
+
+    const btn = document.getElementById(`btnSalvarStatusExt-${nup}`);
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ ...'; btn.disabled = true;
+
+    // Optimistic Update
+    const ref = dadosExternosGlobais.find(a => a['NUP'] === nup);
+    let statusOriginal = '';
+    if (ref) {
+        statusOriginal = ref['STATUS'];
+        ref['STATUS'] = novoStatus;
+        if (ref['STATUS ATUAL']) ref['STATUS ATUAL'] = novoStatus;
+    }
+
+    mostrarToast('Status alterado localmente. Sincronizando...', 'success');
+    filtrarExternos();
+    atualizarCacheExternos();
+
+    try {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify({
+                acao: "alterar_status_manual_generico",
+                tipoAba: "externo",
+                nup: nup,
+                novoStatus: novoStatus,
+                username: usuarioAtivo.username || "sistema"
+            })
+        });
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status confirmado na nuvem!', 'success');
+        } else {
+            throw new Error(resultado.message);
+        }
+    } catch (e) {
+        console.error(e);
+        mostrarToast('Falha na internet ao alterar status. (Revertendo)', 'error');
+        if (ref) {
+            ref['STATUS'] = statusOriginal;
+            if (ref['STATUS ATUAL']) ref['STATUS ATUAL'] = statusOriginal;
+        }
+        filtrarExternos();
+        atualizarCacheExternos();
+    } finally {
+        if(btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
+    }
 }
 
 async function salvarAtribuicaoTecnicoExterno() {
