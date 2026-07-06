@@ -1475,20 +1475,30 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         }
 
         let htmlDiretoriaBotoes = '';
-        const isGestorFinalidade = usuarioAtivo.perfil === 'gerencia';
+        const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
         const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
         const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
 
         if (isGestorFinalidade) {
             if (isSemTecnico) {
                 htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+            } else {
+                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Redistribuir Técnico</button>`;
             }
-            const statusGeralFormatado = statusGeralAtualizado.replace(/\./g, '').trim();
-            if (statusGeralFormatado === 'FAZER CI') {
-                htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
-            } else if (statusGeralFormatado === 'AGUARDANDO ASSINATURA') {
-                htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
-            }
+            
+            const opcoesOficioStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "REVISÃO", "FINALIZADO", "TRAMITADO", "ARQUIVADO"];
+            let optionsHtml = opcoesOficioStatus.map(st => `<option value="${st}" ${st === statusGeralAtualizado ? 'selected' : ''}>${st}</option>`).join('');
+            htmlDiretoriaBotoes += `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="changeStatusSelectOficioPainel-${linha['NUP']}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
+                            ${optionsHtml}
+                        </select>
+                        <button onclick="salvarStatusManualOficioPainel(event, '${linha['NUP']}')" id="btnSalvarStatusOficioPainel-${linha['NUP']}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+                    </div>
+                </div>
+            `;
         }
 
         let htmlResposta = '';
@@ -2076,6 +2086,69 @@ async function atualizarStatusCI(event, nup, novoStatus) {
     }
 }
 
+async function salvarStatusManualOficio(event, nup) {
+    if (event) event.preventDefault();
+    const select = document.getElementById(`changeStatusSelectOficio-${nup}`);
+    const novoStatus = select ? select.value : '';
+    if (!novoStatus) return;
+    await realizarAlteracaoStatusOficio(nup, novoStatus, `btnSalvarStatusOficio-${nup}`);
+}
+
+async function salvarStatusManualOficioPainel(event, nup) {
+    if (event) event.preventDefault();
+    const select = document.getElementById(`changeStatusSelectOficioPainel-${nup}`);
+    const novoStatus = select ? select.value : '';
+    if (!novoStatus) return;
+    await realizarAlteracaoStatusOficio(nup, novoStatus, `btnSalvarStatusOficioPainel-${nup}`);
+}
+
+async function realizarAlteracaoStatusOficio(nup, novoStatus, btnId) {
+    const btn = document.getElementById(btnId);
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ ...'; btn.disabled = true;
+
+    // Optimistic Update
+    const oficioRef = dadosCoringa.find(a => a['NUP'] === nup);
+    let statusOriginal = '';
+    if (oficioRef) {
+        statusOriginal = oficioRef['STATUS'];
+        oficioRef['STATUS'] = novoStatus;
+    }
+
+    mostrarToast('Status alterado localmente. Sincronizando...', 'success');
+    atualizarCacheOficios();
+    aplicarFiltros();
+
+    try {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify({
+                acao: "alterar_status_manual_generico",
+                tipoAba: "oficio",
+                nup: nup,
+                novoStatus: novoStatus,
+                username: usuarioAtivo.username || "sistema"
+            })
+        });
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status confirmado na nuvem!', 'success');
+        } else {
+            throw new Error(resultado.message);
+        }
+    } catch (e) {
+        console.error(e);
+        mostrarToast('Falha na internet ao alterar status. (Revertendo)', 'error');
+        if (oficioRef) {
+            oficioRef['STATUS'] = statusOriginal;
+        }
+        atualizarCacheOficios();
+        aplicarFiltros();
+    } finally {
+        if(btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
+    }
+}
+
 function feedbackDownload(btn) {
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '⏳ Baixando...';
@@ -2162,13 +2235,23 @@ function abrirModal(index) {
     if (isGestorFinalidade) {
         if (isSemTecnico) {
             htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+        } else {
+            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Redistribuir Técnico</button>`;
         }
-        const statusGeralFormatado = statusGeralAtualizado.replace(/\./g, '').trim();
-        if (statusGeralFormatado === 'FAZER CI') {
-            htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✅ Confirmar Realização de C.I.</button>`;
-        } else if (statusGeralFormatado === 'AGUARDANDO ASSINATURA') {
-            htmlDiretoriaBotoes += `<button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin-top: 15px; font-size: 15px;">✍️ Confirmar Assinatura Realizada</button>`;
-        }
+        
+        const opcoesOficioStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "REVISÃO", "FINALIZADO", "TRAMITADO", "ARQUIVADO"];
+        let optionsHtml = opcoesOficioStatus.map(st => `<option value="${st}" ${st === statusGeralAtualizado ? 'selected' : ''}>${st}</option>`).join('');
+        htmlDiretoriaBotoes += `
+            <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
+                <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
+                <div style="display: flex; gap: 8px;">
+                    <select id="changeStatusSelectOficio-${linha['NUP']}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
+                        ${optionsHtml}
+                    </select>
+                    <button onclick="salvarStatusManualOficio(event, '${linha['NUP']}')" id="btnSalvarStatusOficio-${linha['NUP']}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+                </div>
+            </div>
+        `;
     }
 
     let htmlResposta = '';
@@ -2432,6 +2515,7 @@ function abrirModalAtribuirTecnicoOficio(nup) {
 function fecharModalAtribuirTecnicoOficio() {
     document.getElementById('atribuirTecnicoOficioModal').style.display = 'none';
 }
+
 
 async function salvarAtribuicaoTecnicoOficio() {
     const nup = document.getElementById('atrOficioNup').value;

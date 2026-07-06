@@ -556,7 +556,7 @@ async function salvarAtribuicaoTecnico() {
     try {
         const resposta = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
-            body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico })
+            body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico, username: usuarioLogado.username })
         });
         const resultado = await resposta.json();
         
