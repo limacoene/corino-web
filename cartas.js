@@ -1033,7 +1033,6 @@ function renderTabelaView(dados) {
                         <button onclick="salvarStatusManualCarta(event, '${nupVal}')" id="btnSalvarStatusCarta-${nupVal}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
                     </div>
                 </div>
-                ${htmlAtribuirTecnico}
             `;
         }
 
