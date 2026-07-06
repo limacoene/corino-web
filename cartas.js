@@ -989,6 +989,7 @@ function renderTabelaView(dados) {
 
         // ── NOVO: AÇÕES DE STATUS DA CARTA (DESPACHO / ASSINATURA) ────────
         let htmlAcoesStatusCarta = '';
+        let htmlAtribuirTecnico = '';
         if (isGestor) {
             const statusGeralFormatado = statusStr.replace(/\./g, '').trim().toUpperCase();
             if (statusGeralFormatado === 'FAZER DESPACHO') {
@@ -1012,7 +1013,6 @@ function renderTabelaView(dados) {
                                  linha['TÉCNICO/ADM'] === 'Não atribuído' || 
                                  linha['TÉCNICO/ADM'].trim() === '';
 
-            let htmlAtribuirTecnico = '';
             if (isSemTecnico) {
                 htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;">👤 Distribuir / Atribuir Técnico</button>`;
             } else {
