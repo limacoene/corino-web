@@ -274,8 +274,27 @@ function renderTabelaAutos(dados) {
 
         let htmlDiretoriaBotoes = '';
         const isSemTecnico = !s['TÉCNICO'] || s['TÉCNICO'] === '-' || s['TÉCNICO'] === 'S/T' || s['TÉCNICO'] === 'Sem Técnico' || s['TÉCNICO'] === 'Não atribuído' || s['TÉCNICO'].trim() === '';
-        if (isGestor && isSemTecnico) {
-            htmlDiretoriaBotoes = `<button onclick="abrirModalAtribuirTecnico('${s['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+        if (isGestor) {
+            let distribBtn = '';
+            if (isSemTecnico) {
+                distribBtn = `<button onclick="abrirModalAtribuirTecnico('${s['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+            } else {
+                distribBtn = `<button onclick="abrirModalAtribuirTecnico('${s['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Redistribuir Técnico</button>`;
+            }
+
+            let optionsHtml = opcoesAutoStatus.map(st => `<option value="${st}" ${st === status ? 'selected' : ''}>${st}</option>`).join('');
+            let selectStatusHtml = `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">🔧 GESTÃO DE STATUS (DIRETORIA)</div>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="changeStatusSelect-${s['NUP']}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
+                            ${optionsHtml}
+                        </select>
+                        <button onclick="salvarStatusManualAuto(event, '${s['NUP']}')" id="btnSalvarStatus-${s['NUP']}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+                    </div>
+                </div>
+            `;
+            htmlDiretoriaBotoes = distribBtn + selectStatusHtml;
         }
 
         rightPanel.innerHTML = `
@@ -448,6 +467,57 @@ function fecharModalAtribuirTecnico() {
     document.getElementById('atribuirTecnicoModal').style.display = 'none'; 
     document.getElementById('atrAutoNup').value = '';
     document.getElementById('atrAutoTecnico').value = '';
+}
+
+async function salvarStatusManualAuto(event, nup) {
+    if (event) event.preventDefault();
+    const select = document.getElementById(`changeStatusSelect-${nup}`);
+    if (!select) return;
+    const novoStatus = select.value;
+
+    const btn = document.getElementById(`btnSalvarStatus-${nup}`);
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ Alterando...'; btn.disabled = true;
+
+    try {
+        const payload = {
+            acao: "alterar_status_manual_auto",
+            nup: nup,
+            novoStatus: novoStatus,
+            username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+        };
+
+        const resposta = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Status atualizado com sucesso!', 'success');
+            
+            // Atualiza no cache local
+            const autoRef = dadosAutosGlobais.find(x => x['NUP'] === nup);
+            if (autoRef) {
+                autoRef['STATUS ATUAL'] = novoStatus;
+                if (autoRef['DATA STATUS ATUAL'] !== undefined) {
+                    autoRef['DATA STATUS ATUAL'] = new Date().toLocaleString('pt-BR');
+                }
+                autoSelecionadoMockup = autoRef;
+                atualizarCacheAutos();
+            }
+            filtrarAutos();
+        } else {
+            mostrarToast('Erro ao atualizar status: ' + resultado.message, 'error');
+            btn.innerHTML = txtOriginal;
+            btn.disabled = false;
+        }
+    } catch (e) {
+        console.error(e);
+        mostrarToast('Erro de comunicação com o servidor.', 'error');
+        btn.innerHTML = txtOriginal;
+        btn.disabled = false;
+    }
 }
 
 async function salvarAtribuicaoTecnico() {
@@ -671,7 +741,8 @@ async function salvarNovoAuto() {
         data_repasse: document.getElementById('cadAutoData').value, setor: document.getElementById('cadAutoSetor').value,
         status_atual: document.getElementById('cadAutoStatus').value, tipo: document.getElementById('cadAutoTipo').value,
         tecnico: document.getElementById('cadAutoTecnico').value, fisico_ems: document.getElementById('cadAutoFisicoEms').value,
-        base64: base64File, fileName: fileName
+        base64: base64File, fileName: fileName,
+        username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
     };
 
     const novoItem = { 'NUP': payload.nup, 'REQUERENTE': payload.requerente, 'AUTO DE INFRAÇÃO': payload.auto_infracao, 'LAUDO DE CONSTATAÇÃO': payload.laudo, 'NOTIFICAÇÃO': payload.notificacao, 'DATA DE REPASSE': payload.data_repasse, 'SETOR': payload.setor, 'STATUS ATUAL': payload.status_atual, 'TIPO': payload.tipo, 'TÉCNICO': payload.tecnico, 'FISICO/E-MS': payload.fisico_ems };
