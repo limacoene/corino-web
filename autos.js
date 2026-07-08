@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AUTOS DE INFRAÇÃO
 // ============================================================================
 const opcoesAutoSetor = ["GCAR", "GEAA"];
@@ -771,7 +771,7 @@ async function salvarNovoAuto() {
     }
 }
 
-// Inicia o drag & drop deste ecrã se a função do app.js já estiver ativa
+// Inicia o drag & drop deste ecrãã se a função do app.js já estiver ativa
 if (typeof configurarDragAndDrop === 'function') {
     configurarDragAndDrop('cadAutoArquivo', 'cadAutoArquivoLabel', updateFileNameAuto);
 }
