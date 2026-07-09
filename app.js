@@ -1426,6 +1426,14 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         let htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="modal-obs" style="margin-top: 15px;"><strong>Observação:</strong><br>${obs}</div>` : '';
         let htmlPreviewIcon = '';
         let htmlLink = `<div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px; width: 100%;">🚫 Sem Link Vinculado</div>`;
+        if (usuarioAtivo) {
+            htmlLink = `
+                <div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <span>🚫 Sem Link Vinculado</span>
+                    <button onclick="anexarPdfOriginalOficio(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="font-size: 12px; padding: 6px 12px; width: auto; height: auto;">📎 Anexar Ofício Inicial</button>
+                </div>
+            `;
+        }
         let btnAnexar = '';
         const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
         const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
@@ -1780,6 +1788,59 @@ function anexarDocumento(event, nup) {
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
             btn.style.opacity = '1';
+        }
+    };
+    fileInput.click();
+}
+
+function anexarPdfOriginalOficio(event, nup) {
+    const btn = event.currentTarget;
+    const textoOriginal = btn.innerHTML;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.accept = 'application/pdf';
+
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader(); reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+
+            const payload = { 
+                acao: "anexar_pdf_original_oficio", 
+                nup: nup, 
+                fileName: `Oficio_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
+                base64: base64,
+                username: usuarioAtivo.username || ''
+            };
+            const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
+            const resultado = await resposta.json();
+
+            if (resultado.status === 'success') {
+                mostrarToast('PDF Original anexado com sucesso!', 'success');
+                const target = dadosCoringa.find(r => r['NUP'] === nup);
+                if (target) {
+                    target['LINK_OFICIO'] = resultado.url;
+                    target['LINK - OFÍCIO'] = resultado.url;
+                    target['LINK OFÍCIO'] = resultado.url;
+                    target['LINK_OFÍCIO'] = resultado.url;
+                }
+                atualizarCacheOficios();
+                aplicarFiltros();
+                fecharModal();
+            } else {
+                mostrarToast('Erro: ' + resultado.message, 'error');
+                btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
+            }
+        } catch (error) { 
+            mostrarToast('Erro de comunicação.', 'error'); 
+            btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1'; 
         }
     };
     fileInput.click();
@@ -2179,6 +2240,14 @@ function abrirModal(index) {
     let htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="modal-obs"><strong>Observação:</strong><br>${obs}</div>` : '';
     let htmlPreviewIcon = '';
     let htmlLink = `<div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px;">🚫 Sem Link Vinculado</div>`;
+    if (usuarioAtivo) {
+        htmlLink = `
+            <div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <span>🚫 Sem Link Vinculado</span>
+                <button onclick="anexarPdfOriginalOficio(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="font-size: 12px; padding: 6px 12px; width: auto; height: auto;">📎 Anexar Ofício Inicial</button>
+            </div>
+        `;
+    }
     let btnAnexar = '';
     const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
     const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
