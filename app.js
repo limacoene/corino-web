@@ -981,7 +981,8 @@ function aplicarFiltros() {
             const isFinalizado = statusVisual.texto.includes('FINALIZADO') || (r['STATUS'] || '').toUpperCase() === 'FINALIZADO' || (r['STATUS'] || '').toUpperCase() === 'TRAMITADO' || (r['STATUS'] || '').toUpperCase() === 'ARQUIVADO';
             
             const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
-            const isRevisao = status === 'REVISÃO' || status === 'REVISAO' || hasResposta;
+            const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+            const isRevisao = (status === 'REVISÃO' || status === 'REVISAO' || hasResposta) && statusResp !== 'REPROVADO';
             const isFazerCi = status === 'FAZER CI';
             const isAssinatura = status === 'AGUARDANDO ASSINATURA';
 
@@ -1026,7 +1027,8 @@ function aplicarFiltros() {
             const isAguardandoManifestacao = status.includes('AGUARDANDO MANIFESTAÇÃO') || status.includes('AGUARDANDO MANIFESTACAO');
             
             const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
-            const isRevisao = status === 'REVISÃO' || status === 'REVISAO' || hasResposta;
+            const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+            const isRevisao = (status === 'REVISÃO' || status === 'REVISAO' || hasResposta) && statusResp !== 'REPROVADO';
 
             return temTecnico && isAguardandoManifestacao && !isAtrasado && !isFinalizado && !isRevisao;
         });
@@ -1084,7 +1086,8 @@ function aplicarFiltros() {
             const isAguardando = status.includes('AGUARDANDO MANIFESTAÇÃO') || status.includes('AGUARDANDO MANIFESTACAO') || status.includes('AGUARDANDO DISTRIBUIÇÃO') || status.includes('AGUARDANDO DISTRIBUICAO');
             
             const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
-            const isRevisao = status === 'REVISÃO' || status === 'REVISAO' || hasResposta;
+            const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+            const isRevisao = (status === 'REVISÃO' || status === 'REVISAO' || hasResposta) && statusResp !== 'REPROVADO';
 
             return isAguardando && isAtrasado && !isFinalizado && !isRevisao;
         });
@@ -2623,9 +2626,17 @@ function atualizarBadgesNotificacao(dados) {
     let totalDistribuicao = dadosFiltradosBadge.filter(r => {
         const tec = (r['TÉCNICO/ADMIN'] || '').trim();
         const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
+        const status = (r['STATUS'] || '').toUpperCase().trim();
         const statusVisual = obterStatusVisual(r);
-        const isFinalizado = statusVisual.texto.includes('FINALIZADO') || (r['STATUS'] || '').toUpperCase() === 'FINALIZADO' || (r['STATUS'] || '').toUpperCase() === 'TRAMITADO' || (r['STATUS'] || '').toUpperCase() === 'ARQUIVADO';
-        return semTecnico && !isFinalizado;
+        const isFinalizado = statusVisual.texto.includes('FINALIZADO') || status === 'FINALIZADO' || status === 'TRAMITADO' || status === 'ARQUIVADO';
+        
+        const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+        const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const isRevisao = (status === 'REVISÃO' || status === 'REVISAO' || hasResposta) && statusResp !== 'REPROVADO';
+        const isFazerCi = status === 'FAZER CI';
+        const isAssinatura = status === 'AGUARDANDO ASSINATURA';
+
+        return semTecnico && !isFinalizado && !isRevisao && !isFazerCi && !isAssinatura;
     }).length;
 
     // 2. Em Andamento
@@ -2637,7 +2648,12 @@ function atualizarBadgesNotificacao(dados) {
         const isAtrasado = statusVisual.texto.includes('🔴') || (extrairDiasRestantes(r['DIAS RESTANTES']) < 0);
         const isFinalizado = statusVisual.texto.includes('FINALIZADO') || status === 'FINALIZADO' || status === 'TRAMITADO' || status === 'ARQUIVADO';
         const isAguardandoManifestacao = status.includes('AGUARDANDO MANIFESTAÇÃO') || status.includes('AGUARDANDO MANIFESTACAO');
-        return temTecnico && isAguardandoManifestacao && !isAtrasado && !isFinalizado;
+        
+        const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+        const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const isRevisao = (status === 'REVISÃO' || status === 'REVISAO' || hasResposta) && statusResp !== 'REPROVADO';
+
+        return temTecnico && isAguardandoManifestacao && !isAtrasado && !isFinalizado && !isRevisao;
     }).length;
 
     // 3. Painel de Atrasados
@@ -2647,7 +2663,12 @@ function atualizarBadgesNotificacao(dados) {
         const isAtrasado = statusVisual.texto.includes('🔴') || (extrairDiasRestantes(r['DIAS RESTANTES']) < 0);
         const isFinalizado = statusVisual.texto.includes('FINALIZADO') || status === 'FINALIZADO' || status === 'TRAMITADO' || status === 'ARQUIVADO';
         const isAguardando = status.includes('AGUARDANDO MANIFESTAÇÃO') || status.includes('AGUARDANDO MANIFESTACAO') || status.includes('AGUARDANDO DISTRIBUIÇÃO') || status.includes('AGUARDANDO DISTRIBUICAO');
-        return isAguardando && isAtrasado && !isFinalizado;
+        
+        const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
+        const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const isRevisao = (status === 'REVISÃO' || status === 'REVISAO' || hasResposta) && statusResp !== 'REPROVADO';
+
+        return isAguardando && isAtrasado && !isFinalizado && !isRevisao;
     }).length;
 
     // 4. Aguardando Revisão
@@ -2656,7 +2677,11 @@ function atualizarBadgesNotificacao(dados) {
         const statusVisual = obterStatusVisual(r);
         const isFinalizado = statusVisual.texto.includes('FINALIZADO') || status === 'FINALIZADO' || status === 'TRAMITADO' || status === 'ARQUIVADO';
         const hasResposta = r['LINK_RESPOSTA'] && r['LINK_RESPOSTA'].trim() !== '' && r['LINK_RESPOSTA'].trim() !== '-';
-        return hasResposta && status !== 'FAZER CI' && status !== 'AGUARDANDO ASSINATURA' && !isFinalizado;
+        
+        const statusResp = (r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const isPendente = statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (status === 'REVISÃO' || status === 'REVISAO');
+        
+        return hasResposta && status !== 'FAZER CI' && status !== 'AGUARDANDO ASSINATURA' && !isFinalizado && isPendente;
     }).length;
 
     // 5. Fazer Comunicação
@@ -2856,6 +2881,7 @@ const MAPA_TECNICOS_SETORES = {
     "FABIANA": "GCAR",
     "CARLOS JULIANO": "GCAR",
     "JOSÉ RENATO": "GEAA",
+    "JOSE RENATO": "GEAA",
     "CRISTIANE": "GCAR",
     "HILBATY": "GCAR",
     "FRANCIELLY": "GCAR",
