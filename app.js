@@ -3060,7 +3060,8 @@ const MAPA_TECNICOS_SETORES = {
     "SUZIELLY": "GEAA",
     "MAX SANDER": "GEAA",
     "ETEVALDO": "GEAA",
-    "ALLAN": "GEAA"
+    "ALLAN": "GEAA",
+    "HENRIQUE": "GEAA"
 };
 
 // Mantém o array simples apenas para popular os seletores (<select>) da interface
