@@ -57,6 +57,10 @@ function alternarVisualizacaoPreview(btn, url, downloadUrl) {
     if (downloadBtn) {
         downloadBtn.href = downloadUrl;
     }
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.href = url.replace('/preview', '/view');
+    }
     
     // Remove classe ativa de outros botões e aplica ao atual
     const container = btn.parentElement;

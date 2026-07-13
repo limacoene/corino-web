@@ -122,6 +122,7 @@ function atualizarCacheOficios() {
     const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
     const keyOficios = `corino_cache_dados_coringa_${username}`;
     localStorage.setItem(keyOficios, JSON.stringify(dadosCoringa));
+    if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
 }
 
 function obterStatusVisual(linha) {
@@ -455,6 +456,7 @@ async function iniciarSistema() {
         carregarAutos();
         if (typeof carregarCartas === 'function') carregarCartas();
         if (typeof carregarExternos === 'function') carregarExternos();
+        carregarHistoricoGlobalBackground();
     } catch (erro) {
         if (!localStorage.getItem(`corino_cache_dados_coringa_${usuarioAtivo ? usuarioAtivo.username : 'guest'}`)) {
             document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
@@ -1565,62 +1567,11 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
             htmlHistorico = `<div style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;">📚 Histórico de Documentos</strong>${htmlHistorico}</div>`;
         }
 
-        let eventosTimeline = [];
-        if (linha['DATA']) {
-            eventosTimeline.push({ titulo: 'PROCESSO CADASTRADO NO SISTEMA', data: linha['DATA'], cor: '#3498db' });
-        }
+        let htmlTimeline = `<div id="timeline-container-oficio" style="margin-top: 25px; margin-bottom: 25px;"></div>`;
 
-        const tecAdmin = (linha['TÉCNICO/ADMIN'] || '').trim();
-        if (tecAdmin && tecAdmin !== '-' && tecAdmin !== 'S/T') {
-            const dataDistribuicao = linha['DATA_DISTRIBUICAO'] || linha['DATA'] || 'Registro Indisponível';
-            eventosTimeline.push({ titulo: `PROCESSO DISTRIBUÍDO PARA: ${tecAdmin.toUpperCase()}`, data: dataDistribuicao, cor: '#9b59b6' });
-        }
-
-        if (temRespostaVinculada) {
-            eventosTimeline.push({ titulo: 'DOCUMENTO DE MANIFESTAÇÃO ANEXADO', data: 'Registro Indisponível', cor: '#f39c12' });
-        }
-
-        const statusResposta = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
-        if (historicoReprovacoes.length > 0) {
-            historicoReprovacoes.forEach(rep => {
-                eventosTimeline.push({ titulo: `MANIFESTAÇÃO RECUSADA: ${rep.motivo || ''}`, data: rep.data || 'Registro Indisponível', cor: '#c0392b' });
-            });
-        }
-        if (statusResposta === 'REPROVADO') {
-            eventosTimeline.push({ titulo: `MANIFESTAÇÃO ATUAL RECUSADA`, data: 'Registro Indisponível', cor: '#c0392b' });
-        }
-
-        const statusGeral = (linha['STATUS'] || '').toUpperCase();
-        if (statusGeral === 'AGUARDANDO ASSINATURA' || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral === 'FINALIZADO') {
-            eventosTimeline.push({ titulo: 'REALIZAÇÃO DE C.I. CONFIRMADA', data: 'Registro Indisponível', cor: '#e67e22' });
-        }
-
-        if (statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral === 'FINALIZADO') {
-            eventosTimeline.push({ titulo: 'ASSINATURA DA C.I. CONFIRMADA', data: 'Registro Indisponível', cor: '#27ae60' });
-            eventosTimeline.push({ titulo: 'PROCESSO TRAMITADO / FINALIZADO', data: 'Registro Indisponível', cor: '#2ecc71' });
-        }
-
-        let htmlTimelineEvents = '';
-        eventosTimeline.reverse().forEach((ev, i) => {
-            htmlTimelineEvents += `
-                <div style="position: relative; margin-bottom: 15px;">
-                    <div style="position: absolute; left: -25px; top: 0; width: 10px; height: 10px; background-color: ${ev.cor}; border-radius: 50%;"></div>
-                    <div style="font-size: 11px; color: #888;">${ev.data}</div>
-                    <div style="font-size: 13px; color: ${i === 0 ? '#fff' : '#aaa'}; margin-top: 2px; font-weight: ${i === 0 ? 'bold' : 'normal'};">${ev.titulo}</div>
-                </div>
-            `;
-        });
-
-        let htmlTimeline = '';
-        if (eventosTimeline.length > 0) {
-            htmlTimeline = `
-            <div style="margin-top: 25px; margin-bottom: 25px;">
-                <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;">⏳ Histórico de Tramitação</div>
-                <div style="position: relative; padding-left: 20px; border-left: 2px solid #444; margin-left: 10px;">
-                    ${htmlTimelineEvents}
-                </div>
-            </div>
-            `;
+        let reitBtnHtml = '';
+        if (usuarioAtivo) {
+            reitBtnHtml = `<button onclick="abrirModalCadastroReiteracao('${linha['NUP']}')" class="btn-inline-reiteracao" title="Cadastrar Reiteração"></button>`;
         }
 
         rightPanel.innerHTML = `
@@ -1649,7 +1600,10 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
             <div style="background-color: #222; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; height: 100%;">
                     <div style="font-size: 11px; color: #888; margin-bottom: 4px;">OFÍCIO N.</div>
                     <div style="font-size: 14px; color: #fff; font-weight: 500; display: flex; align-items: center; justify-content: space-between;">
-                    <span style="word-break: break-word; padding-right: 10px;">${oficioRaw}</span>
+                    <span style="word-break: break-word; padding-right: 10px; display: inline-flex; align-items: center;">
+                        ${oficioRaw}
+                        ${reitBtnHtml}
+                    </span>
                         ${htmlPreviewIcon}
                     </div>
                 </div>
@@ -1685,6 +1639,10 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
     container.appendChild(leftPanel);
     container.appendChild(rightPanel);
+
+    if (oficioSelecionadoMockup) {
+        renderizarLinhaTempoSistema(oficioSelecionadoMockup['NUP'], 'timeline-container-oficio');
+    }
 
     // RESTAURAR SCROLLS E POSIÇÕES
     if (leftPanelEl) {
@@ -1749,7 +1707,8 @@ function anexarDocumento(event, nup) {
                 acao: "upload",
                 nup: nup,
                 fileName: `Resposta_${nupLimpo}.pdf`,
-                base64: base64
+                base64: base64,
+                username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
             };
 
             const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
@@ -1846,6 +1805,138 @@ function anexarPdfOriginalOficio(event, nup) {
     fileInput.click();
 }
 
+window.cacheHistoricoGlobal = null;
+window.historicoCarregando = false;
+
+async function carregarHistoricoGlobalBackground() {
+    if (window.cacheHistoricoGlobal || window.historicoCarregando) return;
+    window.historicoCarregando = true;
+    try {
+        const payload = { acao: "buscar_historico_processo" };
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            window.cacheHistoricoGlobal = resultado.dados || [];
+            console.log(`Cache de Histórico Global carregado em background: ${window.cacheHistoricoGlobal.length} registros.`);
+        }
+    } catch (e) {
+        console.error("Erro ao pré-carregar histórico em background:", e);
+    } finally {
+        window.historicoCarregando = false;
+    }
+}
+
+window.limparCacheHistoricoGlobal = function() {
+    window.cacheHistoricoGlobal = null;
+    setTimeout(carregarHistoricoGlobalBackground, 1500); // 1.5s delay to allow Google Sheets write synchronization
+};
+
+function exibirLinhaTempo(dados, container) {
+    if (dados.length === 0) {
+        container.innerHTML = `
+            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;">⏳ Histórico de Tramitação</div>
+            <div style="text-align: center; color: #666; font-size: 13px; padding: 15px; border: 1px dashed #333; border-radius: 6px;">Nenhum evento registrado para este processo.</div>
+        `;
+        return;
+    }
+
+    const obterEstiloEvento = (acao, detalhe = '') => {
+        const acaoUpper = acao.toUpperCase();
+        const detalheUpper = String(detalhe).toUpperCase();
+        
+        if (acaoUpper.includes('CADASTRADO') || acaoUpper.includes('CADASTRO') || acaoUpper.includes('INICIAL')) {
+            return { cor: '#3498db', icone: '📥' };
+        }
+        if (acaoUpper.includes('ATRIBUÍDO') || acaoUpper.includes('ATRIBUIDO') || acaoUpper.includes('DISTRIBUIÇÃO') || acaoUpper.includes('DISTRIBUIDO') || acaoUpper.includes('REDISTRIBUIR') || acaoUpper.includes('TÉCNICO')) {
+            return { cor: '#9b59b6', icone: '👤' };
+        }
+        if (acaoUpper.includes('UPLOAD DE RESPOSTA') || acaoUpper.includes('ANEXAR') || acaoUpper.includes('ANEXADO')) {
+            return { cor: '#e67e22', icone: '📎' };
+        }
+        if (acaoUpper.includes('REMOVER') || acaoUpper.includes('REMOVIDA') || acaoUpper.includes('RETIRAR')) {
+            return { cor: '#7f8c8d', icone: '🗑️' };
+        }
+        if (acaoUpper.includes('APROVADO') || acaoUpper.includes('ACEITO') || detalheUpper === 'TRAMITADO' || detalheUpper === 'FINALIZADO' || detalheUpper === 'ARQUIVADO') {
+            return { cor: '#2ecc71', icone: '✅' };
+        }
+        if (acaoUpper.includes('REPROVADO') || acaoUpper.includes('RECUSADO') || acaoUpper.includes('RECUSADA')) {
+            return { cor: '#e74c3c', icone: '❌' };
+        }
+        if (acaoUpper.includes('STATUS CI') || acaoUpper.includes('STATUS')) {
+            return { cor: '#f1c40f', icone: '⚙️' };
+        }
+        return { cor: '#1abc9c', icone: '📌' };
+    };
+
+    let htmlEvents = '';
+    [...dados].reverse().forEach((ev, i) => {
+        const estilo = obterEstiloEvento(ev.acao, ev.detalhe);
+        let descricao = ev.extra ? `${ev.acao} (${ev.extra})` : ev.acao;
+        let detalheText = ev.detalhe && !ev.detalhe.startsWith('http') ? `<div style="font-size: 11px; color: #888; margin-top: 2px;">Detalhe: ${ev.detalhe}</div>` : '';
+        
+        if (ev.acao === 'ALTERACAO_MANUAL_STATUS') {
+            descricao = ev.extra || 'Status alterado manualmente';
+            detalheText = '';
+        }
+        
+        htmlEvents += `
+            <div style="position: relative; margin-bottom: 20px; padding-left: 15px;">
+                <div style="position: absolute; left: -29px; top: 0; width: 16px; height: 16px; background-color: #1a1a1a; border: 2px solid ${estilo.cor}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px;" title="${ev.acao}">${estilo.icone}</div>
+                <div style="font-size: 11px; color: #777;">${ev.data}</div>
+                <div style="font-size: 13px; color: ${i === 0 ? '#fff' : '#ccc'}; margin-top: 2px; font-weight: ${i === 0 ? 'bold' : 'normal'};">${descricao}</div>
+                ${detalheText}
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div style="margin-top: 25px; margin-bottom: 25px;">
+            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;">⏳ Histórico de Tramitação</div>
+            <div style="position: relative; padding-left: 20px; border-left: 2px solid #444; margin-left: 17px;">
+                ${htmlEvents}
+            </div>
+        </div>
+    `;
+}
+
+async function renderizarLinhaTempoSistema(nup, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (window.cacheHistoricoGlobal) {
+        const dadosLocais = window.cacheHistoricoGlobal.filter(ev => String(ev.nup).trim() === String(nup).trim());
+        exibirLinhaTempo(dadosLocais, container);
+        return;
+    }
+
+    container.innerHTML = `<div style="text-align: center; color: #888; font-size: 13px; padding: 15px;">⏳ Carregando histórico...</div>`;
+
+    try {
+        const payload = { acao: "buscar_historico_processo", nup: nup };
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const resultado = await resposta.json();
+
+        if (resultado.status !== 'success') {
+            container.innerHTML = `<div style="color: #c0392b; font-size: 13px; padding: 10px;">❌ Erro ao carregar histórico: ${resultado.message}</div>`;
+            return;
+        }
+
+        const dados = resultado.dados || [];
+        exibirLinhaTempo(dados, container);
+
+        carregarHistoricoGlobalBackground();
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = `<div style="color: #c0392b; font-size: 13px; padding: 10px;">❌ Falha na conexão ao buscar histórico.</div>`;
+    }
+}
+
 function mostrarConfirmacao(mensagem, options = {}) {
     return new Promise((resolve) => {
         const modal = document.getElementById('confirmModal');
@@ -1928,7 +2019,8 @@ async function removerDocumento(event, nup) {
     try {
         const payload = {
             acao: "remover_resposta",
-            nup: nup
+            nup: nup,
+            username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
         };
 
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
@@ -2400,6 +2492,7 @@ function abrirPreview(url, index) {
                     ${iconeOlhoGrande} Pré-visualização de Documento
                 </div>
                 <div class="preview-toolbar-buttons">
+                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
                     
                     <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
@@ -2525,6 +2618,10 @@ function abrirPreview(url, index) {
     const contentDiv = document.getElementById('previewInfoContent');
     contentDiv.innerHTML = toggleBtn + contentDiv.innerHTML + acoesDiflorPreview;
 
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.href = url.replace('/preview', '/view');
+    }
     document.getElementById('previewFrame').src = url;
     modal.style.display = 'flex';
 }
@@ -2545,6 +2642,10 @@ function alternarVisualizacaoPreview(btn, urlPreview, urlDownload) {
     if (iframe) {
         iframe.style.display = 'block';
         iframe.src = urlPreview;
+    }
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.href = urlPreview.replace('/preview', '/view');
     }
 
     const gisContainer = document.getElementById('gisMapContainerModal');
@@ -3257,6 +3358,203 @@ function configurarDragAndDrop(inputId, labelId, updateCallback) {
             updateCallback(input);
         }
     }, false);
+}
+
+let reitDataPicker = null;
+
+function abrirModalCadastroReiteracao(nup) {
+    document.getElementById('reitOriginalNup').value = nup;
+    document.getElementById('reitNovoNup').value = '';
+    document.getElementById('reitNovoOficio').value = '';
+    document.getElementById('reitNovaData').value = '';
+    document.getElementById('reitNovoPrazoQtd').value = '';
+    document.getElementById('reitNovoPrazoTipo').value = 'corridos';
+    document.getElementById('reitNovoPdfFile').value = '';
+    document.getElementById('reitPdfFileName').innerText = 'Nenhum arquivo selecionado';
+
+    document.getElementById('cadastroReiteracaoModal').style.display = 'flex';
+
+    if (!reitDataPicker) {
+        reitDataPicker = flatpickr("#reitNovaData", {
+            locale: "pt",
+            dateFormat: "d/m/Y",
+            allowInput: true
+        });
+    }
+}
+
+function fecharModalCadastroReiteracao() {
+    document.getElementById('cadastroReiteracaoModal').style.display = 'none';
+}
+
+function updateReitFileName(input) {
+    const span = document.getElementById('reitPdfFileName');
+    if (input.files && input.files.length > 0) {
+        span.innerText = input.files[0].name;
+    } else {
+        span.innerText = 'Nenhum arquivo selecionado';
+    }
+}
+
+async function salvarReiteracaoOficio() {
+    const nupOriginal = document.getElementById('reitOriginalNup').value;
+    const novoNup = document.getElementById('reitNovoNup').value.trim();
+    const novoOficio = document.getElementById('reitNovoOficio').value.trim();
+    const novoData = document.getElementById('reitNovaData').value.trim();
+    const prazoQtd = document.getElementById('reitNovoPrazoQtd').value.trim();
+    const prazoTipo = document.getElementById('reitNovoPrazoTipo').value;
+
+    if (!novoNup || !novoOficio || !novoData) {
+        mostrarToast('NUP, Ofício N. e Data de Recebimento da Reiteração são obrigatórios!', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btnSalvarReiteracao');
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ Preparando...'; btn.disabled = true;
+
+    let prazoFinal = '';
+    if (prazoQtd) {
+        prazoFinal = (prazoTipo === "uteis") ? `${prazoQtd} DIAS UTEIS` : `${prazoQtd} DIAS`;
+    }
+
+    const fileInput = document.getElementById('reitNovoPdfFile');
+    let base64File = null;
+    let fileName = null;
+
+    if (fileInput && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        if (file.size > 15 * 1024 * 1024) {
+            mostrarToast('Erro: O arquivo deve ter no máximo 15MB', 'error');
+            btn.innerHTML = txtOriginal; btn.disabled = false;
+            return;
+        }
+        const oficioFormatado = novoOficio.replace(/\//g, '-');
+        fileName = `${oficioFormatado}.pdf`;
+
+        try {
+            base64File = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                reader.onerror = (e) => reject(e);
+                reader.readAsDataURL(file);
+            });
+        } catch (e) {
+            mostrarToast('Erro ao ler o arquivo', 'error');
+            btn.innerHTML = txtOriginal; btn.disabled = false;
+            return;
+        }
+    }
+
+    // Optimistic Update
+    const procRef = dadosCoringa.find(a => a['NUP'] === nupOriginal);
+    let origData = '', origPrazo = '', origStatus = '', origStatusResp = '', origMot = '', origLinkResp = '';
+    
+    if (procRef) {
+        origData = procRef['DATA'];
+        origPrazo = procRef['PRAZO'];
+        origStatus = procRef['STATUS'];
+        origStatusResp = procRef['STATUS_RESPOSTA'];
+        origMot = procRef['MOTIVO_AVALIACAO'];
+        origLinkResp = procRef['LINK_RESPOSTA'];
+
+        if (!procRef['REITERACOES']) procRef['REITERACOES'] = [];
+        
+        procRef['REITERACOES'].push({
+            NUMERO: novoOficio,
+            NUP: novoNup,
+            LINK: '' // Will be updated when synced with cloud
+        });
+
+        procRef['DATA'] = novoData;
+        if (prazoFinal) {
+            procRef['PRAZO'] = prazoFinal;
+        }
+        
+        const tec = (procRef['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+        const temTec = tec !== '' && tec !== '-' && tec !== 'S/T';
+        procRef['STATUS'] = temTec ? 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' : 'AGUARDANDO DISTRIBUIÇÃO';
+        procRef['STATUS_RESPOSTA'] = '';
+        procRef['MOTIVO_AVALIACAO'] = '';
+        procRef['LINK_RESPOSTA'] = '';
+
+        const dr = calcularDiasRestantes(procRef['DATA'], procRef['PRAZO']);
+        procRef['DIAS RESTANTES'] = !isNaN(dr) ? String(dr) : '-';
+    }
+
+    mostrarToast('Reiteração lançada localmente. Sincronizando...', 'success');
+    fecharModalCadastroReiteracao();
+    atualizarCacheOficios();
+    aplicarFiltros();
+    atualizarBadgesNotificacao(dadosCoringa);
+
+    const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nupOriginal);
+    if (newIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
+        abrirModal(newIndex);
+    }
+
+    try {
+        const payload = {
+            acao: "cadastrar_reiteracao_oficio",
+            nupOriginal: nupOriginal,
+            novoNup: novoNup,
+            novoOficio: novoOficio,
+            novoData: novoData,
+            novoPrazo: prazoFinal,
+            base64: base64File,
+            fileName: fileName,
+            username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+        };
+
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await resposta.json();
+        if (resultado.status === 'success') {
+            mostrarToast('Reiteração registrada na nuvem com sucesso!', 'success');
+            if (procRef && resultado.url) {
+                // Update the link of the last reiteration we added
+                const reitList = procRef['REITERACOES'];
+                if (reitList.length > 0) {
+                    reitList[reitList.length - 1].LINK = resultado.url;
+                }
+                atualizarCacheOficios();
+                aplicarFiltros();
+                const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nupOriginal);
+                if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
+                    abrirModal(currIndex);
+                }
+            }
+            if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
+        } else {
+            throw new Error(resultado.message);
+        }
+    } catch (e) {
+        console.error(e);
+        mostrarToast('Erro ao sincronizar reiteração. Revertendo...', 'error');
+        if (procRef) {
+            procRef['REITERACOES'].pop();
+            procRef['DATA'] = origData;
+            procRef['PRAZO'] = origPrazo;
+            procRef['STATUS'] = origStatus;
+            procRef['STATUS_RESPOSTA'] = origStatusResp;
+            procRef['MOTIVO_AVALIACAO'] = origMot;
+            procRef['LINK_RESPOSTA'] = origLinkResp;
+
+            const dr = calcularDiasRestantes(procRef['DATA'], procRef['PRAZO']);
+            procRef['DIAS RESTANTES'] = !isNaN(dr) ? String(dr) : '-';
+        }
+        atualizarCacheOficios();
+        aplicarFiltros();
+        const currIndex = dadosExibidos.findIndex(r => r['NUP'] === nupOriginal);
+        if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
+            abrirModal(currIndex);
+        }
+    } finally {
+        btn.innerHTML = txtOriginal; btn.disabled = false;
+    }
 }
 
 configurarDragAndDrop('cadOficioArquivo', 'cadOficioArquivoLabel', updateFileNameOficio);

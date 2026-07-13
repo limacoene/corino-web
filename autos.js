@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // AUTOS DE INFRAÇÃO
 // ============================================================================
 const opcoesAutoSetor = ["GCAR", "GEAA"];
@@ -20,6 +20,7 @@ function atualizarCacheAutos() {
     const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
     const keyAutos = `corino_cache_dados_autos_${username}`;
     localStorage.setItem(keyAutos, JSON.stringify(dadosAutosGlobais));
+    if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
 }
 
 function updateFileNameAuto(input) {
@@ -310,6 +311,7 @@ function renderTabelaAutos(dados) {
                 ${htmlResposta}
             </div>
             ${s['OBSERVAÇÕES'] ? `<div class="modal-obs" style="margin: 0 0 20px 0;"><strong>Observações:</strong><br>${s['OBSERVAÇÕES']}</div>` : ''}
+            <div id="timeline-container-auto" style="margin-top: 25px; margin-bottom: 25px;"></div>
             <div style="display: flex; gap: 15px; margin-top: auto; padding-top: 20px; border-top: 1px solid #333;">
                 ${linkPreviewBtn}
                 <div style="flex-grow: 1; display: flex; justify-content: flex-end; gap: 10px;">
@@ -321,6 +323,10 @@ function renderTabelaAutos(dados) {
     }
     container.appendChild(leftPanel);
     container.appendChild(rightPanel);
+
+    if (autoSelecionadoMockup) {
+        renderizarLinhaTempoSistema(autoSelecionadoMockup['NUP'], 'timeline-container-auto');
+    }
 
     // RESTAURAR SCROLLS E POSIÇÕES
     if (leftPanelEl) {
@@ -346,6 +352,7 @@ function abrirPreviewAuto(event, url, nup) {
             <div class="preview-toolbar">
                 <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
                 <div class="preview-toolbar-buttons">
+                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
                     <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                     <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
@@ -446,6 +453,10 @@ function abrirPreviewAuto(event, url, nup) {
     const contentDiv = document.getElementById('previewInfoContent');
     contentDiv.innerHTML = toggleBtn + contentHTML + acoesDiflorPreview;
 
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.href = previewUrl.replace('/preview', '/view');
+    }
     document.getElementById('previewFrame').src = previewUrl;
     modal.style.display = 'flex';
 }
@@ -556,7 +567,7 @@ async function salvarAtribuicaoTecnico() {
     try {
         const resposta = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
-            body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico, username: usuarioLogado.username })
+            body: JSON.stringify({ acao: "atribuir_tecnico_auto", nup: nup, tecnico: tecnico, username: usuarioAtivo ? usuarioAtivo.username : 'sistema' })
         });
         const resultado = await resposta.json();
         
@@ -798,7 +809,7 @@ function anexarDocumentoAuto(event, nup) {
                 reader.onerror = error => reject(error);
             });
 
-            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Auto_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "auto" };
+            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Auto_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "auto", username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
             const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
@@ -835,7 +846,7 @@ async function removerDocumentoAuto(event, nup) {
     btn.innerHTML = '⏳ A remover...'; btn.disabled = true;
 
     try {
-        const payload = { acao: "remover_resposta", nup: nup };
+        const payload = { acao: "remover_resposta", nup: nup, username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
         const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         const resultado = await resposta.json();
 

@@ -1,7 +1,7 @@
 # C.O.R.I.N.O. - Servidor de Teste Local (PowerShell)
 # Este script inicia um servidor web local super leve na porta 5500 para servir a aplicacao.
 
-$port = 5501
+$port = 5502
 $workspacePath = "c:\Users\jcoene\Desktop\CORINO - WEB"
 
 # Garante que o HttpListener esta disponivel
@@ -13,7 +13,7 @@ try {
     $listener.Start()
     Write-Host "`n==================================================" -ForegroundColor Green
     Write-Host " [OK] Servidor de Teste CORINO Iniciado com Sucesso!" -ForegroundColor Green
-    Write-Host " [URL] Endereco Local: http://127.0.0.1:5501/login.html" -ForegroundColor Cyan
+    Write-Host " [URL] Endereco Local: http://127.0.0.1:5502/login.html" -ForegroundColor Cyan
     Write-Host " Pressione Ctrl+C neste terminal para encerrar." -ForegroundColor Yellow
     Write-Host "==================================================`n" -ForegroundColor Green
 

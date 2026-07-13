@@ -891,6 +891,60 @@
         </div>
     </div>
 
+    <!-- MODAL: CADASTRAR REITERAÇÃO OFÍCIO -->
+    <div id="cadastroReiteracaoModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="fecharModalCadastroReiteracao()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">🔁 Cadastrar Reiteração</h2>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="reitOriginalNup">
+                
+                <div class="filter-group">
+                    <label>NUP da Reiteração</label>
+                    <input type="text" id="reitNovoNup" oninput="maskNUP(event)" placeholder="00000.000000/0000-00">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Número do Ofício da Reiteração</label>
+                    <input type="text" id="reitNovoOficio" placeholder="Ex: Ofício nº 123/2026">
+                </div>
+
+                <div class="filter-group">
+                    <label>Data de Recebimento da Reiteração</label>
+                    <input type="text" id="reitNovaData" class="date-picker-ext" placeholder="Selecione a data">
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <div class="filter-group" style="flex: 1;">
+                        <label>Novo Prazo (Qtd)</label>
+                        <input type="number" id="reitNovoPrazoQtd" min="1" placeholder="Ex: 15">
+                    </div>
+                    <div class="filter-group" style="flex: 1;">
+                        <label>Tipo do Prazo</label>
+                        <select id="reitNovoPrazoTipo" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                            <option value="corridos">Dias Corridos</option>
+                            <option value="uteis">Dias Úteis</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filter-group">
+                    <label>PDF do Novo Ofício (Opcional)</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <input type="file" id="reitNovoPdfFile" accept="application/pdf" style="display: none;" onchange="updateReitFileName(this)">
+                        <button type="button" onclick="document.getElementById('reitNovoPdfFile').click()" class="btn-drive btn-upload" style="margin: 0; width: 100%;">📁 Selecionar PDF</button>
+                        <span id="reitPdfFileName" style="font-size: 12px; color: #888; text-align: center; word-break: break-all;">Nenhum arquivo selecionado</span>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button onclick="fecharModalCadastroReiteracao()" class="btn-drive btn-red-outline" style="width: auto; margin: 0;">Cancelar</button>
+                    <button id="btnSalvarReiteracao" onclick="salvarReiteracaoOficio()" class="btn-drive btn-blue" style="width: auto; margin: 0;">Salvar Reiteração</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: ATRIBUIR TÉCNICO AO AUTO -->
     <div id="atribuirTecnicoModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
