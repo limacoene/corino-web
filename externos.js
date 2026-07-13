@@ -19,6 +19,7 @@ function atualizarCacheExternos() {
     const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
     const keyExternos = `corino_cache_dados_externos_${username}`;
     localStorage.setItem(keyExternos, JSON.stringify(dadosExternosGlobais));
+    if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
 }
 
 function updateFileNameExterno(input) {
@@ -358,6 +359,7 @@ function renderTabelaExternos(dados) {
             
             ${htmlResposta}
             ${acoesDiflor}
+            <div id="timeline-container-ext" style="margin-top: 25px; margin-bottom: 25px;"></div>
 
             <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #333;">
                 ${htmlLink}
@@ -367,6 +369,10 @@ function renderTabelaExternos(dados) {
     }
     container.appendChild(leftPanel);
     container.appendChild(rightPanel);
+
+    if (externoSelecionadoMockup) {
+        renderizarLinhaTempoSistema(externoSelecionadoMockup['NUP'], 'timeline-container-ext');
+    }
 
     // RESTAURAR SCROLLS E POSIÇÕES
     if (leftPanelEl) {
@@ -654,6 +660,7 @@ function abrirPreviewExterno(event, url, nup) {
             <div class="preview-toolbar">
                 <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
                 <div class="preview-toolbar-buttons">
+                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
                     <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                     <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
@@ -785,6 +792,10 @@ function abrirPreviewExterno(event, url, nup) {
     const contentDiv = document.getElementById('previewInfoContent');
     contentDiv.innerHTML = toggleBtn + contentDiv.innerHTML + acoesDiflorPreview;
 
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.href = previewUrl.replace('/preview', '/view');
+    }
     document.getElementById('previewFrame').src = previewUrl;
     modal.style.display = 'flex';
 }
@@ -808,7 +819,7 @@ function anexarDocumentoExt(event, nup) {
                 reader.onerror = error => reject(error);
             });
 
-            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Externo_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "externo" };
+            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Externo_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "externo", username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
             const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
@@ -891,7 +902,7 @@ async function removerDocumentoExt(event, nup) {
     btn.innerHTML = '⏳ A remover...'; btn.disabled = true;
 
     try {
-        const payload = { acao: "remover_resposta", nup: nup };
+        const payload = { acao: "remover_resposta", nup: nup, username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
         const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
         const resultado = await resposta.json();
 

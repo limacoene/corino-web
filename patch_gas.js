@@ -1,7 +1,7 @@
 const fs = require('fs');
 let code = fs.readFileSync('gas_completo_atualizado.gs', 'utf8');
 
-const newEndpoint = \
+const newEndpoint = `
     if (data.acao === "alterar_status_manual_generico") {
       var nupB = data.nup, novoStatus = data.novoStatus, operador = data.username, tipoAba = data.tipoAba, atualizado = false;
       var aba;
@@ -30,10 +30,10 @@ const newEndpoint = \
           for (var c = 0; c < cab.length; c++) {
             var hl = String(cab[c]).trim().toUpperCase();
             if (hl === "NUP" || hl === "PROCESSO" || hl === "PROCESSO/NUP") colNup = c;
-            if (hl === "STATUS ATUAL" || hl === "STATUS" || hl === "SITUAÇÃO") colStatus = c;
+            if (hl === "STATUS ATUAL" || hl === "STATUS" || hl === "SITUAï¿½ï¿½O") colStatus = c;
             if (hl === "DATA STATUS ATUAL" || hl === "DATA_STATUS_ATUAL" || hl === "DATA DE ENTRADA") colDataStatus = c;
-            if (hl === "TÉCNICO/ADMIN" || hl === "TECNICO/ADMIN" || hl === "TÉCNICO" || hl === "TECNICO") colTec = c;
-            if (hl === "SETOR" || hl === "GERÊNCIA" || hl === "GERENCIA") colSetor = c;
+            if (hl === "Tï¿½CNICO/ADMIN" || hl === "TECNICO/ADMIN" || hl === "Tï¿½CNICO" || hl === "TECNICO") colTec = c;
+            if (hl === "SETOR" || hl === "GERï¿½NCIA" || hl === "GERENCIA") colSetor = c;
           }
           if (colNup !== -1 && colStatus !== -1) {
             for (var i = 1; i < vals.length; i++) {
@@ -54,17 +54,17 @@ const newEndpoint = \
         }
       }
       if (atualizado) { SpreadsheetApp.flush(); return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON); }
-      return ContentService.createTextOutput(JSON.stringify({status:"error",message:"NUP não encontrado ou erro"})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({status:"error",message:"NUP nï¿½o encontrado ou erro"})).setMimeType(ContentService.MimeType.JSON);
     }
-\;
+`;
 
 if (!code.includes("alterar_status_manual_generico")) {
     code = code.replace('if (data.acao === "alterar_status_manual_auto") {', newEndpoint + '\n    if (data.acao === "alterar_status_manual_auto") {');
     
     // Altera atribuir_tecnico_oficio para setar status incondicionalmente
     code = code.replace(
-      'if(String(vals[i][colStatus]).toUpperCase()==="AGUARDANDO DISTRIBUIÇÃO")\\n                aba.getRange(i+1,colStatus+1).setValue("AGUARDANDO MANIFESTAÇÃO TÉCNICA");',
-      'aba.getRange(i+1,colStatus+1).setValue("AGUARDANDO MANIFESTAÇÃO TÉCNICA");'
+      'if(String(vals[i][colStatus]).toUpperCase()==="AGUARDANDO DISTRIBUIï¿½ï¿½O")\\n                aba.getRange(i+1,colStatus+1).setValue("AGUARDANDO MANIFESTAï¿½ï¿½O Tï¿½CNICA");',
+      'aba.getRange(i+1,colStatus+1).setValue("AGUARDANDO MANIFESTAï¿½ï¿½O Tï¿½CNICA");'
     );
     // Para resolver o erro do replace, vamos usar fallback caso haja encoding utf8 nas strings do gs
     

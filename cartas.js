@@ -322,6 +322,7 @@ function atualizarCacheCartas() {
     if (typeof atualizarBadgesNotificacao === 'function') {
         atualizarBadgesNotificacao(dadosCoringa);
     }
+    if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
 }
 
 function processarCSVTextCartas(csvText) {
@@ -410,6 +411,55 @@ function processarCSVTextCartas(csvText) {
 }
 
 /**
+ * Normaliza e padroniza os campos de um registro de Carta Consulta recebido em formato JSON
+ */
+function limparEPadronizarCartas(linha) {
+    const row = { ...linha };
+    
+    // Normalizações obrigatórias para compatibilidade de chaves e filtros robustos
+    row['NUP'] = row['NUP'] || row['PROCESSO'] || row['PROCESSO/NUP'] || '';
+    row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || row['CARMS'] || '-';
+    row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
+    row['STATUS'] = normalizarStatusCartas(row['STATUS']);
+    row['FÍSICO/E-MS'] = row['FISICO/E-MS'] || row['FÍSICO/E-MS'] || '-';
+    row['TÉCNICO/ADM'] = row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || 'Não atribuído';
+    row['OBSERVAÇÃO'] = row['OBSERVAÇÃO'] || row['OBSERVAÇÕES'] || '-';
+    row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || '';
+    row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
+    row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK DA RESPOSTA'] || '';
+    row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || '';
+    row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || '';
+    row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
+    row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
+
+    // Se tem resposta anexada e o status da resposta não é APROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
+    // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
+    const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
+    const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
+    const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
+    const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
+
+    if (hasResposta && statusResp !== 'APROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+        row['STATUS'] = 'REVISÃO';
+    }
+
+    // Se a resposta está APROVADA mas o status geral ainda diz AGUARDANDO MANIFESTAÇÃO TÉCNICA ou REVISÃO,
+    // movemos automaticamente para FAZER DESPACHO no frontend para evitar inconsistências de dados históricos.
+    const statusGeralNovo = (row['STATUS'] || '').toUpperCase().trim();
+    if (statusResp === 'APROVADO' && (statusGeralNovo === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeralNovo === 'AGUARDANDO MANIFESTACAO TECNICA' || statusGeralNovo === 'REVISÃO' || statusGeralNovo === 'REVISAO')) {
+        row['STATUS'] = 'FAZER DESPACHO';
+    }
+
+    // Prazos e Dias Restantes (Coluna Q na Planilha)
+    const prazo = row['PRAZO'] || row['PRAZO DE RESPOSTA'] || row['PRAZO (DIAS)'] || '-';
+    row['PRAZO'] = prazo;
+    const dataRepasse = row['DATA DO REPASSE'] || row['DATA DE REPASSE'] || '';
+    row['DIAS RESTANTES'] = (dataRepasse && prazo && prazo !== '-') ? calcularDiasRestantes(dataRepasse, prazo) : '-';
+
+    return row;
+}
+
+/**
  * Carrega a lista de Cartas Consulta do Google Apps Script
  */
 async function carregarCartas() {
@@ -422,7 +472,8 @@ async function carregarCartas() {
     const tempRawCartas = localStorage.getItem('corino_temp_raw_cartas');
     if (tempRawCartas) {
         try {
-            const parsedRows = processarCSVTextCartas(tempRawCartas);
+            const dadosBrutos = JSON.parse(tempRawCartas);
+            const parsedRows = dadosBrutos.map(limparEPadronizarCartas);
             if (parsedRows && parsedRows.length > 0) {
                 dadosCartasGlobais = parsedRows;
                 atualizarCacheCartas();
@@ -474,27 +525,33 @@ async function carregarCartas() {
     popularFiltrosCartas();
 
     try {
-        const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQH-FB2y0K914aswDdtivgD5AJv6fpnUIPQpU2XmMHrIvXbRcDbgWdrv_VJBKLZesNueg9Q8AfNUXP2/pub?gid=94503283&single=true&output=csv";
-        const resposta = await fetch(url);
-        const csvText = await resposta.text();
+        const resposta = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ acao: "buscar_cartas" })
+        });
+        const resultado = await resposta.json();
 
-        const parsedRows = processarCSVTextCartas(csvText);
-        dadosCartasGlobais = parsedRows;
-        atualizarCacheCartas();
-        cartasCarregadas = true;
+        if (resultado.status === 'success') {
+            const parsedRows = resultado.dados.map(limparEPadronizarCartas);
+            dadosCartasGlobais = parsedRows;
+            atualizarCacheCartas();
+            cartasCarregadas = true;
 
-        // Exibe/oculta as sub-abas de Cartas Consulta apenas para o perfil de Diretoria (gerencia)
-        const miniTabsCartas = document.getElementById('mini-tabs-cartas');
-        if (miniTabsCartas) {
-            if (usuarioAtivo && usuarioAtivo.perfil === 'gerencia') {
-                miniTabsCartas.style.display = 'flex';
-            } else {
-                miniTabsCartas.style.display = 'none';
+            // Exibe/oculta as sub-abas de Cartas Consulta apenas para o perfil de Diretoria (gerencia)
+            const miniTabsCartas = document.getElementById('mini-tabs-cartas');
+            if (miniTabsCartas) {
+                if (usuarioAtivo && usuarioAtivo.perfil === 'gerencia') {
+                    miniTabsCartas.style.display = 'flex';
+                } else {
+                    miniTabsCartas.style.display = 'none';
+                }
             }
-        }
 
-        aplicarFiltrosCartas();
-        preloadShapesCartas();
+            aplicarFiltrosCartas();
+            preloadShapesCartas();
+        } else {
+            throw new Error(resultado.message);
+        }
     } catch (e) {
         console.error("Erro ao carregar Cartas Consulta:", e);
         if (!carregouDeCache) {
@@ -1094,6 +1151,7 @@ function renderTabelaView(dados) {
             ${htmlBlocoResposta}
             ${htmlAcoesDiretoria}
             ${htmlAcoesStatusCarta}
+            <div id="timeline-container-carta" style="margin-top: 25px; margin-bottom: 25px;"></div>
 
             <div style="margin-top:auto;padding-top:20px;border-top:1px solid #333;">
                 ${htmlBotoesAcao ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">${htmlBotoesAcao}</div>` : ''}
@@ -1105,6 +1163,10 @@ function renderTabelaView(dados) {
 
     container.appendChild(leftPanel);
     container.appendChild(rightPanel);
+
+    if (cartaSelecionada) {
+        renderizarLinhaTempoSistema(cartaSelecionada['NUP'], 'timeline-container-carta');
+    }
 
     if (leftPanelEl)  leftPanel.scrollTop  = savedLeftScrollTop;
     if (rightPanelEl) rightPanel.scrollTop = savedRightScrollTop;
@@ -1301,6 +1363,7 @@ function abrirModalPreviewCartas(index) {
             <div class="preview-toolbar">
                 <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
                 <div class="preview-toolbar-buttons">
+                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
                     <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
                     <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
@@ -1432,6 +1495,8 @@ function abrirModalPreviewCartas(index) {
     const contentDiv = document.getElementById('previewInfoContent');
     contentDiv.innerHTML = toggleBtn + contentHTML + acoesDiflorPreview;
 
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+
     if (!urlPreview && !hasShape) {
         document.getElementById('previewFrame').outerHTML = `
             <div id="cartasSemLinkDiv" style="display: flex; flex-direction: column; flex: 1; align-items: center; justify-content: center; background-color: #f0f0f0; color: #888;">
@@ -1439,20 +1504,29 @@ function abrirModalPreviewCartas(index) {
                 <h4 style="font-size: 16px; margin: 0; color: #aaa;">Nenhum ficheiro vinculado a esta opção.</h4>
             </div>
         `;
+        if (btnOpenPreview) btnOpenPreview.href = '#';
     } else if (!urlPreview && hasShape) {
         document.getElementById('previewFrame').style.display = 'none';
         // Auto trigger shapefile view se este for o único documento
         setTimeout(() => {
             const toggleTabs = document.querySelectorAll('#previewModal .btn-preview-toggle-tab');
             for (let i = 0; i < toggleTabs.length; i++) {
-                if (toggleTabs[i].textContent.includes('Shapefile')) {
+                if (toggleTabs[i].textContent.includes('Shapefile') || toggleTabs[i].textContent.includes('Mapa')) {
                     alternarParaShapefileCartas(toggleTabs[i], linkShapefile, index);
                     break;
                 }
             }
         }, 50);
+        if (btnOpenPreview) btnOpenPreview.href = '#';
     } else {
-        document.getElementById('previewFrame').src = urlPreview;
+        const frame = document.getElementById('previewFrame');
+        if (frame) {
+            frame.style.display = 'block';
+            frame.src = urlPreview;
+        }
+        if (btnOpenPreview) {
+            btnOpenPreview.href = urlPreview.replace('/preview', '/view');
+        }
     }
 
     modal.style.display = 'flex';
@@ -1672,77 +1746,173 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
             return colorMap[val];
         }
 
-        window.camadaGeoJsonModal = L.geoJSON(geojson, {
-            style: function(feature) {
-                const c = getFeatureColor(feature);
-                return { color: c, weight: 2, opacity: 1, fillColor: c, fillOpacity: 0.5 };
-            },
-            onEachFeature: function (feature, layer) {
-                if (feature.properties) {
-                    let popupContent = '<div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">';
-                    
-                    // Calcula a área individual deste polígono específico
-                    let featureAreaHa = 0;
-                    if (feature.geometry) {
-                        try {
-                            // Calcula a área em metros quadrados e converte para hectares
-                            featureAreaHa = (turf.area(feature) / 10000).toFixed(4);
-                        } catch (e) {}
-                    }
-                    
-                    // Encontra o código da Classe (se existir)
-                    let classCod = null;
-                    const keys = Object.keys(feature.properties);
-                    const commonNames = ['CLASSE', 'CLASS', 'TIPO', 'TEMA', 'CATEGORIA', 'USO', 'DESCRICAO', 'NOME', 'CODIGO'];
-                    let classKey = keys.find(k => commonNames.includes(k.toUpperCase()));
-                    if (!classKey && keys.length > 0) classKey = keys[0];
-                    
-                    if (classKey) {
-                        classCod = String(feature.properties[classKey]).trim();
-                    }
-
-                    if (classCod && descricoesCARMS[classCod]) {
-                        popupContent += `<div style="margin-bottom: 10px; padding: 10px; background-color: rgba(52, 152, 219, 0.1); border-left: 3px solid #3498db; border-radius: 4px;">
-                            <strong style="color: #3498db; font-size: 11px;">🗺️ CATEGORIA CARMS (${classCod})</strong><br>
-                            <span style="color: #444; font-size: 13px; font-weight: bold; line-height: 1.4;">${descricoesCARMS[classCod]}</span>
-                        </div>`;
-                    }
-
-                    // Adiciona a caixa com a medição da área do item delimitado
-                    if (featureAreaHa > 0) {
-                        popupContent += `<div style="margin-bottom: 10px; padding: 8px; background-color: rgba(46, 204, 113, 0.1); border-left: 3px solid #2ecc71; border-radius: 4px;">
-                            <strong style="color: #2ecc71; font-size: 11px;">📏 ÁREA DESTE ITEM DELIMITADO</strong><br>
-                            <span style="color: #222; font-size: 14px; font-weight: bold;">${featureAreaHa} ha</span>
-                        </div>`;
-                    }
-
-                    popupContent += '<b>Atributos Adicionais:</b><br><table style="width:100%; border-collapse: collapse; margin-top: 5px;">';
-                    for (let key in feature.properties) {
-                        popupContent += `<tr style="border-bottom: 1px solid #eee;"><td style="color:#888; font-size:11px; padding: 4px 0;">${key}:</td><td style="font-size:12px; padding: 4px 0 4px 8px; word-break: break-word; color:#222;"><b>${feature.properties[key]}</b></td></tr>`;
-                    }
-                    popupContent += '</table></div>';
-                    layer.bindPopup(popupContent);
-                }
+        // 1. Group features by class code
+        const featuresByClass = {};
+        const classNames = {}; 
+        
+        geojson.features.forEach(feature => {
+            let classCod = 'UNDEFINED';
+            const keys = Object.keys(feature.properties || {});
+            const commonNames = ['CLASSE', 'CLASS', 'TIPO', 'TEMA', 'CATEGORIA', 'USO', 'DESCRICAO', 'NOME', 'CODIGO'];
+            let classKey = keys.find(k => commonNames.includes(k.toUpperCase()));
+            if (!classKey && keys.length > 0) classKey = keys[0];
+            if (classKey) {
+                classCod = String(feature.properties[classKey]).trim();
             }
-        }).addTo(window.mapaGisModal);
+            
+            if (!featuresByClass[classCod]) {
+                featuresByClass[classCod] = [];
+            }
+            featuresByClass[classCod].push(feature);
+            
+            if (descricoesCARMS[classCod]) {
+                classNames[classCod] = descricoesCARMS[classCod];
+            } else {
+                classNames[classCod] = classCod;
+            }
+        });
 
-        window.mapaGisModal.fitBounds(window.camadaGeoJsonModal.getBounds(), { padding: [30, 30] });
+        // 2. Clear old Layers Control if it exists
+        if (window.controleCamadasGis) {
+            try {
+                window.mapaGisModal.removeControl(window.controleCamadasGis);
+            } catch (e) {}
+            window.controleCamadasGis = null;
+        }
+
+        // 3. We will create a parent layer group for all layers
+        window.camadaGeoJsonModal = L.layerGroup().addTo(window.mapaGisModal);
+        window.camadasGisIndividuais = {};
+
+        // 4. Create Leaflet GeoJSON layers for each class
+        Object.keys(featuresByClass).forEach(classCod => {
+            const classFeatures = featuresByClass[classCod];
+            const isAreaTotal = classCod === '101' || String(classNames[classCod]).toUpperCase().includes('ÁREA TOTAL') || String(classNames[classCod]).toUpperCase().includes('AREA TOTAL');
+            
+            // Calcula a área total da classe (em hectares) para uso em popups agrupados
+            let classTotalAreaHa = 0;
+            try {
+                classTotalAreaHa = (turf.area({ type: "FeatureCollection", features: classFeatures }) / 10000).toFixed(4);
+            } catch (e) {}
+
+            const subLayer = L.geoJSON({
+                type: "FeatureCollection",
+                features: classFeatures
+            }, {
+                style: function(feature) {
+                    const c = getFeatureColor(feature);
+                    if (isAreaTotal) {
+                        // Border only, no fill, slightly thicker border
+                        return { color: c, weight: 3, opacity: 1, fill: false, fillColor: 'none', fillOpacity: 0 };
+                    } else {
+                        // Thinner border, more transparent fill (opacity 0.2)
+                        return { color: c, weight: 1.5, opacity: 0.8, fillColor: c, fillOpacity: 0.2 };
+                    }
+                },
+                onEachFeature: function (feature, layer) {
+                    if (feature.properties) {
+                        let popupContent = '<div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">';
+                        
+                        let featureAreaHa = 0;
+                        if (feature.geometry) {
+                            try {
+                                featureAreaHa = (turf.area(feature) / 10000).toFixed(4);
+                            } catch (e) {}
+                        }
+                        
+                        if (descricoesCARMS[classCod]) {
+                            popupContent += `<div style="margin-bottom: 10px; padding: 10px; background-color: rgba(52, 152, 219, 0.1); border-left: 3px solid #3498db; border-radius: 4px;">
+                                <strong style="color: #3498db; font-size: 11px;">🗺️ CATEGORIA CARMS (${classCod})</strong><br>
+                                <span style="color: #444; font-size: 13px; font-weight: bold; line-height: 1.4;">${descricoesCARMS[classCod]}</span>
+                            </div>`;
+                        }
+                        
+                        if (classCod === '140') {
+                            popupContent += `<div style="margin-bottom: 10px; padding: 8px; background-color: rgba(46, 204, 113, 0.1); border-left: 3px solid #2ecc71; border-radius: 4px;">
+                                <strong style="color: #2ecc71; font-size: 11px;">📏 ÁREA TOTAL DA RESERVA LEGAL (CLASSE 140)</strong><br>
+                                <span style="color: #222; font-size: 14px; font-weight: bold;">${classTotalAreaHa} ha</span>
+                            </div>`;
+                        } else if (featureAreaHa > 0) {
+                            popupContent += `<div style="margin-bottom: 10px; padding: 8px; background-color: rgba(46, 204, 113, 0.1); border-left: 3px solid #2ecc71; border-radius: 4px;">
+                                <strong style="color: #2ecc71; font-size: 11px;">📏 ÁREA DESTE ITEM DELIMITADO</strong><br>
+                                <span style="color: #222; font-size: 14px; font-weight: bold;">${featureAreaHa} ha</span>
+                            </div>`;
+                        }
+                        
+                        popupContent += '<b>Atributos Adicionais:</b><br><table style="width:100%; border-collapse: collapse; margin-top: 5px;">';
+                        for (let key in feature.properties) {
+                            popupContent += `<tr style="border-bottom: 1px solid #eee;"><td style="color:#888; font-size:11px; padding: 4px 0;">${key}:</td><td style="font-size:12px; padding: 4px 0 4px 8px; word-break: break-word; color:#222;"><b>${feature.properties[key]}</b></td></tr>`;
+                        }
+                        popupContent += '</table></div>';
+                        layer.bindPopup(popupContent);
+                    }
+                }
+            });
+
+            // Save subLayer reference
+            window.camadasGisIndividuais[classCod] = subLayer;
+
+            // ONLY Area Total is added to the map by default!
+            if (isAreaTotal) {
+                subLayer.addTo(window.camadaGeoJsonModal);
+            }
+        });
+
+        // Fit bounds to entire GeoJSON area
+        const entireBounds = L.geoJSON(geojson).getBounds();
+        window.mapaGisModal.fitBounds(entireBounds, { padding: [30, 30] });
 
         if (geojson.features && geojson.features.length > 0) {
-            const areaHectares = (turf.area(geojson) / 10000).toFixed(4);
+            // Calcula a área total somando apenas as feições de "Área Total do Imóvel" (Classe 101) para evitar duplicidade
+            let totalAreaM2 = 0;
+            let areaTotalFeatures = [];
             
-            let legendHtml = '<div style="margin-top: 15px; font-size: 11px;">';
+            geojson.features.forEach(feature => {
+                let classCod = 'UNDEFINED';
+                const keys = Object.keys(feature.properties || {});
+                const commonNames = ['CLASSE', 'CLASS', 'TIPO', 'TEMA', 'CATEGORIA', 'USO', 'DESCRICAO', 'NOME', 'CODIGO'];
+                let classKey = keys.find(k => commonNames.includes(k.toUpperCase()));
+                if (!classKey && keys.length > 0) classKey = keys[0];
+                if (classKey) {
+                    classCod = String(feature.properties[classKey]).trim();
+                }
+                
+                const desc = descricoesCARMS[classCod] || classCod;
+                const isAreaTotal = classCod === '101' || String(desc).toUpperCase().includes('ÁREA TOTAL') || String(desc).toUpperCase().includes('AREA TOTAL');
+                if (isAreaTotal) {
+                    areaTotalFeatures.push(feature);
+                }
+            });
+            
+            if (areaTotalFeatures.length > 0) {
+                totalAreaM2 = turf.area({ type: "FeatureCollection", features: areaTotalFeatures });
+            } else {
+                totalAreaM2 = turf.area(geojson); // Fallback caso não encontre classe de área total
+            }
+            
+            const areaHectares = (totalAreaM2 / 10000).toFixed(4);
+            
+            let legendHtml = '<div style="margin-top: 15px; font-size: 11px; display: flex; flex-direction: column; gap: 6px;">';
             if (Object.keys(colorMap).length > 0) {
-                legendHtml += '<div style="color:#888; margin-bottom:5px; font-weight:bold;">LEGENDA DAS CLASSES:</div>';
+                legendHtml += '<div style="color:#888; margin-bottom:5px; font-weight:bold;">CAMADAS (Marque para ativar no mapa):</div>';
                 for (let val in colorMap) {
                     const labelStr = (val === 'UNDEFINED' || val === 'NULL') ? 'Não Classificado' : val;
                     const descricao = descricoesCARMS[val] ? ` - ${descricoesCARMS[val]}` : '';
-                    
-                    legendHtml += `<div onclick="zoomToGisClass('${val.replace(/'/g, "\\'")}')" title="Clique para focar nesta classe no mapa" style="display:flex; align-items:flex-start; margin-top:2px; cursor:pointer; padding:4px; border-radius:4px; transition:background 0.2s;" onmouseover="this.style.backgroundColor='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.backgroundColor='transparent'"><span style="display:inline-block; width:12px; height:12px; background-color:${colorMap[val]}; border:1px solid rgba(255,255,255,0.2); border-radius:2px; margin-right:6px; flex-shrink: 0; margin-top: 2px;"></span> <span style="color:#ddd; font-size:11px; line-height:1.3;"><strong>${labelStr}</strong>${descricao}</span></div>`;
+                    const isAreaTotal = val === '101' || String(classNames[val] || val).toUpperCase().includes('ÁREA TOTAL') || String(classNames[val] || val).toUpperCase().includes('AREA TOTAL');
+                    const checkedAttr = isAreaTotal ? 'checked' : '';
+
+                    legendHtml += `
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background: rgba(255,255,255,0.02); border: 1px solid #333; transition:background 0.2s;">
+                        <div onclick="toggleGisClassLabel('${val.replace(/'/g, "\\'")}')" title="Clique para ativar/desativar e focar esta classe" style="display:flex; align-items:flex-start; cursor:pointer; flex: 1; padding-right: 8px;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                            <span style="display:inline-block; width:12px; height:12px; background-color:${colorMap[val]}; border:1px solid rgba(255,255,255,0.2); border-radius:3px; margin-right:8px; flex-shrink: 0; margin-top: 2px;"></span>
+                            <span style="color:#ddd; font-size:11px; line-height:1.3; font-weight:500;"><strong>${labelStr}</strong>${descricao}</span>
+                        </div>
+                        <input type="checkbox" id="chk-layer-${val}" ${checkedAttr} onchange="toggleGisLayer('${val.replace(/'/g, "\\'")}', this.checked)" style="width: 14px; height: 14px; cursor: pointer; accent-color: #3498db; margin: 0;">
+                    </div>`;
                 }
             }
             legendHtml += '</div>';
-
+ 
             let infoCard = document.getElementById('gisInfoCardModal') || Object.assign(document.createElement('div'), { id: 'gisInfoCardModal', style: 'margin-top: 15px; background-color: rgba(52, 152, 219, 0.1); border: 1px solid #3498db; border-radius: 6px; padding: 15px;' });
             infoCard.innerHTML = `<div style="font-size: 11px; color: #3498db; font-weight: bold; margin-bottom: 5px;">ÁREA (SHAPEFILE)</div><div style="font-size: 20px; color: white; font-weight: bold;">${areaHectares} ha</div>${legendHtml}`;
             if (!document.getElementById('gisInfoCardModal')) document.getElementById('previewInfoContent').appendChild(infoCard);
@@ -1755,37 +1925,72 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
 }
 
 /**
+ * Alterna a visibilidade de uma camada e sincroniza o checkbox e zoom
+ */
+function toggleGisClassLabel(className) {
+    if (!window.mapaGisModal || !window.camadasGisIndividuais || !window.camadaGeoJsonModal) return;
+
+    const layer = window.camadasGisIndividuais[className];
+    if (layer) {
+        const isCurrentlyVisible = window.mapaGisModal.hasLayer(layer);
+        const newVisibility = !isCurrentlyVisible;
+
+        toggleGisLayer(className, newVisibility);
+
+        const chk = document.getElementById(`chk-layer-${className}`);
+        if (chk) chk.checked = newVisibility;
+
+        if (newVisibility && layer.getBounds) {
+            const bounds = layer.getBounds();
+            if (bounds.isValid()) {
+                window.mapaGisModal.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true, duration: 1 });
+            }
+        }
+    }
+}
+
+
+
+/**
+ * Ativa ou remove uma camada específica do mapa
+ */
+function toggleGisLayer(classCod, isVisible) {
+    if (!window.mapaGisModal || !window.camadasGisIndividuais || !window.camadaGeoJsonModal) return;
+    const layer = window.camadasGisIndividuais[classCod];
+    if (layer) {
+        if (isVisible) {
+            if (!window.mapaGisModal.hasLayer(layer)) {
+                layer.addTo(window.camadaGeoJsonModal);
+            }
+        } else {
+            if (window.mapaGisModal.hasLayer(layer)) {
+                window.camadaGeoJsonModal.removeLayer(layer);
+            }
+        }
+    }
+}
+
+/**
  * Foca o mapa Leaflet nas coordenadas precisas de uma classe (legenda) específica
  */
 function zoomToGisClass(className) {
-    if (!window.mapaGisModal || !window.camadaGeoJsonModal) return;
+    if (!window.mapaGisModal || !window.camadasGisIndividuais) return;
 
-    let bounds = L.latLngBounds();
-    let hasBounds = false;
-
-    window.camadaGeoJsonModal.eachLayer(function (layer) {
-        if (layer.feature && layer.feature.properties) {
-            let classKey = null;
-            const ObjectKeys = Object.keys(layer.feature.properties);
-            const commonNames = ['CLASSE', 'CLASS', 'TIPO', 'TEMA', 'CATEGORIA', 'USO', 'DESCRICAO', 'NOME', 'CODIGO'];
-            for (let name of commonNames) {
-                const found = ObjectKeys.find(k => k.toUpperCase() === name);
-                if (found) { classKey = found; break; }
-            }
-            if (!classKey && ObjectKeys.length > 0) classKey = ObjectKeys[0];
-
-            if (classKey) {
-                const val = String(layer.feature.properties[classKey]).trim().toUpperCase();
-                if (val === className && layer.getBounds) {
-                    bounds.extend(layer.getBounds());
-                    hasBounds = true;
-                }
+    const layer = window.camadasGisIndividuais[className];
+    if (layer) {
+        // Se a camada não estiver ativa no mapa, adiciona e marca o checkbox correspondente
+        if (!window.mapaGisModal.hasLayer(layer)) {
+            layer.addTo(window.camadaGeoJsonModal);
+            const chk = document.getElementById(`chk-layer-${className}`);
+            if (chk) chk.checked = true;
+        }
+        
+        if (layer.getBounds) {
+            const bounds = layer.getBounds();
+            if (bounds.isValid()) {
+                window.mapaGisModal.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true, duration: 1 });
             }
         }
-    });
-
-    if (hasBounds && bounds.isValid()) {
-        window.mapaGisModal.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true, duration: 1 });
     }
 }
 
@@ -1855,7 +2060,7 @@ async function removerRespostaCarta(event, nup) {
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '⏳ A remover...'; btn.disabled = true;
     try {
-        const payload = { acao: 'remover_resposta_carta', nup };
+        const payload = { acao: 'remover_resposta_carta', nup, username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
         const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
@@ -1930,7 +2135,7 @@ async function salvarStatusManualCarta(event, nup) {
     }
 
     mostrarToast('Status alterado localmente. Sincronizando...', 'success');
-    filtrarCartas();
+    aplicarFiltrosCartas();
     atualizarCacheCartas();
 
     try {
@@ -1957,7 +2162,7 @@ async function salvarStatusManualCarta(event, nup) {
             ref['STATUS'] = statusOriginal;
             if (ref['STATUS ATUAL']) ref['STATUS ATUAL'] = statusOriginal;
         }
-        filtrarCartas();
+        aplicarFiltrosCartas();
         atualizarCacheCartas();
     } finally {
         if(btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
@@ -2165,7 +2370,7 @@ function anexarDocumentoRespostaCarta(event, nup, tipo) {
                 tipo: tipo,
                 fileName: `${labelTipo}_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
                 base64: base64,
-                username: usuarioAtivo.username || ''
+                username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
             };
             const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
@@ -2219,7 +2424,7 @@ async function removerDocumentoRespostaCarta(event, nup, tipo) {
             acao: "remover_resposta_documento_carta", 
             nup: nup, 
             tipo: tipo,
-            username: usuarioAtivo.username || ''
+            username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
         };
         const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         const resultado = await resposta.json();
