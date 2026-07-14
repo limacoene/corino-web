@@ -2146,7 +2146,7 @@ async function salvarStatusManualCarta(event, nup) {
                 tipoAba: "carta",
                 nup: nup,
                 novoStatus: novoStatus,
-                username: usuarioLogado.username || "sistema"
+                username: usuarioAtivo ? usuarioAtivo.username : "sistema"
             })
         });
         const resultado = await resposta.json();
