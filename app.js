@@ -3472,12 +3472,19 @@ async function salvarReiteracaoOficio() {
             procRef['PRAZO'] = prazoFinal;
         }
         
-        const tec = (procRef['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
-        const temTec = tec !== '' && tec !== '-' && tec !== 'S/T';
-        procRef['STATUS'] = temTec ? 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' : 'AGUARDANDO DISTRIBUIÇÃO';
-        procRef['STATUS_RESPOSTA'] = '';
-        procRef['MOTIVO_AVALIACAO'] = '';
-        procRef['LINK_RESPOSTA'] = '';
+        const statusRespUpper = (procRef['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const statusUpperNorm = (procRef['STATUS'] || '').toUpperCase().trim().replace(/\./g, '');
+        const fluxosFinaisAprovados = ['FAZER CI', 'FAZER DESPACHO', 'AGUARDANDO ASSINATURA', 'FINALIZADO', 'TRAMITADO', 'ARQUIVADO'];
+        const jaAprovadoOuFluxoFinal = statusRespUpper === 'APROVADO' || fluxosFinaisAprovados.includes(statusUpperNorm);
+
+        if (!jaAprovadoOuFluxoFinal) {
+            const tec = (procRef['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+            const temTec = tec !== '' && tec !== '-' && tec !== 'S/T';
+            procRef['STATUS'] = temTec ? 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' : 'AGUARDANDO DISTRIBUIÇÃO';
+            procRef['STATUS_RESPOSTA'] = '';
+            procRef['MOTIVO_AVALIACAO'] = '';
+            procRef['LINK_RESPOSTA'] = '';
+        }
 
         const dr = calcularDiasRestantes(procRef['DATA'], procRef['PRAZO']);
         procRef['DIAS RESTANTES'] = !isNaN(dr) ? String(dr) : '-';
