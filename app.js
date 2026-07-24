@@ -3234,6 +3234,10 @@ async function salvarNovoOficio() {
         fileName: fileName
     };
 
+    const tecVal = (payload.tecnico || '').trim().toUpperCase();
+    const temTecnico = tecVal !== '' && tecVal !== '-' && tecVal !== 'S/T' && tecVal !== 'SEM TÉCNICO' && tecVal !== 'NÃO ATRIBUÍDO' && tecVal !== 'SEM TÉCNICO/ADM';
+    const statusInicial = temTecnico ? 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' : 'AGUARDANDO DISTRIBUIÇÃO';
+
     const novoObj = {
         'DATA': payload.data_oficio || '-',
         'NUP': payload.nup,
@@ -3247,10 +3251,10 @@ async function salvarNovoOficio() {
         'STATUS DO CAR': '-',
         'TÉCNICO/ADMIN': payload.tecnico || 'S/T',
         'GERÊNCIA': payload.gerencia || 'S/G',
-        'STATUS': 'AGUARDANDO DISTRIBUIÇÃO',
+        'STATUS': statusInicial,
         'STATUS_RESPOSTA': '',
         'MOTIVO_AVALIACAO': '',
-        'DATA_DISTRIBUICAO': '',
+        'DATA_DISTRIBUICAO': temTecnico ? (payload.data_oficio || '') : '',
         'E-MS': '-',
         'CBRS': '-',
         'OBSERVAÇÃO': payload.observacao || '-',
@@ -3472,12 +3476,13 @@ async function salvarReiteracaoOficio() {
             procRef['PRAZO'] = prazoFinal;
         }
         
+        const hasResposta = (procRef['LINK_RESPOSTA'] || procRef['LINK DA RESPOSTA'] || '').trim() !== '' && (procRef['LINK_RESPOSTA'] || procRef['LINK DA RESPOSTA'] || '').trim() !== '-';
         const statusRespUpper = (procRef['STATUS_RESPOSTA'] || '').toUpperCase().trim();
         const statusUpperNorm = (procRef['STATUS'] || '').toUpperCase().trim().replace(/\./g, '');
-        const fluxosFinaisAprovados = ['FAZER CI', 'FAZER DESPACHO', 'AGUARDANDO ASSINATURA', 'FINALIZADO', 'TRAMITADO', 'ARQUIVADO'];
-        const jaAprovadoOuFluxoFinal = statusRespUpper === 'APROVADO' || fluxosFinaisAprovados.includes(statusUpperNorm);
+        const fluxosManterStatus = ['REVISÃO', 'REVISAO', 'FAZER CI', 'FAZER DESPACHO', 'AGUARDANDO ASSINATURA', 'FINALIZADO', 'TRAMITADO', 'ARQUIVADO'];
+        const possuiManifestacaoOuFluxoFinal = hasResposta || statusRespUpper !== '' || fluxosManterStatus.includes(statusUpperNorm);
 
-        if (!jaAprovadoOuFluxoFinal) {
+        if (!possuiManifestacaoOuFluxoFinal) {
             const tec = (procRef['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
             const temTec = tec !== '' && tec !== '-' && tec !== 'S/T';
             procRef['STATUS'] = temTec ? 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' : 'AGUARDANDO DISTRIBUIÇÃO';
