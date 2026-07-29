@@ -42,6 +42,20 @@
         // URL DO SEU GOOGLE APPS SCRIPT
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
 
+        // Helper para fetch com timeout
+        async function fetchComTimeout(url, options, timeoutMs = 15000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (err) {
+                clearTimeout(id);
+                throw err;
+            }
+        }
+
         async function fazerLogin() {
             const user = document.getElementById('username').value.toLowerCase().trim();
             const pass = document.getElementById('password').value.trim();
@@ -61,15 +75,15 @@
             errorMsg.style.display = 'none';
 
             try {
-                // Envia os dados de login para o servidor (Google Apps Script)
-                const resposta = await fetch(APPS_SCRIPT_URL, {
+                // Envia os dados de login com timeout de 15 segundos
+                const resposta = await fetchComTimeout(APPS_SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({ 
                         acao: "login", 
                         username: user, 
                         password: pass 
                     })
-                });
+                }, 15000);
 
                 const resultado = await resposta.json();
 
@@ -91,9 +105,12 @@
                     restaurarBotaoLogin(btnLogin);
                 }
             } catch (erro) {
-                // Erro de falha na internet ou erro no servidor
                 console.error("Erro no login:", erro);
-                errorMsg.innerText = "Erro de comunicação com o servidor. Verifique a internet ou o link do script.";
+                if (erro.name === 'AbortError') {
+                    errorMsg.innerText = "Tempo limite excedido ao comunicar com o servidor. Por favor, tente novamente.";
+                } else {
+                    errorMsg.innerText = "Erro de comunicação com o servidor. Verifique a internet ou a ligação ao script.";
+                }
                 errorMsg.style.display = 'block';
                 restaurarBotaoLogin(btnLogin);
             }
@@ -103,54 +120,6 @@
             btn.innerText = "Entrar no Sistema";
             btn.disabled = false;
             btn.style.opacity = '1';
-        }
-
-        async function preCarregarDados() {
-            console.log("Iniciando pré-carregamento de dados em segundo plano...");
-            
-            // Ofícios
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ acao: "buscar_dados" })
-            }).then(r => r.json()).then(resultado => {
-                if (resultado.status === 'success') {
-                    localStorage.setItem('corino_temp_raw_dados', JSON.stringify(resultado.dados));
-                    console.log("Pré-carregamento: Ofícios carregados.");
-                }
-            }).catch(e => console.error("Erro no pré-carregamento de Ofícios:", e));
-
-            // Autos
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ acao: "buscar_autos" })
-            }).then(r => r.json()).then(resultado => {
-                if (resultado.status === 'success') {
-                    localStorage.setItem('corino_temp_raw_autos', JSON.stringify(resultado.dados));
-                    console.log("Pré-carregamento: Autos carregados.");
-                }
-            }).catch(e => console.error("Erro no pré-carregamento de Autos:", e));
-
-            // Ofícios Externos
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ acao: "buscar_externos" })
-            }).then(r => r.json()).then(resultado => {
-                if (resultado.status === 'success') {
-                    localStorage.setItem('corino_temp_raw_externos', JSON.stringify(resultado.dados));
-                    console.log("Pré-carregamento: Ofícios Externos carregados.");
-                }
-            }).catch(e => console.error("Erro no pré-carregamento de Ofícios Externos:", e));
-
-            // Cartas Consulta
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ acao: "buscar_cartas" })
-            }).then(r => r.json()).then(resultado => {
-                if (resultado.status === 'success') {
-                    localStorage.setItem('corino_temp_raw_cartas', JSON.stringify(resultado.dados));
-                    console.log("Pré-carregamento: Cartas Consulta carregadas.");
-                }
-            }).catch(e => console.error("Erro no pré-carregamento de Cartas Consulta:", e));
         }
 
         // Adiciona os event listeners após o DOM ser carregado
@@ -166,9 +135,6 @@
                 if (infoMsg) infoMsg.style.display = 'block';
                 sessionStorage.removeItem('corino_logout_reason');
             }
-
-            // Pré-carrega os dados em segundo plano
-            preCarregarDados();
         });
     </script>
 </body>
