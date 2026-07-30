@@ -1,5 +1,3 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
-
 /**
  * Converte uma string de data no formato BR (DD/MM/YYYY) para timestamp (milissegundos).
  * Útil para ordenação de arrays e cálculos de prazos.
