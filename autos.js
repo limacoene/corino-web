@@ -1,7 +1,7 @@
 // ============================================================================
 // AUTOS DE INFRAÇÃO
 // ============================================================================
-const opcoesAutoSetor = ["GCAR", "GEAA"];
+const opcoesAutoSetor = ["GCAR", "GEAA", "DIFLOR"];
 const opcoesAutoStatus = [
     "AGUARDANDO DISTRIBUIÇÃO",
     "AGUARDANDO MANIFESTAÇÃO",
@@ -9,7 +9,7 @@ const opcoesAutoStatus = [
     "FAZER DESPACHO",
     "CONCLUIDO"
 ];
-const opcoesAutoTipo = ["CONTRADITA", "MANIFESTAÇÃO"];
+const opcoesAutoTipo = ["AUTO DE INFRAÇÃO", "CONTRADITA", "MANIFESTAÇÃO"];
 
 let dadosAutosGlobais = [];
 let autosPicker = null;
@@ -51,7 +51,7 @@ function popularOpcoesAuto() {
             select.appendChild(el);
         });
     };
-    preencherSelect('cadAutoSetor', opcoesAutoSetor);
+    preencherSelect('cadAutoSetor', opcoesAutoSetor, '-- Selecione o Setor --');
     preencherSelect('cadAutoStatus', opcoesAutoStatus);
     preencherSelect('cadAutoTipo', opcoesAutoTipo);
     preencherSelect('cadAutoTecnico', opcoesAutoTecnico, '-- Sem Técnico --');
@@ -95,6 +95,10 @@ function popularOpcoesAuto() {
 function abrirModalCadastroAuto() {
     document.getElementById('cadastroAutoModal').style.display = 'flex';
     popularOpcoesAuto();
+    if (usuarioAtivo && usuarioAtivo.setor && usuarioAtivo.setor !== 'S/G') {
+        const selectSetor = document.getElementById('cadAutoSetor');
+        if (selectSetor) selectSetor.value = usuarioAtivo.setor;
+    }
     if (!autosPicker) {
         autosPicker = flatpickr("#cadAutoData", {
             locale: "pt",
@@ -605,9 +609,7 @@ function filtrarAutos() {
     const statusMulti = lerValoresMultiplosNativos('autoStatus');
 
     const filtrados = dadosAutosGlobais.filter(r => {
-        const tipoRow = String(r['TIPO'] || '').toUpperCase().trim();
-        const hasAutoInfo = (r['AUTO DE INFRAÇÃO'] && String(r['AUTO DE INFRAÇÃO']).trim() !== '');
-        if (!(tipoRow === 'CONTRADITA' || tipoRow === 'MANIFESTAÇÃO' || hasAutoInfo)) return false;
+        if (!r['NUP'] || String(r['NUP']).trim() === '') return false;
 
         return (!nup || (r['NUP'] && String(r['NUP']).toLowerCase().includes(nup)))
             && (!req || (r['REQUERENTE'] && String(r['REQUERENTE']).toLowerCase().includes(req)))
@@ -676,7 +678,7 @@ async function carregarAutos() {
     }
 
     try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
             body: JSON.stringify({ acao: "buscar_autos" })
         });
@@ -732,7 +734,7 @@ async function salvarNovoAuto() {
 
     const fileInput = document.getElementById('cadAutoArquivo');
     let base64File = null; let fileName = null;
-    if (fileInput.files.length > 0) {
+    if (fileInput && fileInput.files && fileInput.files.length > 0) {
         const file = fileInput.files[0];
         if (file.size > 15 * 1024 * 1024) { mostrarToast('Erro: O arquivo deve ter no máximo 15MB', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
         fileName = file.name;
@@ -746,23 +748,47 @@ async function salvarNovoAuto() {
         } catch (e) { mostrarToast('Erro ao ler o arquivo', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
     }
 
+    const tecnicoVal = document.getElementById('cadAutoTecnico').value;
+    let statusVal = document.getElementById('cadAutoStatus').value;
+    if (tecnicoVal && tecnicoVal !== '' && tecnicoVal !== '-- Sem Técnico --' && tecnicoVal !== 'S/T' && statusVal === 'AGUARDANDO DISTRIBUIÇÃO') {
+        statusVal = 'AGUARDANDO MANIFESTAÇÃO';
+    }
+
     const payload = {
         acao: "cadastrar_auto", nup: nup, requerente: req, auto_infracao: document.getElementById('cadAutoInfracao').value.trim(),
         laudo: document.getElementById('cadAutoLaudo').value.trim(), notificacao: document.getElementById('cadAutoNotificacao').value.trim(),
-        data_repasse: document.getElementById('cadAutoData').value, setor: document.getElementById('cadAutoSetor').value,
-        status_atual: document.getElementById('cadAutoStatus').value, tipo: document.getElementById('cadAutoTipo').value,
-        tecnico: document.getElementById('cadAutoTecnico').value, fisico_ems: document.getElementById('cadAutoFisicoEms').value,
+        data_repasse: dataRepasse, setor: document.getElementById('cadAutoSetor').value,
+        status_atual: statusVal, tipo: document.getElementById('cadAutoTipo').value,
+        tecnico: tecnicoVal, fisico_ems: document.getElementById('cadAutoFisicoEms').value.trim(),
         base64: base64File, fileName: fileName,
         username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
     };
 
-    const novoItem = { 'NUP': payload.nup, 'REQUERENTE': payload.requerente, 'AUTO DE INFRAÇÃO': payload.auto_infracao, 'LAUDO DE CONSTATAÇÃO': payload.laudo, 'NOTIFICAÇÃO': payload.notificacao, 'DATA DE REPASSE': payload.data_repasse, 'SETOR': payload.setor, 'STATUS ATUAL': payload.status_atual, 'TIPO': payload.tipo, 'TÉCNICO': payload.tecnico, 'FISICO/E-MS': payload.fisico_ems };
+    const novoItem = {
+        'NUP': payload.nup,
+        'REQUERENTE': payload.requerente,
+        'AUTO DE INFRAÇÃO': payload.auto_infracao,
+        'LAUDO DE CONSTATAÇÃO': payload.laudo,
+        'NOTIFICAÇÃO': payload.notificacao,
+        'DATA DE REPASSE': payload.data_repasse,
+        'SETOR': payload.setor,
+        'STATUS ATUAL': payload.status_atual,
+        'TIPO': payload.tipo,
+        'TÉCNICO': payload.tecnico,
+        'FISICO/E-MS': payload.fisico_ems
+    };
+
     dadosAutosGlobais.unshift(novoItem);
-    fecharModalCadastroAuto(); filtrarAutos(); atualizarCacheAutos(); mostrarToast('Auto lançado localmente. Sincronizando...', 'success');
-    btn.innerHTML = textoOriginal; btn.disabled = false;
+    autoSelecionadoMockup = novoItem;
+    fecharModalCadastroAuto();
+    filtrarAutos();
+    atualizarCacheAutos();
+    mostrarToast('Auto lançado localmente. Sincronizando...', 'success');
+    btn.innerHTML = textoOriginal;
+    btn.disabled = false;
 
     try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch(APPS_SCRIPT_URL, {
             method: 'POST', body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
@@ -775,10 +801,20 @@ async function salvarNovoAuto() {
                 filtrarAutos();
             }
         }
-        else { mostrarToast('Erro: ' + resultado.message + ' (Revertendo)', 'error'); dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos(); atualizarCacheAutos(); }
+        else {
+            mostrarToast('Erro: ' + resultado.message + ' (Revertendo)', 'error');
+            dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem);
+            if (autoSelecionadoMockup === novoItem) autoSelecionadoMockup = dadosAutosGlobais[0] || null;
+            filtrarAutos();
+            atualizarCacheAutos();
+        }
     } catch (e) {
-        console.error(e); mostrarToast('Falha na internet ao salvar Auto. (Revertendo)', 'error');
-        dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem); filtrarAutos(); atualizarCacheAutos();
+        console.error(e);
+        mostrarToast('Falha na internet ao salvar Auto. (Revertendo)', 'error');
+        dadosAutosGlobais = dadosAutosGlobais.filter(item => item !== novoItem);
+        if (autoSelecionadoMockup === novoItem) autoSelecionadoMockup = dadosAutosGlobais[0] || null;
+        filtrarAutos();
+        atualizarCacheAutos();
     }
 }
 
