@@ -15,6 +15,38 @@ let dadosExternosGlobais = [];
 let externosCarregados = false;
 let externoSelecionadoMockup = null;
 
+function limparEPadronizarExternos(r) {
+    if (!r) return r;
+    const linkResposta = r['LINK DA RESPOSTA'] || r['LINK RESPOSTA'] || r['LINK_RESPOSTA'] || '';
+    r['LINK DA RESPOSTA'] = linkResposta;
+    const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
+    
+    const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+    r['STATUS-RESPOSTA'] = statusResp;
+    r['STATUS DA RESPOSTA'] = statusResp;
+    r['STATUS_RESPOSTA'] = statusResp;
+
+    let statusRow = (r['STATUS'] || '').toUpperCase().trim();
+
+    // 1. Se tem resposta anexada e não foi aprovada nem reprovada, mas o status geral ainda diz AGUARDANDO MANIFESTAÇÃO TÉCNICA:
+    // Promove o status para REVISÃO para figurar corretamente na aba de Aguardando Revisão com o indicativo roxo REVISÃO
+    if (hasResposta && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+        r['STATUS'] = 'REVISÃO';
+    }
+
+    // 2. Se a resposta foi APROVADA e o status geral é AGUARDANDO MANIFESTAÇÃO TÉCNICA ou REVISÃO:
+    if (statusResp === 'APROVADO' && (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA' || statusRow === 'REVISÃO' || statusRow === 'REVISAO')) {
+        r['STATUS'] = 'FAZER DESPACHO';
+    }
+
+    // 3. Se a resposta foi REPROVADA e o status geral é REVISÃO:
+    if (statusResp === 'REPROVADO' && (statusRow === 'REVISÃO' || statusRow === 'REVISAO')) {
+        r['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+    }
+
+    return r;
+}
+
 function atualizarCacheExternos() {
     const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
     const keyExternos = `corino_cache_dados_externos_${username}`;
@@ -294,7 +326,8 @@ function renderTabelaExternos(dados) {
 
         let htmlDiretoriaBotoes = '';
         const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
-        const isSemTecnico = !s['TÉCNICO/ADMIN'] || s['TÉCNICO/ADMIN'] === '-' || s['TÉCNICO/ADMIN'] === 'S/T' || s['TÉCNICO/ADMIN'] === 'Sem Técnico' || s['TÉCNICO/ADMIN'] === 'Não atribuído';
+        const tecValExt = String(s['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
+        const isSemTecnico = !tecValExt || tecValExt === '-' || tecValExt === 'S/T' || tecValExt === 'SEM TÉCNICO' || tecValExt === 'NÃO ATRIBUÍDO' || tecValExt === 'SEM TÉCNICO/ADM';
 
         if (isGestorFinalidade) {
             if (isSemTecnico) {
@@ -409,12 +442,17 @@ function filtrarExternos() {
         }
     }
 
+    if (typeof dadosExternosGlobais !== 'undefined' && Array.isArray(dadosExternosGlobais)) {
+        dadosExternosGlobais.forEach(limparEPadronizarExternos);
+    }
+
     const filtrados = dadosExternosGlobais.filter(r => {
         const nupRow = r['NUP'] || '';
         const carmsRow = r['CARMS'] || '';
         const tecRow = r['TÉCNICO/ADMIN'] || '';
         const remetenteRow = r['REMETENTE'] || '';
         const statusRow = (r['STATUS'] || '').toUpperCase().trim();
+        const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
 
         let matchesStatusFilter = true;
         if (status) {
@@ -433,18 +471,19 @@ function filtrarExternos() {
 
         if (!matchNormais) return false;
 
-        const semTecnico = tecRow.trim() === '' || tecRow.trim() === '-' || tecRow.trim() === 'S/T' || tecRow.trim() === 'Sem Técnico' || tecRow.trim() === 'Não atribuído';
+        const tecUpper = tecRow.toUpperCase().trim();
+        const semTecnico = tecUpper === '' || tecUpper === '-' || tecUpper === 'S/T' || tecUpper === 'SEM TÉCNICO' || tecUpper === 'NÃO ATRIBUÍDO' || tecUpper === 'SEM TÉCNICO/ADM';
 
         if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
             const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-            const matchTecnico = tecRow.toUpperCase().trim() === tecnicoLogado;
+            const matchTecnico = tecUpper === tecnicoLogado;
             if (!matchTecnico) return false;
         }
 
         // Restrição de Gerência para GCAR / GEAA
         if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
             if (!semTecnico) {
-                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRow.toUpperCase().trim()] || 'S/G';
+                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecUpper] || 'S/G';
                 if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
             }
         }
@@ -455,7 +494,6 @@ function filtrarExternos() {
 
         let matchesSubAba = true;
         if (subAbaAtiva === 'Aguardando Revisão') {
-            const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
             if (subAbaExternosRevisaoAtiva === 'Pendentes') {
                 matchesSubAba = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
             } else if (subAbaExternosRevisaoAtiva === 'Reprovados') {
@@ -464,7 +502,7 @@ function filtrarExternos() {
         } else {
             if (typeof subAbaExternosAtiva !== 'undefined' && subAbaExternosAtiva !== 'Geral') {
                 const gerenciaRow = String(r['CARMS'] || '').toUpperCase().trim();
-                const tecSector = semTecnico ? 'S/T' : (MAPA_TECNICOS_SETORES[tecRow.toUpperCase().trim()] || 'S/G');
+                const tecSector = semTecnico ? 'S/T' : (MAPA_TECNICOS_SETORES[tecUpper] || 'S/G');
                 matchesSubAba = (gerenciaRow.includes(subAbaExternosAtiva) || tecSector === subAbaExternosAtiva);
             }
         }
@@ -480,8 +518,15 @@ function filtrarExternos() {
         } else if (subAbaAtiva === 'Aguard. Distribuição') {
             return semTecnico && !isFinalizado && !hasResposta && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
         } else if (subAbaAtiva === 'Em Andamento') {
-            return !semTecnico && (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA') && !hasResposta && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
+            const isEmAndamentoStatus = (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA');
+            const isReprovado = (statusResp === 'REPROVADO');
+            return !semTecnico && isEmAndamentoStatus && (!hasResposta || isReprovado) && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
         } else if (subAbaAtiva === 'Aguardando Revisão') {
+            const isReprovado = (statusResp === 'REPROVADO');
+            if (subAbaExternosRevisaoAtiva === 'Reprovados') {
+                return isReprovado && !isFinalizado;
+            }
+            if (isReprovado) return false;
             return (hasResposta || statusRow === 'REVISÃO' || statusRow === 'REVISAO') && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && !isFinalizado;
         } else if (subAbaAtiva === 'Fazer Despacho') {
             return (statusRow === 'FAZER DESPACHO' || statusRow === 'FAZER CI') && !isFinalizado;
@@ -521,7 +566,7 @@ async function carregarExternos() {
 
     if (cacheSalvo) {
         try {
-            dadosExternosGlobais = JSON.parse(cacheSalvo);
+            dadosExternosGlobais = JSON.parse(cacheSalvo).map(limparEPadronizarExternos);
             carregouDeCache = true;
             document.getElementById('loading-externos').style.display = 'none';
             popularOpcoesExterno();
@@ -540,7 +585,7 @@ async function carregarExternos() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
-            dadosExternosGlobais = resultado.dados;
+            dadosExternosGlobais = (resultado.dados || []).map(limparEPadronizarExternos);
             atualizarCacheExternos();
             popularOpcoesExterno();
             filtrarExternos();
