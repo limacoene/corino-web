@@ -386,7 +386,7 @@ function processarCSVTextCartas(csvText) {
         const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
         const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
 
-        if (hasResposta && statusResp !== 'APROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+        if (hasResposta && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
             row['STATUS'] = 'REVISÃO';
         }
 
@@ -395,6 +395,12 @@ function processarCSVTextCartas(csvText) {
         const statusGeralNovo = (row['STATUS'] || '').toUpperCase().trim();
         if (statusResp === 'APROVADO' && (statusGeralNovo === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeralNovo === 'AGUARDANDO MANIFESTACAO TECNICA' || statusGeralNovo === 'REVISÃO' || statusGeralNovo === 'REVISAO')) {
             row['STATUS'] = 'FAZER DESPACHO';
+        }
+
+        // Se a resposta foi REPROVADA e o status geral ainda diz REVISÃO,
+        // movemos para AGUARDANDO MANIFESTAÇÃO TÉCNICA para retornar ao fluxo do técnico.
+        if (statusResp === 'REPROVADO' && (statusGeralNovo === 'REVISÃO' || statusGeralNovo === 'REVISAO')) {
+            row['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
         }
 
         // Prazos e Dias Restantes (Coluna Q na Planilha)
@@ -432,14 +438,14 @@ function limparEPadronizarCartas(linha) {
     row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
     row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
 
-    // Se tem resposta anexada e o status da resposta não é APROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
+    // Se tem resposta anexada e o status da resposta não é APROVADO nem REPROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
     // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
     const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
     const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
     const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
     const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
 
-    if (hasResposta && statusResp !== 'APROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+    if (hasResposta && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
         row['STATUS'] = 'REVISÃO';
     }
 
@@ -448,6 +454,12 @@ function limparEPadronizarCartas(linha) {
     const statusGeralNovo = (row['STATUS'] || '').toUpperCase().trim();
     if (statusResp === 'APROVADO' && (statusGeralNovo === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeralNovo === 'AGUARDANDO MANIFESTACAO TECNICA' || statusGeralNovo === 'REVISÃO' || statusGeralNovo === 'REVISAO')) {
         row['STATUS'] = 'FAZER DESPACHO';
+    }
+
+    // Se a resposta foi REPROVADA e o status geral ainda diz REVISÃO,
+    // movemos para AGUARDANDO MANIFESTAÇÃO TÉCNICA para retornar ao fluxo do técnico.
+    if (statusResp === 'REPROVADO' && (statusGeralNovo === 'REVISÃO' || statusGeralNovo === 'REVISAO')) {
+        row['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
     }
 
     // Prazos e Dias Restantes (Coluna Q na Planilha)
@@ -490,7 +502,7 @@ async function carregarCartas() {
 
     if (cacheSalvo) {
         try {
-            dadosCartasGlobais = JSON.parse(cacheSalvo);
+            dadosCartasGlobais = JSON.parse(cacheSalvo).map(limparEPadronizarCartas);
             carregouDeCache = true;
             
             const loadingEl = document.getElementById('loading-cartas');
@@ -1180,6 +1192,9 @@ function renderTabelaView(dados) {
  * Filtra as cartas com base nos campos do painel esquerdo e sub-aba ativa (Gerência)
  */
 function aplicarFiltrosCartas() {
+    if (typeof dadosCartasGlobais !== 'undefined' && Array.isArray(dadosCartasGlobais)) {
+        dadosCartasGlobais = dadosCartasGlobais.map(limparEPadronizarCartas);
+    }
     const fNup = document.getElementById('filtro-cartas-nup').value.toLowerCase().trim();
     const fReq = document.getElementById('filtro-cartas-req').value.toLowerCase().trim();
     const fTec = document.getElementById('filtro-cartas-tec').value.toUpperCase().trim();
@@ -1201,6 +1216,8 @@ function aplicarFiltrosCartas() {
                 matchesSubAba = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
             } else if (subAbaCartasRevisaoAtiva === 'Reprovados') {
                 matchesSubAba = (statusResp === 'REPROVADO');
+            } else if (subAbaCartasRevisaoAtiva === 'Geral') {
+                matchesSubAba = (statusResp !== 'REPROVADO');
             }
         } else {
             const semTecnico = tecRow === '' || tecRow === '-' || tecRow === 'S/T' || tecRow === 'SEM TÉCNICO' || tecRow === 'NÃO ATRIBUÍDO';

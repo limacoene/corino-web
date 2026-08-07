@@ -2923,6 +2923,9 @@ function atualizarBadgesNotificacao(dados) {
     atualizarBadgeDOM('badge-menu-cartas-assinatura', totalCartasAssinatura);
 
     // BADGES OFÍCIOS EXTERNOS
+    if (typeof limparEPadronizarExternos === 'function' && typeof dadosExternosGlobais !== 'undefined' && Array.isArray(dadosExternosGlobais)) {
+        dadosExternosGlobais.forEach(limparEPadronizarExternos);
+    }
     let externosFiltrados = typeof dadosExternosGlobais !== 'undefined' ? dadosExternosGlobais : [];
     if (usuarioAtivo.perfil === 'tecnico') {
         const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
@@ -2930,7 +2933,7 @@ function atualizarBadgesNotificacao(dados) {
     } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
         externosFiltrados = externosFiltrados.filter(r => {
             const tec = String(r['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
-            const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO';
+            const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
             if (!semTecnico) {
                 const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
                 return (setorInternoDoTecnico === usuarioAtivo.setor);
@@ -2940,22 +2943,26 @@ function atualizarBadgesNotificacao(dados) {
     }
 
     let totalExtDist = externosFiltrados.filter(r => {
-        const tec = String(r['TÉCNICO/ADMIN'] || '').trim();
-        const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'Sem Técnico' || tec === 'Não atribuído';
+        const tec = String(r['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
+        const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
         const statusRow = (r['STATUS'] || '').toUpperCase().trim();
         const isFinalizado = statusRow === 'RESPONDIDO' || statusRow === 'ARQUIVADO' || statusRow === 'TRAMITADO' || statusRow === 'FINALIZADO';
         const linkResposta = r['LINK DA RESPOSTA'] || r['LINK RESPOSTA'] || r['LINK_RESPOSTA'] || '';
         const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
-        return semTecnico && !isFinalizado && !hasResposta && statusRow !== 'FAZER DESPACHO' && statusRow !== 'AGUARDANDO ASSINATURA' && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
+        return semTecnico && !isFinalizado && !hasResposta && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
     }).length;
 
     let totalExtAndamento = externosFiltrados.filter(r => {
-        const tec = String(r['TÉCNICO/ADMIN'] || '').trim();
-        const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'Sem Técnico' || tec === 'Não atribuído';
+        const tec = String(r['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
+        const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
         const statusRow = (r['STATUS'] || '').toUpperCase().trim();
         const linkResposta = r['LINK DA RESPOSTA'] || r['LINK RESPOSTA'] || r['LINK_RESPOSTA'] || '';
         const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
-        return !semTecnico && (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA') && !hasResposta && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
+        const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const isReprovado = (statusResp === 'REPROVADO');
+        const isEmAndamentoStatus = (statusRow === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusRow === 'AGUARDANDO MANIFESTACAO TECNICA');
+
+        return !semTecnico && isEmAndamentoStatus && (!hasResposta || isReprovado) && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
     }).length;
 
     let totalExtRevisao = externosFiltrados.filter(r => {
@@ -2963,7 +2970,23 @@ function atualizarBadgesNotificacao(dados) {
         const isFinalizado = statusRow === 'RESPONDIDO' || statusRow === 'ARQUIVADO' || statusRow === 'TRAMITADO' || statusRow === 'FINALIZADO';
         const linkResposta = r['LINK DA RESPOSTA'] || r['LINK RESPOSTA'] || r['LINK_RESPOSTA'] || '';
         const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
-        return (hasResposta || statusRow === 'REVISÃO' || statusRow === 'REVISAO') && statusRow !== 'FAZER DESPACHO' && statusRow !== 'AGUARDANDO ASSINATURA' && !isFinalizado;
+        const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
+        const isReprovado = (statusResp === 'REPROVADO');
+
+        let matchesSubAba = true;
+        if (typeof subAbaExternosRevisaoAtiva !== 'undefined' && typeof subAbaAtiva !== 'undefined' && subAbaAtiva === 'Aguardando Revisão') {
+            if (subAbaExternosRevisaoAtiva === 'Pendentes') {
+                matchesSubAba = (statusResp !== 'APROVADO' && statusResp !== 'REPROVADO');
+            } else if (subAbaExternosRevisaoAtiva === 'Reprovados') {
+                matchesSubAba = isReprovado;
+            } else if (subAbaExternosRevisaoAtiva === 'Geral') {
+                matchesSubAba = !isReprovado;
+            }
+        } else {
+            matchesSubAba = !isReprovado;
+        }
+
+        return matchesSubAba && (hasResposta || statusRow === 'REVISÃO' || statusRow === 'REVISAO') && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && !isFinalizado;
     }).length;
 
     let totalExtDespacho = externosFiltrados.filter(r => {
