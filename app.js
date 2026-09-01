@@ -1438,7 +1438,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         }
         let btnAnexar = '';
         const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
-        const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
+        const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.trim() !== '' && linkRespostaVerificacao.trim() !== '-';
 
         if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil.startsWith('gerencia'))) {
             if (temRespostaVinculada) {
@@ -1461,25 +1461,35 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
             }
         }
 
-        if (linkRaw && linkRaw.startsWith('http')) {
-            const fileId = extrairIdDrive(linkRaw);
-            if (fileId) {
-                const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
-                const linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
+        if (linkRaw && linkRaw.trim() !== '' && linkRaw.trim() !== '-') {
+            if (isLinkGCS(linkRaw)) {
+                htmlPreviewIcon = `<button onclick="abrirPreview('${linkRaw}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício (LGPD Seguro)"></button>`;
                 htmlLink = `
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <a href="${linkDownload}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download</a>
+                        <button onclick="dispararDownloadSeguro('${linkRaw}', 'Oficio_${linha['NUP']}.pdf')" class="btn-drive btn-download">⬇️ Download (LGPD)</button>
                         ${btnAnexar}
                     </div>
                 `;
             } else {
-                htmlLink = `
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
-                        ${btnAnexar}
-                    </div>
-                `;
+                const fileId = extrairIdDrive(linkRaw);
+                if (fileId) {
+                    const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
+                    const linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                    htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
+                    htmlLink = `
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <a href="${linkDownload}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download</a>
+                            ${btnAnexar}
+                        </div>
+                    `;
+                } else {
+                    htmlLink = `
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
+                            ${btnAnexar}
+                        </div>
+                    `;
+                }
             }
         } else {
             if (btnAnexar) {
@@ -1516,11 +1526,17 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
         let htmlResposta = '';
         if (temRespostaVinculada) {
-            const respId = extrairIdDrive(linkRespostaVerificacao);
-            let botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
-            if (respId) {
-                const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
-                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
+            let botaoResp = '';
+            if (isLinkGCS(linkRespostaVerificacao)) {
+                botaoResp = `<button onclick="abrirPreview('${linkRespostaVerificacao}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta (LGPD)</button>`;
+            } else {
+                const respId = extrairIdDrive(linkRespostaVerificacao);
+                if (respId) {
+                    const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
+                    botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
+                } else {
+                    botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
+                }
             }
 
             let htmlMotivoReprovacao = '';
@@ -1659,13 +1675,17 @@ function gerarHtmlDocExtra(titulo, num, nup, linkRaw, index) {
     const numFormatado = String(num).replace(/\.pdf/gi, '').trim();
     let htmlBotao = `<span style="font-size:12px; color:#888;">Sem Link</span>`;
 
-    if (linkRaw && linkRaw.startsWith('http')) {
-        const fileId = extrairIdDrive(linkRaw);
-        if (fileId) {
-            const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
-            htmlBotao = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar"></button>`;
+    if (linkRaw && linkRaw.trim() !== '' && linkRaw.trim() !== '-') {
+        if (isLinkGCS(linkRaw)) {
+            htmlBotao = `<button onclick="abrirPreview('${linkRaw}', ${index})" class="btn-inline-preview" title="Pré-visualizar (LGPD Seguro)"></button>`;
         } else {
-            htmlBotao = `<a href="${linkRaw}" target="_blank" class="btn-inline-preview" style="background-image: none; width: auto; height: auto; padding: 3px 8px;">🔗 Abrir</a>`;
+            const fileId = extrairIdDrive(linkRaw);
+            if (fileId) {
+                const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
+                htmlBotao = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar"></button>`;
+            } else {
+                htmlBotao = `<a href="${linkRaw}" target="_blank" class="btn-inline-preview" style="background-image: none; width: auto; height: auto; padding: 3px 8px;">🔗 Abrir</a>`;
+            }
         }
     }
     return `
@@ -1690,24 +1710,46 @@ function anexarDocumento(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar... (Aguarde)';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...';
         btn.disabled = true;
         btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            // 1. Tenta Upload Direto para o Google Cloud Storage
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'respostas',
+                        nup: nup,
+                        username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback para envio padrão GAS:', gcsErr.message);
+                }
+            }
 
             const nupLimpo = nup.replace(/[^a-zA-Z0-9]/g, '');
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
+
             const payload = {
                 acao: "upload",
                 nup: nup,
                 fileName: `Resposta_${nupLimpo}.pdf`,
                 base64: base64,
+                url: gcsUri,
+                linkGcs: gcsUri,
                 username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
             };
 
@@ -1718,15 +1760,16 @@ function anexarDocumento(event, nup) {
 
             const resultado = await resposta.json();
             if (resultado.status === 'success') {
-                mostrarToast('Documento guardado com sucesso!\nPode demorar até 5 min para a Diretoria visualizar.', 'success');
+                mostrarToast('Documento guardado com sucesso no Google Cloud Storage (LGPD)!', 'success');
                 btn.innerHTML = '✅ Concluído!';
                 btn.style.backgroundColor = '#228B22';
                 btn.style.borderColor = '#1a6b1a';
                 btn.style.opacity = '1';
 
+                const linkFinal = gcsUri || resultado.url || "-";
                 const target = dadosCoringa.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK_RESPOSTA'] = resultado.url || "-";
+                    target['LINK_RESPOSTA'] = linkFinal;
                     target['STATUS'] = "REVISÃO";
                     target['STATUS_RESPOSTA'] = "";
                     target['MOTIVO_AVALIACAO'] = "";
@@ -1762,33 +1805,55 @@ function anexarPdfOriginalOficio(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'oficios',
+                        nup: nup,
+                        username: usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback para envio padrão GAS:', gcsErr.message);
+                }
+            }
+
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
 
             const payload = { 
                 acao: "anexar_pdf_original_oficio", 
                 nup: nup, 
                 fileName: `Oficio_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
                 base64: base64,
+                url: gcsUri,
+                linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
             const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast('PDF Original anexado com sucesso!', 'success');
+                mostrarToast('PDF Original anexado com sucesso no Google Cloud Storage (LGPD)!', 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosCoringa.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK_OFICIO'] = resultado.url;
-                    target['LINK - OFÍCIO'] = resultado.url;
-                    target['LINK OFÍCIO'] = resultado.url;
-                    target['LINK_OFÍCIO'] = resultado.url;
+                    target['LINK_OFICIO'] = linkFinal;
+                    target['LINK - OFÍCIO'] = linkFinal;
+                    target['LINK OFÍCIO'] = linkFinal;
+                    target['LINK_OFÍCIO'] = linkFinal;
                 }
                 atualizarCacheOficios();
                 aplicarFiltros();
@@ -2342,7 +2407,7 @@ function abrirModal(index) {
     }
     let btnAnexar = '';
     const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
-    const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.startsWith('http');
+    const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.trim() !== '' && linkRespostaVerificacao.trim() !== '-';
 
     if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil.startsWith('gerencia'))) {
         if (temRespostaVinculada) {
@@ -2365,25 +2430,35 @@ function abrirModal(index) {
         }
     }
 
-    if (linkRaw && linkRaw.startsWith('http')) {
-        const fileId = extrairIdDrive(linkRaw);
-        if (fileId) {
-            const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
-            const linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
-            htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
+    if (linkRaw && linkRaw.trim() !== '' && linkRaw.trim() !== '-') {
+        if (isLinkGCS(linkRaw)) {
+            htmlPreviewIcon = `<button onclick="abrirPreview('${linkRaw}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício (LGPD Seguro)"></button>`;
             htmlLink = `
                 <div class="modal-buttons">
-                    <a href="${linkDownload}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download</a>
+                    <button onclick="dispararDownloadSeguro('${linkRaw}', 'Oficio_${linha['NUP']}.pdf')" class="btn-drive btn-download">⬇️ Download (LGPD)</button>
                     ${btnAnexar}
                 </div>
             `;
         } else {
-            htmlLink = `
-                <div class="modal-buttons">
-                    <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
-                    ${btnAnexar}
-                </div>
-            `;
+            const fileId = extrairIdDrive(linkRaw);
+            if (fileId) {
+                const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
+                const linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                htmlPreviewIcon = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar Ofício"></button>`;
+                htmlLink = `
+                    <div class="modal-buttons">
+                        <a href="${linkDownload}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download</a>
+                        ${btnAnexar}
+                    </div>
+                `;
+            } else {
+                htmlLink = `
+                    <div class="modal-buttons">
+                        <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
+                        ${btnAnexar}
+                    </div>
+                `;
+            }
         }
     } else {
         if (btnAnexar) {
@@ -2420,12 +2495,18 @@ function abrirModal(index) {
 
     let htmlResposta = '';
     const linkResposta = linha['LINK_RESPOSTA'];
-    if (linkResposta && linkResposta.startsWith('http')) {
-        const respId = extrairIdDrive(linkResposta);
-        let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
-        if (respId) {
-            const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
-            botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
+    if (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
+        let botaoResp = '';
+        if (isLinkGCS(linkResposta)) {
+            botaoResp = `<button onclick="abrirPreview('${linkResposta}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta (LGPD)</button>`;
+        } else {
+            const respId = extrairIdDrive(linkResposta);
+            if (respId) {
+                const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
+                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
+            } else {
+                botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
+            }
         }
 
         htmlResposta = `
@@ -2480,7 +2561,7 @@ function abrirModal(index) {
 
 function fecharModal() { document.getElementById('detalhesModal').style.display = 'none'; }
 
-function abrirPreview(url, index) {
+async function abrirPreview(url, index) {
     const modal = document.getElementById('previewModal');
     const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 
@@ -2489,7 +2570,7 @@ function abrirPreview(url, index) {
         <div class="preview-wrapper" id="preview-wrapper-id">
             <div class="preview-toolbar">
                 <div class="preview-toolbar-title" style="display: flex; align-items: center;">
-                    ${iconeOlhoGrande} Pré-visualização de Documento
+                    ${iconeOlhoGrande} Pré-visualização de Documento (LGPD Seguro)
                 </div>
                 <div class="preview-toolbar-buttons">
                     <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
@@ -2508,27 +2589,34 @@ function abrirPreview(url, index) {
         </div>
     `;
 
-    const btnDownload = document.getElementById('btn-download-preview');
-    const fileId = extrairIdDrive(url);
-    if (fileId) {
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    } else {
-        btnDownload.href = url;
-    }
-
     // Failsafe: Obtém o registro de forma robusta e segura
     let linha = (index >= 0 && index < dadosExibidos.length) ? dadosExibidos[index] : null;
     if (!linha) {
-        // Se o index for inválido (-1 ou fora de limites), busca por NUP comparando com o mockup ativo
         const targetNup = oficioSelecionadoMockup ? oficioSelecionadoMockup['NUP'] : '';
         linha = dadosCoringa.find(r => r['NUP'] === targetNup) || dadosExibidos.find(r => r['NUP'] === targetNup) || oficioSelecionadoMockup;
     }
     
-    // Se ainda assim não encontrar, aborta com aviso
     if (!linha) {
         mostrarToast("Erro ao carregar detalhes do documento.", "error");
         return;
     }
+
+    const nupFormatado = linha['NUP'] ? String(linha['NUP']).replace(/[^a-zA-Z0-9]/g, '_') : 'documento';
+    let resolvedUrl = url;
+    let resolvedDownloadUrl = url;
+
+    try {
+        resolvedUrl = await obterLinkVisualizacaoSeguro(url);
+        resolvedDownloadUrl = await obterLinkDownloadSeguro(url, `Doc_${nupFormatado}.pdf`);
+    } catch (e) {
+        console.warn('Erro ao resolver URL segura:', e);
+    }
+
+    const btnDownload = document.getElementById('btn-download-preview');
+    if (btnDownload) {
+        btnDownload.href = resolvedDownloadUrl;
+    }
+
     const infoStatus = obterInfoDinamicaStatus(linha);
     const obs = (linha['OBSERVAÇÃO'] || '').trim();
     const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
@@ -2564,34 +2652,26 @@ function abrirPreview(url, index) {
 
     const linkResposta = linha['LINK_RESPOSTA'];
     let respPreviewUrl = '';
-    let respId = null;
-    if (linkResposta && linkResposta.startsWith('http')) {
-        respId = extrairIdDrive(linkResposta);
-        if (respId) respPreviewUrl = `https://drive.google.com/file/d/${respId}/preview`;
+    if (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
+        respPreviewUrl = linkResposta;
     }
 
     const linkOficio = linha['LINK_OFICIO'];
     let oficioPreviewUrl = '';
-    let ofId = null;
-    if (linkOficio && linkOficio.startsWith('http')) {
-        ofId = extrairIdDrive(linkOficio);
-        if (ofId) oficioPreviewUrl = `https://drive.google.com/file/d/${ofId}/preview`;
+    if (linkOficio && linkOficio.trim() !== '' && linkOficio.trim() !== '-') {
+        oficioPreviewUrl = linkOficio;
     }
 
     let toggleBtn = '';
     if (respPreviewUrl && oficioPreviewUrl) {
-        let downloadOficioUrlFull = ofId ? `https://drive.google.com/uc?export=download&id=${ofId}` : linkOficio;
-        let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
-
-        // Determina qual aba deve iniciar ativa com base na URL atualmente aberta
-        const isOficioActive = (url === oficioPreviewUrl || url === linkOficio);
+        const isOficioActive = (url === oficioPreviewUrl || url === linkOficio || url === resolvedUrl);
         const activeOficioClass = isOficioActive ? 'active' : '';
         const activeRespClass = !isOficioActive ? 'active' : '';
 
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="alternarVisualizacaoPreview(this, '${oficioPreviewUrl}', '${downloadOficioUrlFull}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activeOficioClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
-                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${downloadRespUrlFull}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${oficioPreviewUrl}', '${oficioPreviewUrl}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activeOficioClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${respPreviewUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }
@@ -2620,9 +2700,12 @@ function abrirPreview(url, index) {
 
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
-        btnOpenPreview.href = url.replace('/preview', '/view');
+        btnOpenPreview.href = resolvedUrl;
     }
-    document.getElementById('previewFrame').src = url;
+    const frame = document.getElementById('previewFrame');
+    if (frame) {
+        frame.src = resolvedUrl;
+    }
     modal.style.display = 'flex';
 }
 
@@ -3053,39 +3136,52 @@ const opcoesTipoAba1 = [
 
 // MAPA INTERNO DE TÉCNICOS E SEUS RESPECTIVOS SETORES (SUB-ABAS)
 const MAPA_TECNICOS_SETORES = {
-    "JHONATAN": "DIFLOR",
-    "LIVYA": "DIFLOR",
-    "RODRIGO": "GEAA",
-    "MARIANA OPP": "GEAA",
-    "ELERI": "GCAR",
-    "MILKA": "GCAR",
-    "JOELTHON": "GEAA",
-    "BEATRIZ": "GEAA",
-    "ANDERSON": "GEAA",
-    "HELEN CAROLINE": "GCAR",
-    
-    "MARIANA SH": "GEAA",
-    "LARISSA": "GCAR",
+    "ADRIANA": "GEAA",
+    "ALCEBIADES": "GEAA",
     "ALEXANDRE": "GEAA",
-    "MATEUS": "GEAA",
-    
-    "MARIA": "GEAA",
-    "MICHAEL": "GCAR",
-    "FABIANA": "GCAR",
+    "ALLAN": "GEAA",
+    "ANDERSON": "GEAA",
+    "BARBARA": "GEAA",
+    "BEATRIZ": "GEAA",
+    "CARLA": "GEAA",
     "CARLOS JULIANO": "GCAR",
+    "CORINA": "GEAA",
+    "CRISTIANE": "GCAR",
+    "DIANESSA": "GCAR",
+    "DINA": "GEAA",
+    "ELERI": "GCAR",
+    "ERLISSON": "GCAR",
+    "ETEVALDO": "GEAA",
+    "FABIANA": "GCAR",
+    "FRANCIELLY": "GCAR",
+    "GABRIELA": "GCAR",
+    "HELEN CAROLINE": "GCAR",
+    "HELLEN": "GEAA",
+    "HENRIQUE": "GEAA",
+    "HERUS": "GEAA",
+    "HILBATY": "GCAR",
+    "JEAN PIERRE": "GEAA",
+    "JHONATAN": "DIFLOR",
+    "JOELTHON": "GEAA",
+    "JONIEL": "GEAA",
     "JOSÉ RENATO": "GEAA",
     "JOSE RENATO": "GEAA",
-    "CRISTIANE": "GCAR",
-    "HILBATY": "GCAR",
-    "FRANCIELLY": "GCAR",
-    "JEAN PIERRE": "GEAA",
-    "CARLA": "GEAA",
-    "SUZIELLY": "GEAA",
+    "LARISSA": "GCAR",
+    "LIVYA": "DIFLOR",
+    "LUCIANO": "GEAA",
+    "LUIZ": "GEAA",
+    "MARIA": "GEAA",
+    "MARIANA SH": "GEAA",
+    "MARIANA OPP": "GEAA",
+    "MATEUS": "GEAA",
     "MAX SANDER": "GEAA",
-    "ETEVALDO": "GEAA",
-    "ALLAN": "GEAA",
-    "HENRIQUE": "GEAA",
-    "JONIEL": "GEAA"
+    "MICHAEL": "GCAR",
+    "MILKA": "GCAR",
+    "NATTANA": "GCAR",
+    "OSVALDO": "DIFLOR",
+    "RHOANDER": "GEAA",
+    "RODRIGO": "GEAA",
+    "SUZIELLY": "GEAA"
 };
 
 // Mantém o array simples apenas para popular os seletores (<select>) da interface
@@ -3208,11 +3304,12 @@ async function salvarNovoOficio() {
     const fileInput = document.getElementById('cadOficioArquivo');
     let base64File = null;
     let fileName = null;
+    let gcsUri = null;
 
     if (fileInput && fileInput.files.length > 0) {
         const file = fileInput.files[0];
-        if (file.size > 15 * 1024 * 1024) {
-            mostrarToast('Erro: O arquivo deve ter no máximo 15MB', 'error');
+        if (file.size > 25 * 1024 * 1024) {
+            mostrarToast('Erro: O arquivo deve ter no máximo 25MB', 'error');
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
             btn.style.opacity = '1';
@@ -3221,22 +3318,40 @@ async function salvarNovoOficio() {
 
         const nupFormatado = nup;
         const oficioFormatado = oficioN.replace(/\//g, '-');
-
         fileName = (abaDestino === "1") ? `${oficioFormatado}.pdf` : `${nupFormatado}.pdf`;
 
-        try {
-            base64File = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                reader.onerror = (e) => reject(e);
-                reader.readAsDataURL(file);
-            });
-        } catch (e) {
-            mostrarToast('Erro ao ler o arquivo', 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            return;
+        // 1. Upload Seguro no GCS
+        if (typeof GCSStorage !== 'undefined') {
+            try {
+                const gcsRes = await GCSStorage.fazerUpload(file, {
+                    modulo: 'oficios',
+                    nup: nup,
+                    nomePersonalizado: fileName,
+                    username: usuarioAtivo.username || ''
+                });
+                if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                    gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                }
+            } catch (gcsErr) {
+                console.warn('⚠️ [GCS] Fallback para envio base64:', gcsErr.message);
+            }
+        }
+
+        if (!gcsUri) {
+            try {
+                base64File = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+            } catch (e) {
+                mostrarToast('Erro ao ler o arquivo', 'error');
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                return;
+            }
         }
     }
 
@@ -3255,6 +3370,8 @@ async function salvarNovoOficio() {
         referencia: document.getElementById('cadReferencia').value,
         observacao: document.getElementById('cadObservacao').value,
         base64: base64File,
+        url: gcsUri,
+        linkGcs: gcsUri,
         fileName: fileName
     };
 
@@ -3282,7 +3399,7 @@ async function salvarNovoOficio() {
         'E-MS': '-',
         'CBRS': '-',
         'OBSERVAÇÃO': payload.observacao || '-',
-        'LINK_OFICIO': '',
+        'LINK_OFICIO': gcsUri || '',
         'LINK_RESPOSTA': '',
         'OFICIO_INICIAL': '',
         'NUP_INICIAL': '',
@@ -3310,8 +3427,9 @@ async function salvarNovoOficio() {
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
             mostrarToast('Ofício sincronizado com a nuvem com sucesso!', 'success');
-            if (resultado.url) {
-                novoObj['LINK_OFICIO'] = resultado.url;
+            const linkFinal = gcsUri || resultado.url;
+            if (linkFinal) {
+                novoObj['LINK_OFICIO'] = linkFinal;
                 atualizarCacheOficios();
                 aplicarFiltros();
             }

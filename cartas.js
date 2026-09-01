@@ -126,28 +126,49 @@ async function salvarNovaCarta() {
     const fileInput = document.getElementById('cadCartaArquivo');
     let base64File = null;
     let fileName = null;
+    let gcsUriPdf = null;
 
     if (fileInput && fileInput.files.length > 0) {
         const file = fileInput.files[0];
-        if (file.size > 15 * 1024 * 1024) {
-            mostrarToast('O ficheiro deve ter no máximo 15MB.', 'error');
+        if (file.size > 25 * 1024 * 1024) {
+            mostrarToast('O ficheiro deve ter no máximo 25MB.', 'error');
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
             return;
         }
         fileName = file.name;
-        try {
-            base64File = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                reader.onerror = (e) => reject(e);
-                reader.readAsDataURL(file);
-            });
-        } catch (e) {
-            mostrarToast('Erro ao ler o ficheiro.', 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-            return;
+
+        // 1. Upload Seguro no GCS
+        if (typeof GCSStorage !== 'undefined') {
+            try {
+                const gcsRes = await GCSStorage.fazerUpload(file, {
+                    modulo: 'cartas',
+                    nup: nup,
+                    nomePersonalizado: `Carta_Consulta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`,
+                    username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+                });
+                if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                    gcsUriPdf = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                }
+            } catch (gcsErr) {
+                console.warn('⚠️ [GCS] Fallback para envio base64:', gcsErr.message);
+            }
+        }
+
+        if (!gcsUriPdf) {
+            try {
+                base64File = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+            } catch (e) {
+                mostrarToast('Erro ao ler o ficheiro.', 'error');
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+                return;
+            }
         }
     }
 
@@ -155,28 +176,49 @@ async function salvarNovaCarta() {
     const shapeInput = document.getElementById('cadCartaShape');
     let base64Shape = null;
     let shapeName = null;
+    let gcsUriShape = null;
 
     if (shapeInput && shapeInput.files.length > 0) {
         const fileShape = shapeInput.files[0];
-        if (fileShape.size > 20 * 1024 * 1024) {
-            mostrarToast('O Shapefile deve ter no máximo 20MB.', 'error');
+        if (fileShape.size > 30 * 1024 * 1024) {
+            mostrarToast('O Shapefile deve ter no máximo 30MB.', 'error');
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
             return;
         }
         shapeName = fileShape.name;
-        try {
-            base64Shape = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                reader.onerror = (e) => reject(e);
-                reader.readAsDataURL(fileShape);
-            });
-        } catch (e) {
-            mostrarToast('Erro ao ler o Shapefile.', 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-            return;
+
+        // Upload Shapefile no GCS
+        if (typeof GCSStorage !== 'undefined') {
+            try {
+                const gcsRes = await GCSStorage.fazerUpload(fileShape, {
+                    modulo: 'cartas',
+                    nup: nup,
+                    nomePersonalizado: `Shapefile_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.zip`,
+                    username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+                });
+                if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                    gcsUriShape = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                }
+            } catch (gcsErr) {
+                console.warn('⚠️ [GCS] Fallback shapefile base64:', gcsErr.message);
+            }
+        }
+
+        if (!gcsUriShape) {
+            try {
+                base64Shape = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(fileShape);
+                });
+            } catch (e) {
+                mostrarToast('Erro ao ler o Shapefile.', 'error');
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+                return;
+            }
         }
     }
 
@@ -197,8 +239,11 @@ async function salvarNovaCarta() {
         observacao: document.getElementById('cadCartaObs').value.trim(),
         base64: base64File,
         fileName: fileName,
+        url_arquivo: gcsUriPdf,
+        linkGcs: gcsUriPdf,
         base64Shape: base64Shape,
-        fileNameShape: shapeName
+        fileNameShape: shapeName,
+        url_shapefile: gcsUriShape
     };
 
     // Calcular dias restantes inicial para a inserção otimista
@@ -217,14 +262,16 @@ async function salvarNovaCarta() {
         'TÉCNICO/ADM': payload.tecnico || 'Não atribuído',
         'STATUS': payload.status,
         'TRAMITADO P/': payload.tramitado_para,
-        'OBSERVAÇÃO': payload.observacao
+        'OBSERVAÇÃO': payload.observacao,
+        'LINK DO NUP': gcsUriPdf || '',
+        'LINK SHAPEFILE': gcsUriShape || ''
     };
 
     dadosCartasGlobais.unshift(novoItem);
     atualizarCacheCartas();
     fecharModalCadastroCarta();
     aplicarFiltrosCartas();
-    mostrarToast('Carta lançada localmente. Sincronizando...', 'success');
+    mostrarToast('Carta lançada localmente. Sincronizando com a nuvem...', 'success');
     btn.innerHTML = textoOriginal;
     btn.disabled = false;
 
@@ -236,7 +283,15 @@ async function salvarNovaCarta() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
-            mostrarToast('Carta Consulta sincronizada com sucesso! ✅', 'success');
+            mostrarToast('Carta Consulta sincronizada no Google Cloud Storage (LGPD)! ✅', 'success');
+            if (resultado.url || gcsUriPdf) {
+                novoItem['LINK DO NUP'] = gcsUriPdf || resultado.url;
+            }
+            if (resultado.shapeUrl || gcsUriShape) {
+                novoItem['LINK SHAPEFILE'] = gcsUriShape || resultado.shapeUrl;
+            }
+            atualizarCacheCartas();
+            aplicarFiltrosCartas();
         } else {
             mostrarToast('Erro ao sincronizar: ' + resultado.message, 'error');
             dadosCartasGlobais = dadosCartasGlobais.filter(item => item !== novoItem);
@@ -365,19 +420,20 @@ function processarCSVTextCartas(csvText) {
         }
 
         // Normalizações obrigatórias para compatibilidade de chaves e filtros robustos
-        row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || row['CARMS'] || '-';
-        row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
+        row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || '-';
+        row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE (1/2/3)'] || row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
         row['STATUS'] = normalizarStatusCartas(row['STATUS']);
         row['FÍSICO/E-MS'] = row['FISICO/E-MS'] || row['FÍSICO/E-MS'] || '-';
-        row['TÉCNICO/ADM'] = row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || 'Não atribuído';
+        row['TÉCNICO/ADM'] = row['TÉCNICO/ADMIN'] || row['TECNICO/ADMIN'] || row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || row['TÉCNICO'] || 'Não atribuído';
         row['OBSERVAÇÃO'] = row['OBSERVAÇÃO'] || row['OBSERVAÇÕES'] || '-';
         row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || '';
         row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
         row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK DA RESPOSTA'] || '';
         row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || '';
-        row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || '';
+        row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || row['STATUS-RESPOSTA'] || '';
         row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
-        row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
+        row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA RECUSA'] || row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
+        row['CARMS'] = row['Número do CARMS'] || row['NUMERO DO CARMS'] || row['NÚMERO DO CARMS'] || row['CARMS'] || '-';
 
         // Se tem resposta anexada e o status da resposta não é APROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
         // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
@@ -403,7 +459,7 @@ function processarCSVTextCartas(csvText) {
             row['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
         }
 
-        // Prazos e Dias Restantes (Coluna Q na Planilha)
+        // Prazos e Dias Restantes
         const dataRepasse = row['DATA DO REPASSE'] || row['DATA DE REPASSE'] || row['DATA'] || '';
         const prazo = row['PRAZO'] || row['PRAZO DE RESPOSTA'] || row['PRAZO (DIAS)'] || '';
         row['PRAZO'] = prazo;
@@ -424,19 +480,20 @@ function limparEPadronizarCartas(linha) {
     
     // Normalizações obrigatórias para compatibilidade de chaves e filtros robustos
     row['NUP'] = row['NUP'] || row['PROCESSO'] || row['PROCESSO/NUP'] || '';
-    row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || row['CARMS'] || '-';
-    row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
+    row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || '-';
+    row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE (1/2/3)'] || row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
     row['STATUS'] = normalizarStatusCartas(row['STATUS']);
     row['FÍSICO/E-MS'] = row['FISICO/E-MS'] || row['FÍSICO/E-MS'] || '-';
-    row['TÉCNICO/ADM'] = row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || 'Não atribuído';
+    row['TÉCNICO/ADM'] = row['TÉCNICO/ADMIN'] || row['TECNICO/ADMIN'] || row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || row['TÉCNICO'] || 'Não atribuído';
     row['OBSERVAÇÃO'] = row['OBSERVAÇÃO'] || row['OBSERVAÇÕES'] || '-';
     row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || '';
     row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
     row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK DA RESPOSTA'] || '';
     row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || '';
-    row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || '';
+    row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || row['STATUS-RESPOSTA'] || '';
     row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
-    row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
+    row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA RECUSA'] || row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
+    row['CARMS'] = row['Número do CARMS'] || row['NUMERO DO CARMS'] || row['NÚMERO DO CARMS'] || row['CARMS'] || '-';
 
     // Se tem resposta anexada e o status da resposta não é APROVADO nem REPROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
     // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
@@ -601,7 +658,8 @@ async function preloadShapesCartas() {
             const status = (r['STATUS'] || '').toUpperCase().trim();
             const shapeUrl = r['LINK SHAPEFILE'] || r['LINK_SHAPEFILE'] || '';
             const nup = r['NUP'];
-            return nup && status !== 'TRAMITADO' && status !== 'ARQUIVADO' && shapeUrl.startsWith('http') && !cacheShapesCartas[nup];
+            const hasShape = shapeUrl && (shapeUrl.startsWith('http') || (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)));
+            return nup && status !== 'TRAMITADO' && status !== 'ARQUIVADO' && hasShape && !cacheShapesCartas[nup];
         });
 
         console.log(`[Preload] Found ${inProgress.length} in-progress Cartas Consulta with shapefiles to preload.`);
@@ -614,21 +672,32 @@ async function preloadShapesCartas() {
             if (cacheShapesCartas[nup]) continue;
 
             try {
-                const fileId = extrairIdDrive(shapeUrl);
-                if (!fileId) continue;
+                let buffer = null;
+                if (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)) {
+                    console.log(`[Preload] Downloading shapefile from GCS (LGPD) for NUP: ${nup}`);
+                    const signedUrl = await GCSStorage.obterUrlTemporaria(shapeUrl, { responseDisposition: 'inline' });
+                    const resp = await fetch(signedUrl);
+                    if (!resp.ok) continue;
+                    buffer = await resp.arrayBuffer();
+                } else {
+                    const fileId = extrairIdDrive(shapeUrl);
+                    if (!fileId) continue;
 
-                console.log(`[Preload] Downloading and parsing shapefile for NUP: ${nup}`);
-                const payload = { acao: 'download_drive_file', fileId: fileId };
-                const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const resultado = await resposta.json();
+                    console.log(`[Preload] Downloading and parsing shapefile for NUP: ${nup}`);
+                    const payload = { acao: 'download_drive_file', fileId: fileId };
+                    const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                    const resultado = await resposta.json();
 
-                if (resultado.status === 'success') {
-                    const binaryString = window.atob(resultado.base64);
-                    const len = binaryString.length;
-                    const bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-                    const buffer = bytes.buffer;
+                    if (resultado.status === 'success') {
+                        const binaryString = window.atob(resultado.base64);
+                        const len = binaryString.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+                        buffer = bytes.buffer;
+                    }
+                }
 
+                if (buffer) {
                     let geojson = await shp(buffer);
                     if (Array.isArray(geojson)) {
                         let allFeatures = [];
@@ -935,12 +1004,16 @@ function renderTabelaView(dados) {
         }
 
         if (hasOriginal) {
-            const origId = extrairIdDrive(linkOriginal);
-            if (origId) {
-                const linkDown = `https://drive.google.com/uc?export=download&id=${origId}`;
-                htmlBotoesAcao += `<a href="${linkDown}" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar PDF Original</a>`;
+            if (isLinkGCS(linkOriginal)) {
+                htmlBotoesAcao += `<button onclick="dispararDownloadSeguro('${linkOriginal}', 'Carta_Original_${nupVal}.pdf')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">⬇️ Baixar PDF (LGPD)</button>`;
             } else {
-                htmlBotoesAcao += `<a href="${linkOriginal}" target="_blank" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Abrir PDF Original</a>`;
+                const origId = extrairIdDrive(linkOriginal);
+                if (origId) {
+                    const linkDown = `https://drive.google.com/uc?export=download&id=${origId}`;
+                    htmlBotoesAcao += `<a href="${linkDown}" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar PDF Original</a>`;
+                } else {
+                    htmlBotoesAcao += `<a href="${linkOriginal}" target="_blank" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Abrir PDF Original</a>`;
+                }
             }
         } else {
             let btnAnexarOriginal = '';
@@ -958,12 +1031,16 @@ function renderTabelaView(dados) {
         if (hasShapefile) {
             htmlBotoesAcao += `<button onclick="abrirModalPreviewCartasShapefile(${absIndex >= 0 ? absIndex : 0}, '${linkShapefile}')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🗺️ Ver Mapa</button>`;
             
-            const shapeId = extrairIdDrive(linkShapefile);
-            if (shapeId) {
-                const shapeDown = `https://drive.google.com/uc?export=download&id=${shapeId}`;
-                htmlBotoesAcao += `<a href="${shapeDown}" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar Shapefile</a>`;
+            if (isLinkGCS(linkShapefile)) {
+                htmlBotoesAcao += `<button onclick="dispararDownloadSeguro('${linkShapefile}', 'Shapefile_${nupVal}.zip')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">⬇️ Baixar Shapefile (LGPD)</button>`;
             } else {
-                htmlBotoesAcao += `<a href="${linkShapefile}" target="_blank" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Baixar Shapefile</a>`;
+                const shapeId = extrairIdDrive(linkShapefile);
+                if (shapeId) {
+                    const shapeDown = `https://drive.google.com/uc?export=download&id=${shapeId}`;
+                    htmlBotoesAcao += `<a href="${shapeDown}" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar Shapefile</a>`;
+                } else {
+                    htmlBotoesAcao += `<a href="${linkShapefile}" target="_blank" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Baixar Shapefile</a>`;
+                }
             }
         } else {
             let btnAnexarShapefile = '';
@@ -983,15 +1060,23 @@ function renderTabelaView(dados) {
         
         let htmlManifestacao = '';
         if (temManifestacao) {
-            const mId = extrairIdDrive(linkManifestacao);
-            const mDownload = mId ? `https://drive.google.com/uc?export=download&id=${mId}` : linkManifestacao;
             const btnExcluir = (statusStr !== 'TRAMITADO' && (isTecnico || isGestor) && !(statusResp === 'APROVADO' && !isGestor))
                 ? `<button onclick="removerDocumentoRespostaCarta(event,'${nupVal}','manifestacao')" class="btn-drive btn-red-outline" style="padding:0;width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;align-items:center;justify-content:center;">🗑️</button>` : '';
+            
+            let btnBaixarManifest = '';
+            if (isLinkGCS(linkManifestacao)) {
+                btnBaixarManifest = `<button onclick="dispararDownloadSeguro('${linkManifestacao}', 'Manifestacao_${nupVal}.pdf')" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Manifestação (LGPD)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></button>`;
+            } else {
+                const mId = extrairIdDrive(linkManifestacao);
+                const mDownload = mId ? `https://drive.google.com/uc?export=download&id=${mId}` : linkManifestacao;
+                btnBaixarManifest = `<a href="${mDownload}" target="_blank" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Manifestação"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></a>`;
+            }
+
             htmlManifestacao = `
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.02);padding:10px;border-radius:6px;border:1px solid #333;">
                     <span style="font-size:13px;color:#f39c12;font-weight:bold;display:flex;align-items:center;gap:6px;">📄 Manifestação Anexada</span>
                     <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
-                        <a href="${mDownload}" target="_blank" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Manifestação"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></a>
+                        ${btnBaixarManifest}
                         ${btnExcluir}
                     </div>
                 </div>`;
@@ -1005,15 +1090,23 @@ function renderTabelaView(dados) {
 
         let htmlDeclaracao = '';
         if (temDeclaracao) {
-            const dId = extrairIdDrive(linkDeclaracao);
-            const dDownload = dId ? `https://drive.google.com/uc?export=download&id=${dId}` : linkDeclaracao;
             const btnExcluir = (statusStr !== 'TRAMITADO' && (isTecnico || isGestor) && !(statusResp === 'APROVADO' && !isGestor))
                 ? `<button onclick="removerDocumentoRespostaCarta(event,'${nupVal}','declaracao')" class="btn-drive btn-red-outline" style="padding:0;width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;align-items:center;justify-content:center;">🗑️</button>` : '';
+            
+            let btnBaixarDeclar = '';
+            if (isLinkGCS(linkDeclaracao)) {
+                btnBaixarDeclar = `<button onclick="dispararDownloadSeguro('${linkDeclaracao}', 'Declaracao_${nupVal}.pdf')" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Declaração (LGPD)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></button>`;
+            } else {
+                const dId = extrairIdDrive(linkDeclaracao);
+                const dDownload = dId ? `https://drive.google.com/uc?export=download&id=${dId}` : linkDeclaracao;
+                btnBaixarDeclar = `<a href="${dDownload}" target="_blank" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Declaração"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></a>`;
+            }
+
             htmlDeclaracao = `
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.02);padding:10px;border-radius:6px;border:1px solid #333;">
                     <span style="font-size:13px;color:#f39c12;font-weight:bold;display:flex;align-items:center;gap:6px;">📜 Declaração Anexada</span>
                     <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
-                        <a href="${dDownload}" target="_blank" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Declaração"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></a>
+                        ${btnBaixarDeclar}
                         ${btnExcluir}
                     </div>
                 </div>`;
@@ -1340,10 +1433,14 @@ function exportarCSVCartas() {
 }
 
 /**
- * Helper para normalizar o link do Drive e construir o Preview do iFrame
+ * Helper para normalizar o link do Drive ou GCS e construir o Preview do iFrame
  */
 function obterPreviewLink(url) {
-    if (!url || !url.startsWith('http')) return null;
+    if (!url || !url.trim() || url.trim() === '-') return null;
+    if (typeof isLinkGCS === 'function' && isLinkGCS(url)) {
+        return url;
+    }
+    if (!url.startsWith('http')) return null;
     const fileId = extrairIdDrive(url);
     if (fileId) {
         return `https://drive.google.com/file/d/${fileId}/preview`;
@@ -1355,7 +1452,7 @@ function obterPreviewLink(url) {
 /**
  * Abre o Modal de Pré-visualização Largo específico do módulo
  */
-function abrirModalPreviewCartas(index) {
+async function abrirModalPreviewCartas(index) {
     const linha = dadosCartasGlobais[index];
     if (!linha) return;
 
@@ -1378,7 +1475,7 @@ function abrirModalPreviewCartas(index) {
     modal.innerHTML = `
         <div class="preview-wrapper" id="preview-wrapper-id">
             <div class="preview-toolbar">
-                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
+                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento (LGPD Seguro)</div>
                 <div class="preview-toolbar-buttons">
                     <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
@@ -1392,7 +1489,7 @@ function abrirModalPreviewCartas(index) {
                 <!-- CONTAINER GIS (Oculto por defeito) -->
                 <div id="gisMapContainerModal" style="display: none; flex: 1; position: relative; background-color: #1a1a1a;">
                     <div id="gisLoadingModal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; color: #f39c12; font-weight: bold; z-index: 999; display: none;">
-                        ⏳ A carregar Shapefile do Google Drive...
+                        ⏳ A carregar Shapefile com segurança...
                     </div>
                 </div>
 
@@ -1403,16 +1500,25 @@ function abrirModalPreviewCartas(index) {
         </div>
     `;
 
-    let urlPreview = previewOriginalUrl || previewManifestacaoUrl || previewDeclaracaoUrl || '';
+    let urlPreviewRaw = previewOriginalUrl || previewManifestacaoUrl || previewDeclaracaoUrl || '';
+    const nupFormatado = linha['NUP'] ? String(linha['NUP']).replace(/[^a-zA-Z0-9]/g, '_') : 'doc';
+    let urlPreview = '';
+    let urlDownload = '#';
+
+    if (urlPreviewRaw) {
+        try {
+            urlPreview = await obterLinkVisualizacaoSeguro(urlPreviewRaw);
+            urlDownload = await obterLinkDownloadSeguro(urlPreviewRaw, `Carta_${nupFormatado}.pdf`);
+        } catch (e) {
+            console.warn('Erro ao resolver link seguro da Carta:', e);
+            urlPreview = urlPreviewRaw;
+            urlDownload = urlPreviewRaw;
+        }
+    }
+
     const btnDownload = document.getElementById('btn-download-preview');
-    if (previewOriginalUrl && extrairIdDrive(linkOriginal)) {
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${extrairIdDrive(linkOriginal)}`;
-    } else if (previewManifestacaoUrl && extrairIdDrive(linkManifestacao)) {
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${extrairIdDrive(linkManifestacao)}`;
-    } else if (previewDeclaracaoUrl && extrairIdDrive(linkDeclaracao)) {
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${extrairIdDrive(linkDeclaracao)}`;
-    } else {
-        btnDownload.href = linkOriginal || linkManifestacao || linkDeclaracao || '#';
+    if (btnDownload) {
+        btnDownload.href = urlDownload;
     }
 
     // Status format
@@ -1459,30 +1565,18 @@ function abrirModalPreviewCartas(index) {
     let hasOrig = !!previewOriginalUrl;
     let hasManifest = !!previewManifestacaoUrl;
     let hasDeclar = !!previewDeclaracaoUrl;
-    let hasShape = !!(linkShapefile && linkShapefile.startsWith('http'));
+    let hasShape = !!(linkShapefile && linkShapefile.trim() !== '' && linkShapefile.trim() !== '-');
 
     if (hasOrig || hasManifest || hasDeclar || hasShape) {
-        let origId = extrairIdDrive(linkOriginal);
-        let manifestId = extrairIdDrive(linkManifestacao);
-        let declarId = extrairIdDrive(linkDeclaracao);
-        
-        let origDownload = origId ? `https://drive.google.com/uc?export=download&id=${origId}` : linkOriginal;
-        let manifestDownload = manifestId ? `https://drive.google.com/uc?export=download&id=${manifestId}` : linkManifestacao;
-        let declarDownload = declarId ? `https://drive.google.com/uc?export=download&id=${declarId}` : linkDeclaracao;
-
         toggleBtn = `<div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">`;
         if (hasOrig) {
-            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewOriginalUrl}', '${origDownload}')" class="btn-drive btn-preview btn-preview-toggle-tab active" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📜 Ver NUP</button>`;
+            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewOriginalUrl}', '${previewOriginalUrl}')" class="btn-drive btn-preview btn-preview-toggle-tab active" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📜 Ver NUP</button>`;
         }
         if (hasManifest) {
-            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewManifestacaoUrl}', '${manifestDownload}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${!hasOrig ? 'active' : ''}" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📄 Ver Manifestação</button>`;
-            if (!hasOrig && !urlPreview) urlPreview = previewManifestacaoUrl;
-            if (!hasOrig && btnDownload) btnDownload.href = manifestDownload;
+            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewManifestacaoUrl}', '${previewManifestacaoUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${!hasOrig ? 'active' : ''}" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📄 Ver Manifestação</button>`;
         }
         if (hasDeclar) {
-            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewDeclaracaoUrl}', '${declarDownload}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${(!hasOrig && !hasManifest) ? 'active' : ''}" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📜 Ver Declaração</button>`;
-            if (!hasOrig && !hasManifest && !urlPreview) urlPreview = previewDeclaracaoUrl;
-            if (!hasOrig && !hasManifest && btnDownload) btnDownload.href = declarDownload;
+            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewDeclaracaoUrl}', '${previewDeclaracaoUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${(!hasOrig && !hasManifest) ? 'active' : ''}" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📜 Ver Declaração</button>`;
         }
         if (hasShape) {
             toggleBtn += `<button onclick="alternarParaShapefileCartas(this, '${linkShapefile}', '${index}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">🗺️ Ver Mapa</button>`;
@@ -1497,7 +1591,7 @@ function abrirModalPreviewCartas(index) {
     const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRowCarta] || 'S/G';
     const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
 
-    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && (linkManifestacao.trim().startsWith('http') || linkDeclaracao.trim().startsWith('http'))) {
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && ((linkManifestacao && linkManifestacao.trim() !== '-' && linkManifestacao.trim() !== '') || (linkDeclaracao && linkDeclaracao.trim() !== '-' && linkDeclaracao.trim() !== ''))) {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
@@ -1542,10 +1636,9 @@ function abrirModalPreviewCartas(index) {
             frame.src = urlPreview;
         }
         if (btnOpenPreview) {
-            btnOpenPreview.href = urlPreview.replace('/preview', '/view');
+            btnOpenPreview.href = urlPreview;
         }
     }
-
     modal.style.display = 'flex';
 }
 
@@ -1588,8 +1681,15 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
 
     const btnDownload = document.getElementById('btn-download-preview');
     if (btnDownload) {
-        const fileId = extrairIdDrive(shapeUrl);
-        btnDownload.href = fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : shapeUrl;
+        if (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)) {
+            const recordNup = (dadosCartasGlobais[indexStr] && dadosCartasGlobais[indexStr]['NUP']) ? dadosCartasGlobais[indexStr]['NUP'] : 'carta';
+            obterLinkDownloadSeguro(shapeUrl, `Shapefile_${recordNup}.zip`).then(dl => {
+                btnDownload.href = dl;
+            }).catch(() => { btnDownload.href = shapeUrl; });
+        } else {
+            const fileId = extrairIdDrive(shapeUrl);
+            btnDownload.href = fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : shapeUrl;
+        }
     }
 
     if (typeof carregarBibliotecasGIS === 'function') {
@@ -1615,26 +1715,35 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
     if (loadingEl) loadingEl.style.display = 'block';
 
     try {
-        const fileId = extrairIdDrive(shapeUrl);
-        if (!fileId) throw new Error('ID do Google Drive não encontrado no link.');
-
         const record = dadosCartasGlobais[indexStr];
         const nup = record ? record['NUP'] : '';
         let geojson = nup ? cacheShapesCartas[nup] : null;
 
         if (!geojson) {
-            // Baixa o ZIP em formato binário encapsulado em base64 da nossa API sem sofrer CORS block do Google Drive
-            const payload = { acao: 'download_drive_file', fileId: fileId };
-            const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const resultado = await resposta.json();
+            let buffer = null;
+            if (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)) {
+                console.log(`[GIS] Baixando Shapefile seguro do GCS para NUP: ${nup}`);
+                const signedUrl = await GCSStorage.obterUrlTemporaria(shapeUrl, { responseDisposition: 'inline' });
+                const resp = await fetch(signedUrl);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status} ao obter Shapefile do GCS`);
+                buffer = await resp.arrayBuffer();
+            } else {
+                const fileId = extrairIdDrive(shapeUrl);
+                if (!fileId) throw new Error('ID do Google Drive não encontrado no link.');
 
-            if (resultado.status !== 'success') throw new Error(resultado.message || 'Erro ao baixar Shapefile.');
+                // Baixa o ZIP em formato binário encapsulado em base64 da nossa API sem sofrer CORS block do Google Drive
+                const payload = { acao: 'download_drive_file', fileId: fileId };
+                const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const resultado = await resposta.json();
 
-            const binaryString = window.atob(resultado.base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-            const buffer = bytes.buffer;
+                if (resultado.status !== 'success') throw new Error(resultado.message || 'Erro ao baixar Shapefile.');
+
+                const binaryString = window.atob(resultado.base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+                buffer = bytes.buffer;
+            }
 
             geojson = await shp(buffer);
             if (Array.isArray(geojson)) {
@@ -2267,30 +2376,53 @@ function anexarPdfOriginalCarta(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'cartas',
+                        nup: nup,
+                        nomePersonalizado: `Carta_Consulta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`,
+                        username: usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback para envio padrão GAS:', gcsErr.message);
+                }
+            }
+
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
 
             const payload = { 
                 acao: "anexar_pdf_original_carta", 
                 nup: nup, 
                 fileName: `Carta_Consulta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
                 base64: base64,
+                url: gcsUri,
+                linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
             const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast('PDF Original anexado com sucesso!', 'success');
+                mostrarToast('PDF Original anexado com sucesso no Google Cloud Storage (LGPD)!', 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK DO NUP'] = resultado.url;
+                    target['LINK DO NUP'] = linkFinal;
                 }
                 atualizarCacheCartas();
                 aplicarFiltrosCartas();
@@ -2319,30 +2451,53 @@ function anexarShapefileCarta(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar Shapefile com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'cartas',
+                        nup: nup,
+                        nomePersonalizado: `Shapefile_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.zip`,
+                        username: usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback shapefile GAS:', gcsErr.message);
+                }
+            }
+
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
 
             const payload = { 
                 acao: "anexar_shapefile_carta", 
                 nup: nup, 
                 fileName: `Shapefile_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.zip`, 
                 base64: base64,
+                url: gcsUri,
+                linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
             const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast('Shapefile anexado com sucesso!', 'success');
+                mostrarToast('Shapefile anexado com sucesso no Google Cloud Storage (LGPD)!', 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK SHAPEFILE'] = resultado.url;
+                    target['LINK SHAPEFILE'] = linkFinal;
                 }
                 atualizarCacheCartas();
                 aplicarFiltrosCartas();
@@ -2371,36 +2526,59 @@ function anexarDocumentoRespostaCarta(event, nup, tipo) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
-
             const labelTipo = tipo === 'manifestacao' ? 'Manifestacao' : 'Declaracao';
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'cartas',
+                        nup: nup,
+                        nomePersonalizado: `${labelTipo}_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`,
+                        username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback resposta carta GAS:', gcsErr.message);
+                }
+            }
+
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
+
             const payload = { 
                 acao: "anexar_resposta_documento_carta", 
                 nup: nup, 
                 tipo: tipo,
                 fileName: `${labelTipo}_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
                 base64: base64,
+                url: gcsUri,
+                linkGcs: gcsUri,
                 username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
             };
             const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast(`${tipo === 'manifestacao' ? 'Manifestação' : 'Declaração'} anexada com sucesso!`, 'success');
+                mostrarToast(`${tipo === 'manifestacao' ? 'Manifestação' : 'Declaração'} anexada com sucesso no Google Cloud Storage (LGPD)!`, 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
                 if (target) {
                     if (tipo === 'manifestacao') {
-                        target['LINK DA MANIFESTAÇÃO'] = resultado.url;
-                        target['LINK DA RESPOSTA'] = resultado.url; // fallback/compatibilidade
+                        target['LINK DA MANIFESTAÇÃO'] = linkFinal;
+                        target['LINK DA RESPOSTA'] = linkFinal; // fallback/compatibilidade
                     } else {
-                        target['LINK DA DECLARAÇÃO'] = resultado.url;
+                        target['LINK DA DECLARAÇÃO'] = linkFinal;
                     }
                     target['STATUS'] = 'REVISÃO';
                     // Se foi reprovada anteriormente, limpa status da resposta para entrar em nova revisão
