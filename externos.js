@@ -456,18 +456,6 @@ function filtrarExternos() {
     const remetente = fRemetenteEl ? fRemetenteEl.value.toLowerCase().trim() : '';
     const status = fStatusEl ? fStatusEl.value.toUpperCase().trim() : '';
 
-    // Se estiver na Consulta Geral, não exibir nada a menos que haja algum termo de busca inserido
-    if (subAbaAtiva === 'Geral') {
-        const temFiltroPreenchido = nup !== '' || carms !== '' || tecnico !== '' || remetente !== '' || status !== '';
-        if (!temFiltroPreenchido) {
-            renderTabelaExternos([]);
-            if (typeof atualizarBadgesNotificacao === 'function') {
-                atualizarBadgesNotificacao(dadosCoringa);
-            }
-            return;
-        }
-    }
-
     if (typeof dadosExternosGlobais !== 'undefined' && Array.isArray(dadosExternosGlobais)) {
         dadosExternosGlobais.forEach(limparEPadronizarExternos);
     }
@@ -506,10 +494,10 @@ function filtrarExternos() {
             if (!matchTecnico) return false;
         }
 
-        // Restrição de Gerência para GCAR / GEAA
-        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+        // Restrição de Gerência/Revisão para GCAR / GEAA
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil !== 'administrativo' && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'revisor')) {
             if (!semTecnico) {
-                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecUpper] || 'S/G';
+                const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tecUpper] : null) || 'S/G';
                 if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
             }
         }
@@ -527,9 +515,8 @@ function filtrarExternos() {
             }
         } else {
             if (typeof subAbaExternosAtiva !== 'undefined' && subAbaExternosAtiva !== 'Geral') {
-                const gerenciaRow = String(r['CARMS'] || '').toUpperCase().trim();
-                const tecSector = semTecnico ? 'S/T' : (MAPA_TECNICOS_SETORES[tecUpper] || 'S/G');
-                matchesSubAba = (gerenciaRow.includes(subAbaExternosAtiva) || tecSector === subAbaExternosAtiva);
+                const tecSector = semTecnico ? 'S/T' : ((typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tecUpper] : null) || 'S/G');
+                matchesSubAba = (tecSector === subAbaExternosAtiva);
             }
         }
 
@@ -539,7 +526,6 @@ function filtrarExternos() {
         // REGRAS DE FILTRAGEM DAS SUB-ABAS (SITUAÇÃO GERAL RECONFIGURADA)
         // =====================================================================
         if (subAbaAtiva === 'Geral') {
-            // Retorna estritamente TRUE para permitir TRAMITADOS e ARQUIVADOS na listagem total
             return true;
         } else if (subAbaAtiva === 'Aguard. Distribuição') {
             return semTecnico && !isFinalizado && !hasResposta && statusRow !== 'FAZER DESPACHO' && statusRow !== 'FAZER CI' && statusRow !== 'AGUARDANDO ASSINATURA' && statusRow !== 'REVISÃO' && statusRow !== 'REVISAO';
@@ -731,16 +717,7 @@ async function salvarNovoExterno() {
                 atualizarCacheExternos();
                 filtrarExternos();
             }
-        }
-            if (resultado.url) {
-                novoItem['LINK DO NUP'] = resultado.url;
-                novoItem['LINK-NUP'] = resultado.url;
-                novoItem['LINK'] = resultado.url;
-                atualizarCacheExternos();
-                filtrarExternos();
-            }
-        }
-        else { 
+        } else { 
             mostrarToast('Erro: ' + resultado.message, 'error'); 
             dadosExternosGlobais = dadosExternosGlobais.filter(item => item !== novoItem); 
             filtrarExternos(); 
