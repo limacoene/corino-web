@@ -38,6 +38,7 @@ function maskNUP(event) {
  * Extrai o ID de um ficheiro do Google Drive a partir do link partilhado.
  */
 function extrairIdDrive(url) {
+    if (!url || typeof url !== 'string') return null;
     let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (match) return match[1];
     match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
@@ -46,20 +47,87 @@ function extrairIdDrive(url) {
 }
 
 /**
- * Alterna a visualização no iframe de preview de documentos e atualiza o estado visual (ativação) das abas.
+ * Identifica se uma referência é do Google Cloud Storage
  */
-function alternarVisualizacaoPreview(btn, url, downloadUrl) {
+function isLinkGCS(url) {
+    if (typeof GCSStorage !== 'undefined' && GCSStorage.isGCS) {
+        return GCSStorage.isGCS(url);
+    }
+    if (!url || typeof url !== 'string') return false;
+    return url.startsWith('gs://') || url.startsWith('gcs:') || url.includes('storage.googleapis.com');
+}
+
+/**
+ * Resolve de forma assíncrona o link de visualização (Signed URL temporária no GCS ou link de preview no Drive)
+ */
+async function obterLinkVisualizacaoSeguro(urlOuCaminho) {
+    if (!urlOuCaminho || typeof urlOuCaminho !== 'string') return '';
+    const raw = urlOuCaminho.trim();
+    if (isLinkGCS(raw)) {
+        if (typeof GCSStorage !== 'undefined' && GCSStorage.obterUrlTemporaria) {
+            return await GCSStorage.obterUrlTemporaria(raw, false);
+        }
+    }
+    const fileId = extrairIdDrive(raw);
+    if (fileId) {
+        return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+    return raw;
+}
+
+/**
+ * Resolve de forma assíncrona o link de download temporário
+ */
+async function obterLinkDownloadSeguro(urlOuCaminho, nomeArquivo = '') {
+    if (!urlOuCaminho || typeof urlOuCaminho !== 'string') return '';
+    const raw = urlOuCaminho.trim();
+    if (isLinkGCS(raw)) {
+        if (typeof GCSStorage !== 'undefined' && GCSStorage.obterUrlTemporaria) {
+            return await GCSStorage.obterUrlTemporaria(raw, true, nomeArquivo);
+        }
+    }
+    const fileId = extrairIdDrive(raw);
+    if (fileId) {
+        return `https://drive.google.com/uc?export=download&id=${fileId}`;
+    }
+    return raw;
+}
+
+/**
+ * Alterna a visualização no iframe de preview de documentos e atualiza o estado visual (ativação) das abas.
+ * Suporta resolução transparente de links GCS temporários.
+ */
+async function alternarVisualizacaoPreview(btn, url, downloadUrl) {
+    let resolvedUrl = url;
+    let resolvedDownloadUrl = downloadUrl;
+
+    if (isLinkGCS(url)) {
+        try {
+            resolvedUrl = await obterLinkVisualizacaoSeguro(url);
+        } catch (e) {
+            console.error('Erro ao resolver preview GCS:', e);
+        }
+    }
+
+    if (isLinkGCS(downloadUrl)) {
+        try {
+            resolvedDownloadUrl = await obterLinkDownloadSeguro(downloadUrl);
+        } catch (e) {
+            console.error('Erro ao resolver download GCS:', e);
+        }
+    }
+
     const iframe = document.getElementById('previewFrame');
     if (iframe) {
-        iframe.src = url;
+        iframe.src = resolvedUrl;
     }
     const downloadBtn = document.getElementById('btn-download-preview');
     if (downloadBtn) {
-        downloadBtn.href = downloadUrl;
+        downloadBtn.href = resolvedDownloadUrl;
     }
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
-        btnOpenPreview.href = url.replace('/preview', '/view');
+        btnOpenPreview.href = resolvedUrl.replace('/preview', '/view');
     }
     
     // Remove classe ativa de outros botões e aplica ao atual
@@ -71,6 +139,32 @@ function alternarVisualizacaoPreview(btn, url, downloadUrl) {
         });
     }
     btn.classList.add('active');
+}
+
+/**
+ * Dispara o download de um documento seguro do GCS ou Drive
+ */
+async function dispararDownloadSeguro(urlOuCaminho, nomeArquivo = '') {
+    try {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('A preparar download seguro com link temporário...', 'success');
+        }
+        const urlDownload = await obterLinkDownloadSeguro(urlOuCaminho, nomeArquivo);
+        if (urlDownload) {
+            const a = document.createElement('a');
+            a.href = urlDownload;
+            a.target = '_blank';
+            if (nomeArquivo) a.download = nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    } catch (err) {
+        console.error('Erro ao realizar download:', err);
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('Não foi possível iniciar o download: ' + err.message, 'error');
+        }
+    }
 }
 
 /**

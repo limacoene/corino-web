@@ -1,0 +1,26 @@
+# Dependências (instaladas automaticamente na nuvem via npm install)
+node_modules/
+
+# Variáveis de Ambiente e Segredos Locais
+.env
+.env.local
+.env.*.local
+*.env
+
+# Chaves e Credenciais Google Cloud (LGPD / Segurança)
+gcs-key.json
+*gcs-key*.json
+*.key.json
+credentials.json
+service-account*.json
+
+# Arquivos do Sistema Operacional
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*

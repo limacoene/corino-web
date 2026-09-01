@@ -218,26 +218,32 @@ function renderTabelaAutos(dados) {
         const s = autoSelecionadoMockup;
         const status = (s['STATUS ATUAL'] || '').toUpperCase();
         const linkResposta = s['LINK DA RESPOSTA'] || s['LINK RESPOSTA'] || s['LINK_RESPOSTA'] || '';
-        const temResposta = linkResposta && linkResposta.startsWith('http');
+        const temResposta = linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-';
         const statusResp = (s['STATUS-RESPOSTA'] || s['STATUS DA RESPOSTA'] || '').toUpperCase();
 
         const isGestor = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
         const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
 
         let linkPreviewBtn = '';
-        if (s['LINK NUP'] && String(s['LINK NUP']).trim() !== '') {
-            linkPreviewBtn = `<button onclick="abrirPreviewAuto(event, '${s['LINK NUP']}', '${s['NUP']}')" class="btn-preview-action" style="padding: 8px 15px; font-size: 13px; background-color: rgba(46, 204, 113, 0.1); border-color: var(--primary-green); color: var(--primary-green); font-weight: bold;">👁️ Abrir PDF do Processo</button>`;
+        if (s['LINK NUP'] && String(s['LINK NUP']).trim() !== '' && String(s['LINK NUP']).trim() !== '-') {
+            linkPreviewBtn = `<button onclick="abrirPreviewAuto(event, '${s['LINK NUP']}', '${s['NUP']}')" class="btn-preview-action" style="padding: 8px 15px; font-size: 13px; background-color: rgba(46, 204, 113, 0.1); border-color: var(--primary-green); color: var(--primary-green); font-weight: bold;">👁️ Abrir PDF do Processo (LGPD)</button>`;
         }
 
         let actionButtons = '';
         let htmlResposta = '';
 
         if (temResposta) {
-            const respId = extrairIdDrive(linkResposta);
-            let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">🔗 Abrir Resposta</a>`;
-            if (respId) {
-                const respPrev = `https://drive.google.com/file/d/${respId}/preview`;
-                botaoResp = `<button onclick="abrirPreviewAuto(event, '${respPrev}', '${s['NUP']}')" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0;">👁️ Ver Resposta</button>`;
+            let botaoResp = '';
+            if (isLinkGCS(linkResposta)) {
+                botaoResp = `<button onclick="abrirPreviewAuto(event, '${linkResposta}', '${s['NUP']}')" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0;">👁️ Ver Resposta (LGPD)</button>`;
+            } else {
+                const respId = extrairIdDrive(linkResposta);
+                if (respId) {
+                    const respPrev = `https://drive.google.com/file/d/${respId}/preview`;
+                    botaoResp = `<button onclick="abrirPreviewAuto(event, '${respPrev}', '${s['NUP']}')" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0;">👁️ Ver Resposta</button>`;
+                } else {
+                    botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline" style="width: auto; padding: 10px 20px; font-size: 14px; margin: 0; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">🔗 Abrir Resposta</a>`;
+                }
             }
 
             let btnRetirar = '';
@@ -342,7 +348,7 @@ function renderTabelaAutos(dados) {
     window.scrollTo(0, savedWindowScrollY);
 }
 
-function abrirPreviewAuto(event, url, nup) {
+async function abrirPreviewAuto(event, url, nup) {
     if (event) event.preventDefault();
     const linha = dadosAutosGlobais.find(x => x['NUP'] === nup);
     if (!linha) return;
@@ -354,7 +360,7 @@ function abrirPreviewAuto(event, url, nup) {
     modal.innerHTML = `
         <div class="preview-wrapper" id="preview-wrapper-id">
             <div class="preview-toolbar">
-                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
+                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento (LGPD Seguro)</div>
                 <div class="preview-toolbar-buttons">
                     <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
@@ -371,14 +377,20 @@ function abrirPreviewAuto(event, url, nup) {
         </div>
     `;
 
+    const nupFormatado = String(nup).replace(/[^a-zA-Z0-9]/g, '_');
     let previewUrl = url;
-    const fileId = extrairIdDrive(url);
+    let downloadUrl = url;
+
+    try {
+        previewUrl = await obterLinkVisualizacaoSeguro(url);
+        downloadUrl = await obterLinkDownloadSeguro(url, `Auto_${nupFormatado}.pdf`);
+    } catch (e) {
+        console.warn('Erro ao resolver link seguro do Auto:', e);
+    }
+
     const btnDownload = document.getElementById('btn-download-preview');
-    if (fileId) {
-        previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    } else {
-        btnDownload.href = url;
+    if (btnDownload) {
+        btnDownload.href = downloadUrl;
     }
 
     let corBadgeTipo = '#333'; let corTextoTipo = '#ccc'; let iconTipo = '';
@@ -404,33 +416,26 @@ function abrirPreviewAuto(event, url, nup) {
     // Response file toggle
     const linkResposta = linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '';
     let respPreviewUrl = '';
-    let respId = null;
-    if (linkResposta && linkResposta.startsWith('http')) {
-        respId = extrairIdDrive(linkResposta);
-        if (respId) respPreviewUrl = `https://drive.google.com/file/d/${respId}/preview`;
+    if (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
+        respPreviewUrl = linkResposta;
     }
 
     const linkDrive = linha['LINK NUP'] || linha['LINK-NUP'] || linha['LINK DO NUP'] || linha['LINK_NUP'] || '';
     let principalPreviewUrl = '';
-    let principalId = null;
-    if (linkDrive && linkDrive.startsWith('http')) {
-        principalId = extrairIdDrive(linkDrive);
-        if (principalId) principalPreviewUrl = `https://drive.google.com/file/d/${principalId}/preview`;
+    if (linkDrive && linkDrive.trim() !== '' && linkDrive.trim() !== '-') {
+        principalPreviewUrl = linkDrive;
     }
 
     let toggleBtn = '';
     if (respPreviewUrl && principalPreviewUrl) {
-        let downloadPrincipalUrlFull = principalId ? `https://drive.google.com/uc?export=download&id=${principalId}` : linkDrive;
-        let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
-
-        const isPrincipalActive = (url === principalPreviewUrl || url === linkDrive);
+        const isPrincipalActive = (url === principalPreviewUrl || url === linkDrive || url === previewUrl);
         const activePrincipalClass = isPrincipalActive ? 'active' : '';
         const activeRespClass = !isPrincipalActive ? 'active' : '';
 
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="alternarVisualizacaoPreview(this, '${principalPreviewUrl}', '${downloadPrincipalUrlFull}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activePrincipalClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Processo Original</button>
-                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${downloadRespUrlFull}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${principalPreviewUrl}', '${principalPreviewUrl}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activePrincipalClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Processo Original</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${respPreviewUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }
@@ -442,7 +447,7 @@ function abrirPreviewAuto(event, url, nup) {
     const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecAuto] || 'S/G';
     const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
 
-    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
@@ -459,9 +464,12 @@ function abrirPreviewAuto(event, url, nup) {
 
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
-        btnOpenPreview.href = previewUrl.replace('/preview', '/view');
+        btnOpenPreview.href = previewUrl;
     }
-    document.getElementById('previewFrame').src = previewUrl;
+    const frame = document.getElementById('previewFrame');
+    if (frame) {
+        frame.src = previewUrl;
+    }
     modal.style.display = 'flex';
 }
 
@@ -633,7 +641,14 @@ async function carregarAutos() {
     const tempRawAutos = localStorage.getItem('corino_temp_raw_autos');
     if (tempRawAutos) {
         try {
-            const dadosBrutos = JSON.parse(tempRawAutos);
+            const dadosBrutos = JSON.parse(tempRawAutos).map(linha => {
+                linha['TÉCNICO'] = linha['TÉCNICO/ADMIN'] || linha['TECNICO/ADMIN'] || linha['TÉCNICO'] || linha['TECNICO'] || 'S/T';
+                linha['STATUS-RESPOSTA'] = linha['STATUS-RESPOSTA'] || linha['STATUS DA RESPOSTA'] || '';
+                linha['MOTIVO DA AVALIAÇÃO'] = linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || '';
+                linha['LINK RESPOSTA'] = linha['LINK RESPOSTA'] || linha['LINK DA RESPOSTA'] || '';
+                linha['LINK NUP'] = linha['LINK NUP'] || linha['LINK DO NUP'] || '';
+                return linha;
+            });
             let novosDados = [];
             if (usuarioAtivo) {
                 if (usuarioAtivo.perfil === 'tecnico') {
@@ -684,12 +699,20 @@ async function carregarAutos() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
+            const dadosTratados = (resultado.dados || []).map(linha => {
+                linha['TÉCNICO'] = linha['TÉCNICO/ADMIN'] || linha['TECNICO/ADMIN'] || linha['TÉCNICO'] || linha['TECNICO'] || 'S/T';
+                linha['STATUS-RESPOSTA'] = linha['STATUS-RESPOSTA'] || linha['STATUS DA RESPOSTA'] || '';
+                linha['MOTIVO DA AVALIAÇÃO'] = linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || '';
+                linha['LINK RESPOSTA'] = linha['LINK RESPOSTA'] || linha['LINK DA RESPOSTA'] || '';
+                linha['LINK NUP'] = linha['LINK NUP'] || linha['LINK DO NUP'] || '';
+                return linha;
+            });
             let novosDados = [];
             if (usuarioAtivo) {
                 if (usuarioAtivo.perfil === 'tecnico') {
-                    novosDados = resultado.dados.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
+                    novosDados = dadosTratados.filter(linha => (linha['TÉCNICO'] || '').toUpperCase().trim() === usuarioAtivo.nomePlanilha.toUpperCase().trim());
                 } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
-                    novosDados = resultado.dados.filter(linha => {
+                    novosDados = dadosTratados.filter(linha => {
                         const tec = (linha['TÉCNICO'] || '').trim().toUpperCase();
                         const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
                         if (!semTecnico) {
@@ -699,7 +722,7 @@ async function carregarAutos() {
                         }
                     });
                 } else {
-                    novosDados = resultado.dados;
+                    novosDados = dadosTratados;
                 }
             }
             
@@ -733,19 +756,39 @@ async function salvarNovoAuto() {
     btn.innerHTML = '⏳ Preparando (Pode demorar devido ao PDF)...'; btn.disabled = true;
 
     const fileInput = document.getElementById('cadAutoArquivo');
-    let base64File = null; let fileName = null;
+    let base64File = null; let fileName = null; let gcsUri = null;
     if (fileInput && fileInput.files && fileInput.files.length > 0) {
         const file = fileInput.files[0];
-        if (file.size > 15 * 1024 * 1024) { mostrarToast('Erro: O arquivo deve ter no máximo 15MB', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+        if (file.size > 25 * 1024 * 1024) { mostrarToast('Erro: O arquivo deve ter no máximo 25MB', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
         fileName = file.name;
-        try {
-            base64File = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                reader.onerror = (e) => reject(e);
-                reader.readAsDataURL(file);
-            });
-        } catch (e) { mostrarToast('Erro ao ler o arquivo', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+
+        // 1. Upload Seguro no GCS
+        if (typeof GCSStorage !== 'undefined') {
+            try {
+                const gcsRes = await GCSStorage.fazerUpload(file, {
+                    modulo: 'autos',
+                    nup: nup,
+                    nomePersonalizado: fileName,
+                    username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+                });
+                if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                    gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                }
+            } catch (gcsErr) {
+                console.warn('⚠️ [GCS] Fallback para envio base64:', gcsErr.message);
+            }
+        }
+
+        if (!gcsUri) {
+            try {
+                base64File = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+            } catch (e) { mostrarToast('Erro ao ler o arquivo', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+        }
     }
 
     const tecnicoVal = document.getElementById('cadAutoTecnico').value;
@@ -761,6 +804,7 @@ async function salvarNovoAuto() {
         status_atual: statusVal, tipo: document.getElementById('cadAutoTipo').value,
         tecnico: tecnicoVal, fisico_ems: document.getElementById('cadAutoFisicoEms').value.trim(),
         base64: base64File, fileName: fileName,
+        url: gcsUri, linkGcs: gcsUri,
         username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
     };
 
@@ -775,7 +819,8 @@ async function salvarNovoAuto() {
         'STATUS ATUAL': payload.status_atual,
         'TIPO': payload.tipo,
         'TÉCNICO': payload.tecnico,
-        'FISICO/E-MS': payload.fisico_ems
+        'FISICO/E-MS': payload.fisico_ems,
+        'LINK NUP': gcsUri || ''
     };
 
     dadosAutosGlobais.unshift(novoItem);
@@ -783,7 +828,7 @@ async function salvarNovoAuto() {
     fecharModalCadastroAuto();
     filtrarAutos();
     atualizarCacheAutos();
-    mostrarToast('Auto lançado localmente. Sincronizando...', 'success');
+    mostrarToast('Auto lançado localmente. Sincronizando com a nuvem...', 'success');
     btn.innerHTML = textoOriginal;
     btn.disabled = false;
 
@@ -793,10 +838,11 @@ async function salvarNovoAuto() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
-            mostrarToast('Auto sincronizado com sucesso!', 'success');
-            if (resultado.url) {
-                novoItem['LINK NUP'] = resultado.url;
-                novoItem['LINK-NUP'] = resultado.url;
+            mostrarToast('Auto sincronizado com sucesso no Google Cloud Storage (LGPD)!', 'success');
+            const linkFinal = gcsUri || resultado.url;
+            if (linkFinal) {
+                novoItem['LINK NUP'] = linkFinal;
+                novoItem['LINK-NUP'] = linkFinal;
                 atualizarCacheAutos();
                 filtrarAutos();
             }
@@ -818,7 +864,7 @@ async function salvarNovoAuto() {
     }
 }
 
-// Inicia o drag & drop deste ecrãã se a função do app.js já estiver ativa
+// Inicia o drag & drop deste ecrã se a função do app.js já estiver ativa
 if (typeof configurarDragAndDrop === 'function') {
     configurarDragAndDrop('cadAutoArquivo', 'cadAutoArquivoLabel', updateFileNameAuto);
 }
@@ -836,24 +882,53 @@ function anexarDocumentoAuto(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'autos',
+                        nup: nup,
+                        username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback para envio padrão GAS:', gcsErr.message);
+                }
+            }
 
-            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Auto_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "auto", username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
+
+            const payload = { 
+                acao: "upload", 
+                nup: nup, 
+                fileName: `Resposta_Auto_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
+                base64: base64, 
+                url: gcsUri,
+                linkGcs: gcsUri,
+                tipo_oficio: "auto", 
+                username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' 
+            };
             const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast('Resposta anexada com sucesso!', 'success');
+                mostrarToast('Resposta anexada com sucesso no Google Cloud Storage (LGPD)!', 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosAutosGlobais.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK DA RESPOSTA'] = resultado.url;
+                    target['LINK DA RESPOSTA'] = linkFinal;
                     target['STATUS ATUAL'] = "REVISÃO";
                     target['STATUS-RESPOSTA'] = "";
                     target['MOTIVO DA AVALIAÇÃO'] = "";

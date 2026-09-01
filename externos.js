@@ -17,14 +17,29 @@ let externoSelecionadoMockup = null;
 
 function limparEPadronizarExternos(r) {
     if (!r) return r;
+    r['NUP'] = r['NUP'] || r['PROCESSO'] || '';
+    r['DATA DE RECEBIMENTO'] = r['DATA RECEBIMENTO'] || r['DATA DE RECEBIMENTO'] || r['DATA'] || '';
+    r['DATA RECEBIMENTO'] = r['DATA DE RECEBIMENTO'];
+    r['ASSUNTO'] = r['ASSUNTO'] || '';
+    r['REMETENTE'] = r['REMETENTE'] || '';
+    r['CARMS'] = r['CARMS'] || r['CAR'] || '-';
+    r['TÉCNICO/ADMIN'] = r['TÉCNICO/ADMIN'] || r['TECNICO/ADMIN'] || r['TÉCNICO'] || r['TECNICO'] || 'S/T';
+    r['TÉCNICO'] = r['TÉCNICO/ADMIN'];
+    r['OBSERVAÇÕES'] = r['OBSERVAÇÃO'] || r['OBSERVAÇÕES'] || r['OBS'] || '-';
+    r['OBSERVAÇÃO'] = r['OBSERVAÇÕES'];
+    r['LINK DO NUP'] = r['LINK DO NUP'] || r['LINK-NUP'] || r['LINK NUP'] || r['LINK_NUP'] || r['LINK'] || '';
+    
     const linkResposta = r['LINK DA RESPOSTA'] || r['LINK RESPOSTA'] || r['LINK_RESPOSTA'] || '';
     r['LINK DA RESPOSTA'] = linkResposta;
+    r['LINK RESPOSTA'] = linkResposta;
     const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
     
     const statusResp = (r['STATUS-RESPOSTA'] || r['STATUS DA RESPOSTA'] || r['STATUS_RESPOSTA'] || '').toUpperCase().trim();
     r['STATUS-RESPOSTA'] = statusResp;
     r['STATUS DA RESPOSTA'] = statusResp;
     r['STATUS_RESPOSTA'] = statusResp;
+
+    r['MOTIVO DA AVALIAÇÃO'] = r['MOTIVO DA AVALIAÇÃO'] || r['MOTIVO AVALIAÇÃO'] || r['MOTIVO_AVALIACAO'] || '';
 
     let statusRow = (r['STATUS'] || '').toUpperCase().trim();
 
@@ -235,7 +250,7 @@ function renderTabelaExternos(dados) {
         if (status === 'TRAMITADO' || status === 'ARQUIVADO' || status === 'RESPONDIDO') {
             status = 'FINALIZADO';
         }
-        const temResposta = linkResposta && linkResposta.startsWith('http');
+        const temResposta = linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-';
 
         // Botoes do Documento Principal
         let htmlPreviewIcon = '';
@@ -260,15 +275,20 @@ function renderTabelaExternos(dados) {
             btnAnexarOriginal = `<button onclick="anexarPdfOriginalExt(event, '${nupVal}')" class="btn-drive btn-upload" style="background-color: #34495e; border-color: #2c3e50;">📁 Anexar PDF Original</button>`;
         }
 
-        if (linkDrive && linkDrive.startsWith('http')) {
-            const fileId = extrairIdDrive(linkDrive);
-            if (fileId) {
-                const linkPrev = `https://drive.google.com/file/d/${fileId}/preview`;
-                const linkDown = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                htmlPreviewIcon = `<button onclick="abrirPreviewExterno(event, '${linkPrev}', '${nupVal}')" class="btn-inline-preview" title="Visualizar"></button>`;
-                htmlLink = `<div class="modal-buttons"><a href="${linkDown}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download Original</a> ${btnAnexar}</div>`;
+        if (linkDrive && linkDrive.trim() !== '' && linkDrive.trim() !== '-') {
+            if (isLinkGCS(linkDrive)) {
+                htmlPreviewIcon = `<button onclick="abrirPreviewExterno(event, '${linkDrive}', '${nupVal}')" class="btn-inline-preview" title="Visualizar (LGPD Seguro)"></button>`;
+                htmlLink = `<div class="modal-buttons"><button onclick="dispararDownloadSeguro('${linkDrive}', 'Oficio_Ext_${nupVal}.pdf')" class="btn-drive btn-download">⬇️ Download (LGPD)</button> ${btnAnexar}</div>`;
             } else {
-                htmlLink = `<div class="modal-buttons"><a href="${linkDrive}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a> ${btnAnexar}</div>`;
+                const fileId = extrairIdDrive(linkDrive);
+                if (fileId) {
+                    const linkPrev = `https://drive.google.com/file/d/${fileId}/preview`;
+                    const linkDown = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                    htmlPreviewIcon = `<button onclick="abrirPreviewExterno(event, '${linkPrev}', '${nupVal}')" class="btn-inline-preview" title="Visualizar"></button>`;
+                    htmlLink = `<div class="modal-buttons"><a href="${linkDown}" class="btn-drive btn-download" onclick="feedbackDownload(this)">⬇️ Download Original</a> ${btnAnexar}</div>`;
+                } else {
+                    htmlLink = `<div class="modal-buttons"><a href="${linkDrive}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a> ${btnAnexar}</div>`;
+                }
             }
         } else {
             const btnHtml = btnAnexarOriginal ? `<div class="modal-buttons" style="margin-top: 10px;">${btnAnexarOriginal}</div>` : '';
@@ -286,11 +306,17 @@ function renderTabelaExternos(dados) {
         // Botoes de Resposta e Avaliacao
         let htmlResposta = '';
         if (temResposta) {
-            const respId = extrairIdDrive(linkResposta);
-            let botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta</a>`;
-            if (respId) {
-                const respPrev = `https://drive.google.com/file/d/${respId}/preview`;
-                botaoResp = `<button onclick="abrirPreviewExterno(event, '${respPrev}', '${nupVal}')" class="btn-drive btn-orange-outline">👁️ Ver Resposta</button>`;
+            let botaoResp = '';
+            if (isLinkGCS(linkResposta)) {
+                botaoResp = `<button onclick="abrirPreviewExterno(event, '${linkResposta}', '${nupVal}')" class="btn-drive btn-orange-outline">👁️ Ver Resposta (LGPD)</button>`;
+            } else {
+                const respId = extrairIdDrive(linkResposta);
+                if (respId) {
+                    const respPrev = `https://drive.google.com/file/d/${respId}/preview`;
+                    botaoResp = `<button onclick="abrirPreviewExterno(event, '${respPrev}', '${nupVal}')" class="btn-drive btn-orange-outline">👁️ Ver Resposta</button>`;
+                } else {
+                    botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta</a>`;
+                }
             }
 
             let htmlMotivoReprovacao = '';
@@ -614,19 +640,39 @@ async function salvarNovoExterno() {
     btn.innerHTML = '⏳ Preparando...'; btn.disabled = true;
 
     const fileInput = document.getElementById('cadExtArquivo');
-    let base64File = null; let fileName = null;
+    let base64File = null; let fileName = null; let gcsUri = null;
     if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
-        if (file.size > 15 * 1024 * 1024) { mostrarToast('O ficheiro deve ter máx 15MB', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+        if (file.size > 25 * 1024 * 1024) { mostrarToast('O ficheiro deve ter máx 25MB', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
         fileName = file.name;
-        try {
-            base64File = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
-                reader.onerror = (e) => reject(e);
-                reader.readAsDataURL(file);
-            });
-        } catch (e) { mostrarToast('Erro ao ler arquivo', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+
+        // 1. Upload Seguro no GCS
+        if (typeof GCSStorage !== 'undefined') {
+            try {
+                const gcsRes = await GCSStorage.fazerUpload(file, {
+                    modulo: 'externos',
+                    nup: nup,
+                    nomePersonalizado: fileName,
+                    username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+                });
+                if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                    gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                }
+            } catch (gcsErr) {
+                console.warn('⚠️ [GCS] Fallback para envio base64:', gcsErr.message);
+            }
+        }
+
+        if (!gcsUri) {
+            try {
+                base64File = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+            } catch (e) { mostrarToast('Erro ao ler arquivo', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; return; }
+        }
     }
 
     const payload = {
@@ -642,6 +688,8 @@ async function salvarNovoExterno() {
         data_determino: document.getElementById('cadExtDataDet').value,
         observacao: document.getElementById('cadExtObs').value,
         base64: base64File,
+        url: gcsUri,
+        linkGcs: gcsUri,
         fileName: fileName
     };
 
@@ -655,14 +703,17 @@ async function salvarNovoExterno() {
         'STATUS': payload.status_atual,
         'DATA DE REPASSE': payload.data_repasse,
         'DATA DETERMINO': payload.data_determino,
-        'OBSERVAÇÕES': payload.observacao
+        'OBSERVAÇÕES': payload.observacao,
+        'LINK DO NUP': gcsUri || '',
+        'LINK-NUP': gcsUri || '',
+        'LINK': gcsUri || ''
     };
 
     dadosExternosGlobais.unshift(novoItem);
     fecharModalCadastroExterno();
     filtrarExternos();
     atualizarCacheExternos();
-    mostrarToast('Ofício Externo lançado localmente. Sincronizando...', 'success');
+    mostrarToast('Ofício Externo lançado localmente. Sincronizando com a nuvem...', 'success');
     btn.innerHTML = textoOriginal; btn.disabled = false;
 
     try {
@@ -671,7 +722,16 @@ async function salvarNovoExterno() {
         });
         const resultado = await resposta.json();
         if (resultado.status === 'success') {
-            mostrarToast('Sincronizado com sucesso!', 'success');
+            mostrarToast('Sincronizado com sucesso no Google Cloud Storage (LGPD)!', 'success');
+            const linkFinal = gcsUri || resultado.url;
+            if (linkFinal) {
+                novoItem['LINK DO NUP'] = linkFinal;
+                novoItem['LINK-NUP'] = linkFinal;
+                novoItem['LINK'] = linkFinal;
+                atualizarCacheExternos();
+                filtrarExternos();
+            }
+        }
             if (resultado.url) {
                 novoItem['LINK DO NUP'] = resultado.url;
                 novoItem['LINK-NUP'] = resultado.url;
@@ -694,7 +754,7 @@ async function salvarNovoExterno() {
     }
 }
 
-function abrirPreviewExterno(event, url, nup) {
+async function abrirPreviewExterno(event, url, nup) {
     if (event) event.preventDefault();
     const modal = document.getElementById('previewModal');
     const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
@@ -703,7 +763,7 @@ function abrirPreviewExterno(event, url, nup) {
     modal.innerHTML = `
         <div class="preview-wrapper" id="preview-wrapper-id">
             <div class="preview-toolbar">
-                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento</div>
+                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento (LGPD Seguro)</div>
                 <div class="preview-toolbar-buttons">
                     <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
                     <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
@@ -720,14 +780,20 @@ function abrirPreviewExterno(event, url, nup) {
         </div>
     `;
 
+    const nupFormatado = String(nup).replace(/[^a-zA-Z0-9]/g, '_');
     let previewUrl = url;
-    const fileId = extrairIdDrive(url);
+    let downloadUrl = url;
+
+    try {
+        previewUrl = await obterLinkVisualizacaoSeguro(url);
+        downloadUrl = await obterLinkDownloadSeguro(url, `Oficio_Ext_${nupFormatado}.pdf`);
+    } catch (e) {
+        console.warn('Erro ao resolver URL segura do Ofício Externo:', e);
+    }
+
     const btnDownload = document.getElementById('btn-download-preview');
-    if (fileId) {
-        previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-        btnDownload.href = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    } else {
-        btnDownload.href = url;
+    if (btnDownload) {
+        btnDownload.href = downloadUrl;
     }
 
     const linha = dadosExternosGlobais.find(x => x['NUP'] === nup);
@@ -783,34 +849,26 @@ function abrirPreviewExterno(event, url, nup) {
     // Configuração de alternador entre documento original e resposta se ambos existirem
     const linkResposta = linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '';
     let respPreviewUrl = '';
-    let respId = null;
-    if (linkResposta && linkResposta.startsWith('http')) {
-        respId = extrairIdDrive(linkResposta);
-        if (respId) respPreviewUrl = `https://drive.google.com/file/d/${respId}/preview`;
+    if (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
+        respPreviewUrl = linkResposta;
     }
 
     const linkDrive = linha['LINK DO NUP'] || linha['LINK-NUP'] || linha['LINK'] || '';
     let principalPreviewUrl = '';
-    let principalId = null;
-    if (linkDrive && linkDrive.startsWith('http')) {
-        principalId = extrairIdDrive(linkDrive);
-        if (principalId) principalPreviewUrl = `https://drive.google.com/file/d/${principalId}/preview`;
+    if (linkDrive && linkDrive.trim() !== '' && linkDrive.trim() !== '-') {
+        principalPreviewUrl = linkDrive;
     }
 
     let toggleBtn = '';
     if (respPreviewUrl && principalPreviewUrl) {
-        let downloadPrincipalUrlFull = principalId ? `https://drive.google.com/uc?export=download&id=${principalId}` : linkDrive;
-        let downloadRespUrlFull = respId ? `https://drive.google.com/uc?export=download&id=${respId}` : linkResposta;
-
-        // Determina qual aba deve iniciar ativa com base na URL atualmente aberta
-        const isPrincipalActive = (url === principalPreviewUrl || url === linkDrive);
+        const isPrincipalActive = (url === principalPreviewUrl || url === linkDrive || url === previewUrl);
         const activePrincipalClass = isPrincipalActive ? 'active' : '';
         const activeRespClass = !isPrincipalActive ? 'active' : '';
 
         toggleBtn = `
              <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="alternarVisualizacaoPreview(this, '${principalPreviewUrl}', '${downloadPrincipalUrlFull}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activePrincipalClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício Original</button>
-                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${downloadRespUrlFull}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${principalPreviewUrl}', '${principalPreviewUrl}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activePrincipalClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício Original</button>
+                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${respPreviewUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
              </div>
          `;
     }
@@ -822,7 +880,7 @@ function abrirPreviewExterno(event, url, nup) {
     const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecExt] || 'S/G';
     const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
 
-    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim().startsWith('http')) {
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
         acoesDiflorPreview = `
             <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
                 <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
@@ -839,9 +897,12 @@ function abrirPreviewExterno(event, url, nup) {
 
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
-        btnOpenPreview.href = previewUrl.replace('/preview', '/view');
+        btnOpenPreview.href = previewUrl;
     }
-    document.getElementById('previewFrame').src = previewUrl;
+    const frame = document.getElementById('previewFrame');
+    if (frame) {
+        frame.src = previewUrl;
+    }
     modal.style.display = 'flex';
 }
 
@@ -855,24 +916,53 @@ function anexarDocumentoExt(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'externos',
+                        nup: nup,
+                        username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback para envio padrão GAS:', gcsErr.message);
+                }
+            }
 
-            const payload = { acao: "upload", nup: nup, fileName: `Resposta_Externo_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, base64: base64, tipo_oficio: "externo", username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
+
+            const payload = { 
+                acao: "upload", 
+                nup: nup, 
+                fileName: `Resposta_Externo_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
+                base64: base64, 
+                url: gcsUri,
+                linkGcs: gcsUri,
+                tipo_oficio: "externo", 
+                username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' 
+            };
             const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast('Resposta anexada com sucesso!', 'success');
+                mostrarToast('Resposta anexada com sucesso no Google Cloud Storage (LGPD)!', 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosExternosGlobais.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK DA RESPOSTA'] = resultado.url;
+                    target['LINK DA RESPOSTA'] = linkFinal;
                     target['STATUS'] = "REVISÃO";
                     target['STATUS-RESPOSTA'] = "";
                     target['MOTIVO DA AVALIAÇÃO'] = "";
@@ -898,31 +988,53 @@ function anexarPdfOriginalExt(event, nup) {
         const file = e.target.files[0];
         if (!file) return;
 
-        btn.innerHTML = '⏳ A enviar...'; btn.disabled = true; btn.style.opacity = '0.7';
+        btn.innerHTML = '⏳ A enviar com segurança (LGPD)...'; btn.disabled = true; btn.style.opacity = '0.7';
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
+            let gcsUri = null;
+            if (typeof GCSStorage !== 'undefined') {
+                try {
+                    const gcsRes = await GCSStorage.fazerUpload(file, {
+                        modulo: 'externos',
+                        nup: nup,
+                        username: usuarioAtivo.username || ''
+                    });
+                    if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                        gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                    }
+                } catch (gcsErr) {
+                    console.warn('⚠️ [GCS] Fallback para envio padrão GAS:', gcsErr.message);
+                }
+            }
+
+            let base64 = null;
+            if (!gcsUri) {
+                base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader(); reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                });
+            }
 
             const payload = { 
                 acao: "anexar_pdf_original_externo", 
                 nup: nup, 
                 fileName: `Oficio_Externo_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`, 
                 base64: base64,
+                url: gcsUri,
+                linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
             const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast('PDF Original anexado com sucesso!', 'success');
+                mostrarToast('PDF Original anexado com sucesso no Google Cloud Storage (LGPD)!', 'success');
+                const linkFinal = gcsUri || resultado.url;
                 const target = dadosExternosGlobais.find(r => r['NUP'] === nup);
                 if (target) {
-                    target['LINK DO NUP'] = resultado.url;
-                    target['LINK-NUP'] = resultado.url;
+                    target['LINK DO NUP'] = linkFinal;
+                    target['LINK-NUP'] = linkFinal;
                 }
                 filtrarExternos();
                 atualizarCacheExternos();

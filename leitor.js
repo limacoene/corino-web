@@ -5,53 +5,81 @@ function limparEPadronizarLinha(linha) {
     let tipo = (linha['TIPO'] || '').toUpperCase();
     tipo = tipo.replace('CARTÃO DE CONSULTA', 'CARTA CONSULTA').replace('OFICIAL', 'OFÍCIO');
 
-    let tecnico = (linha['TÉCNICO/ADMIN'] || '').trim();
+    let tecnico = (linha['TÉCNICO/ADMIN'] || linha['TECNICO/ADMIN'] || linha['TÉCNICO'] || linha['TECNICO'] || '').trim();
     if (tecnico === '') {
         tecnico = 'S/T';
     }
 
-    let gerencia = (linha['GERÊNCIA'] || '').trim().toUpperCase();
+    let gerencia = (linha['GERÊNCIA'] || linha['GERENCIA'] || '').trim().toUpperCase();
     if (gerencia === '') {
         gerencia = 'S/G';
     }
 
     let registro = {
+        // Coluna A: DATA
         DATA: linha['DATA'] || linha['DATA DE ENTRADA'] || '-',
+        // Coluna B: NUP
         NUP: linha['NUP'] || linha['PROCESSO'] || '',
+        // Coluna C: COMARCA
         COMARCA: linha['COMARCA'] || linha['MUNICÍPIO'] || linha['MUNICIPIO'] || '-',
-        'OFÍCIO N.': linha['OFÍCIO N.'] || linha['OFÍCIO'] || linha['OFICIO'] || linha['DOCUMENTO'] || '-',
+        // Coluna D: OFÍCIO N.
+        'OFÍCIO N.': linha['OFÍCIO N.'] || linha['OFICIO N.'] || linha['OFÍCIO'] || linha['OFICIO'] || linha['DOCUMENTO'] || '-',
+        // Coluna E: TIPO
         TIPO: tipo || '-',
+        // Coluna F: REFERÊNCIA
         REFERÊNCIA: linha['REFERÊNCIA'] || linha['REFERENCIA'] || '-',
-        PRAZO: linha['PRAZO'] || linha['VENCIMENTO'] || linha['DATA VENCIMENTO'] || '-',
-        'DIAS RESTANTES': linha['DIAS RESTANTES'] || linha['-00 DIAS'] || linha['PRAZO (DIAS)'] || linha['DIAS'] || linha['VENCIMENTO'] || '-',
+        // Coluna G: PRAZO
+        PRAZO: linha['PRAZO'] || '-',
+        // Coluna H: VENCIMENTO
+        'DIAS RESTANTES': linha['VENCIMENTO'] || linha['DIAS RESTANTES'] || linha['-00 DIAS'] || linha['PRAZO (DIAS)'] || linha['DIAS'] || '-',
+        // Coluna I: CARMS
         CARMS: linha['CARMS'] || linha['CAR'] || '-',
+        // Coluna J: STATUS DO CAR
         'STATUS DO CAR': linha['STATUS DO CAR'] || linha['STATUS CAR'] || '-',
+        // Coluna K: TÉCNICO/ADMIN
         'TÉCNICO/ADMIN': tecnico,
+        // Coluna L: GERÊNCIA
         GERÊNCIA: gerencia,
+        // Coluna M: STATUS
         STATUS: (linha['STATUS'] || linha['SITUAÇÃO'] || '-').toUpperCase().trim(),
-        STATUS_RESPOSTA: (linha['STATUS DA RESPOSTA'] || linha['STATUS RESPOSTA'] || '').toUpperCase().trim(),
-        MOTIVO_AVALIACAO: (linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || '').trim(),
+        // Coluna N: OBSERVAÇÃO
+        OBSERVAÇÃO: linha['OBSERVAÇÃO'] || linha['OBSERVACAO'] || linha['OBS'] || '-',
+        // Coluna O: ANX CAR (SIM/NÃO)
+        ANX_CAR: linha['ANX CAR (SIM/NÃO)'] || linha['ANX CAR'] || linha['ANEXO CAR'] || '-',
+        
+        // Coluna P, Q, R: OFÍCIO PRIMORDIAL (OG)
+        OFICIO_INICIAL: linha['OFICIO OG'] || linha['OFICIO_OG'] || linha['OFÍCIO INICIAL'] || linha['OFICIO_INICIAL'] || (chaves.length > 15 ? linha[chaves[15]] : '') || '',
+        NUP_INICIAL: linha['NUP OG'] || linha['NUP_OG'] || linha['NUP INICIAL'] || linha['NUP_INICIAL'] || (chaves.length > 16 ? linha[chaves[16]] : '') || '',
+        LINK_INICIAL: linha['OG LINK'] || linha['OG_LINK'] || linha['LINK_INICIAL'] || linha['LINK INICIAL'] || linha['LINK DO OFÍCIO INICIAL'] || (chaves.length > 17 ? linha[chaves[17]] : '') || '',
+        
+        // Coluna S: LINK DA RESPOSTA
+        LINK_RESPOSTA: linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || '',
+        // Coluna T: STATUS DA RESPOSTA (APROVADA/REPROVADA)
+        STATUS_RESPOSTA: (linha['STATUS DA RESPOSTA (APROVADA/REPROVADA)'] || linha['STATUS DA RESPOSTA'] || linha['STATUS-RESPOSTA'] || linha['STATUS RESPOSTA'] || '').toUpperCase().trim(),
+        // Coluna U: MOTIVO DA AVALIAÇÃO
+        MOTIVO_AVALIACAO: (linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || linha['MOTIVO_AVALIACAO'] || '').trim(),
+        // Coluna V: LINK - OFÍCIO / LINK DO NUP
+        LINK_OFICIO: linha['LINK - OFÍCIO / LINK DO NUP'] || linha['LINK - OFÍCIO'] || linha['LINK DO OFÍCIO'] || linha['LINK OFÍCIO'] || linha['LINK_OFICIO'] || linha['LINK DO NUP'] || linha['LINK NUP'] || '',
+        
+        // Dados adicionais
         DATA_DISTRIBUICAO: linha['DATA DE DISTRIBUIÇÃO'] || linha['DATA DISTRIBUIÇÃO'] || linha['DATA DISTRIBUICAO'] || '',
         'E-MS': linha['E-MS'] || linha['EMS'] || '-',
         CBRS: linha['CBRS'] || '-',
-        OBSERVAÇÃO: linha['OBSERVAÇÃO'] || linha['OBSERVACAO'] || linha['OBS'] || '-',
-        LINK_OFICIO: linha['LINK - OFÍCIO'] || linha['LINK_OFICIO'] || linha['LINK OFÍCIO'] || linha['LINK DO OFÍCIO'] || '',
         
-        LINK_RESPOSTA: linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || '',
-        
-        OFICIO_INICIAL: linha['OFICIO_INICIAL'] || linha['OFÍCIO INICIAL'] || linha[chaves[17]] || '',
-        NUP_INICIAL: linha['NUP_INICIAL'] || linha['NUP INICIAL'] || linha[chaves[18]] || '',
-        LINK_INICIAL: linha['LINK_INICIAL'] || linha['LINK INICIAL'] || linha['LINK DO OFÍCIO INICIAL'] || linha[chaves[19]] || '',
-        
+        // Colunas W, X, Y / Z, AA, AB / AC, AD, AE... : REITERAÇÕES
         REITERACOES: []
     };
 
-    for (let i = 28; i < chaves.length; i += 3) {
-        const num = linha[chaves[i]];
-        const nup = linha[chaves[i+1]];
-        const link = linha[chaves[i+2]];
-        if (num && String(num).trim() !== '' && String(num).trim() !== '-') {
-            registro.REITERACOES.push({ NUMERO: num, NUP: nup || '', LINK: link || '' });
+    // Identificação dinâmica de reiterações
+    for (let i = 0; i < chaves.length; i++) {
+        const k = String(chaves[i]).trim().toUpperCase();
+        if (k.includes('OFÍCIO REITERAÇÃO') || k.includes('OFICIO REITERACAO') || k.includes('OFÍCIO RT') || k.includes('OFICIO RT') || (i >= 22 && (i - 22) % 3 === 0 && k.includes('OFÍCIO'))) {
+            const num = linha[chaves[i]];
+            const nupRt = (i + 1 < chaves.length) ? linha[chaves[i + 1]] : '';
+            const linkRt = (i + 2 < chaves.length) ? linha[chaves[i + 2]] : '';
+            if (num && String(num).trim() !== '' && String(num).trim() !== '-') {
+                registro.REITERACOES.push({ NUMERO: num, NUP: nupRt || '', LINK: linkRt || '' });
+            }
         }
     }
     

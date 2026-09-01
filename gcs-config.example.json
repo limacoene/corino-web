@@ -1,0 +1,7 @@
+{
+  "projectId": "seu-projeto-gcp",
+  "bucketName": "seu-bucket-corino-privado",
+  "keyFilename": "./gcs-key.json",
+  "urlExpirationMinutes": 15,
+  "porta": 5502
+}
