@@ -655,7 +655,7 @@ function mudarAbaPrincipal(tipo) {
 
         const isRevisao = (tipo === 'externos-revisao');
         const isConsultaGeral = (tipo === 'externos');
-        const isManager = usuarioAtivo && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria');
+        const isManager = usuarioAtivo && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria' || usuarioAtivo.perfil === 'revisor' || usuarioAtivo.perfil === 'administrativo');
         
         const miniTabsExternos = document.getElementById('mini-tabs-externos');
         const miniTabsExternosRevisao = document.getElementById('mini-tabs-externos-revisao');
@@ -717,7 +717,7 @@ function mudarAbaPrincipal(tipo) {
 
         const isRevisao = (tipo === 'cartas-revisao');
         const isConsultaGeral = (tipo === 'cartas');
-        const isManager = usuarioAtivo && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria');
+        const isManager = usuarioAtivo && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria' || usuarioAtivo.perfil === 'revisor' || usuarioAtivo.perfil === 'administrativo');
         
         const miniTabsCartas = document.getElementById('mini-tabs-cartas');
         const miniTabsCartasRevisao = document.getElementById('mini-tabs-cartas-revisao');
