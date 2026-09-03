@@ -56,6 +56,24 @@
             }
         }
 
+        function registrarLogLoginLocal(username, status, motivo = '', nomeCompleto = '', setor = '') {
+            try {
+                const logs = JSON.parse(localStorage.getItem('corino_login_audit_logs') || '[]');
+                logs.unshift({
+                    id: Date.now(),
+                    username_attempted: username,
+                    nome_completo: nomeCompleto,
+                    setor: setor,
+                    ip_address: '127.0.0.1 (Navegador)',
+                    status: status,
+                    failure_reason: motivo,
+                    timestamp: new Date().toISOString()
+                });
+                if (logs.length > 50) logs.length = 50;
+                localStorage.setItem('corino_login_audit_logs', JSON.stringify(logs));
+            } catch (e) {}
+        }
+
         const USUARIOS_CORINO = {
             // CONTAS SETORIAIS / GENÉRICAS
             "diflor":       {senha:"gonçaloalves", perfil:"administrativo", nomePlanilha:"DIRETORIA FLORESTAL",           setor:"DIFLOR"},
@@ -130,49 +148,78 @@
             btnLogin.style.opacity = '0.7';
             errorMsg.style.display = 'none';
 
-            // 1. Autenticação primária via API backend (com auditoria e emissão de token)
-            try {
-                const apiRes = await fetchComTimeout('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
-                }, 8000);
+            // 1. Autenticação primária via API backend (apenas se NÃO estiver em host estático como GitHub Pages)
+            const isStaticHost = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
+            if (!isStaticHost) {
+                try {
+                    const apiRes = await fetchComTimeout('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: user, password: pass })
+                    }, 8000);
 
-                const apiData = await apiRes.json();
+                    const contentType = apiRes.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const apiData = await apiRes.json();
 
-                if (apiRes.ok && apiData.status === 'success') {
-                    // Garante que nomePlanilha esteja devidamente associado
-                    if ((!apiData.user.nomePlanilha || apiData.user.nomePlanilha === apiData.user.nomeCompleto) && USUARIOS_CORINO[user]?.nomePlanilha) {
-                        apiData.user.nomePlanilha = USUARIOS_CORINO[user].nomePlanilha;
+                        if (apiRes.ok && apiData.status === 'success') {
+                            if ((!apiData.user.nomePlanilha || apiData.user.nomePlanilha === apiData.user.nomeCompleto) && USUARIOS_CORINO[user]?.nomePlanilha) {
+                                apiData.user.nomePlanilha = USUARIOS_CORINO[user].nomePlanilha;
+                            }
+                            sessionStorage.setItem('corino_auth_token', apiData.token);
+                            sessionStorage.setItem('corino_user', JSON.stringify(apiData.user));
+                            localStorage.setItem('corino_auth_token', apiData.token);
+                            window.location.href = 'index.html';
+                            return;
+                        } else if (apiRes.status === 401 || apiRes.status === 403) {
+                            errorMsg.innerText = apiData.message || "Utilizador ou palavra-passe incorretos.";
+                            errorMsg.style.display = 'block';
+                            restaurarBotaoLogin(btnLogin);
+                            return;
+                        }
                     }
-                    // Armazena token de autorização e perfil do usuário
-                    sessionStorage.setItem('corino_auth_token', apiData.token);
-                    sessionStorage.setItem('corino_user', JSON.stringify(apiData.user));
-                    localStorage.setItem('corino_auth_token', apiData.token);
-                    window.location.href = 'index.html';
-                    return;
-                } else if (apiRes.status === 401 || apiRes.status === 403) {
-                    errorMsg.innerText = apiData.message || "Utilizador ou palavra-passe incorretos.";
-                    errorMsg.style.display = 'block';
-                    restaurarBotaoLogin(btnLogin);
-                    return;
+                } catch (errApi) {
+                    console.warn('⚠️ [Auth API] Backend indisponível ou offline. Executando fallback local...', errApi);
                 }
-            } catch (errApi) {
-                console.warn('⚠️ [Auth API] Backend indisponível ou offline. Executando fallback local...', errApi);
             }
 
-            // 2. Fallback local para compatibilidade caso o backend não esteja respondendo
-            if (USUARIOS_CORINO[user] && USUARIOS_CORINO[user].senha === pass) {
-                const uInfo = USUARIOS_CORINO[user];
+            // 2. Fallback local para compatibilidade (suporta alterações feitas no painel Admin local)
+            const usersDbLocal = JSON.parse(localStorage.getItem('corino_users_admin_db') || '[]');
+            const localUser = usersDbLocal.find(u => u.username === user);
+            const senhaEsperada = localUser ? (localUser.senha || localUser.password) : (USUARIOS_CORINO[user]?.senha);
+
+            if (senhaEsperada && senhaEsperada === pass) {
+                const uInfo = localUser || USUARIOS_CORINO[user];
+                const perfil = uInfo.perfil || (uInfo.role === 'admin' ? 'administrativo' : (uInfo.role || 'user'));
+                const nomeP = USUARIOS_CORINO[user]?.nomePlanilha || uInfo.nome_completo || uInfo.nomePlanilha || user.toUpperCase();
+                const setor = uInfo.setor || 'DIFLOR';
+                const role = uInfo.role || ((perfil === 'administrativo' || user === 'diflor') ? 'admin' : perfil);
+
                 const dadosUsuario = {
                     username: user,
-                    perfil: uInfo.perfil,
-                    nomePlanilha: uInfo.nomePlanilha,
-                    setor: uInfo.setor,
-                    role: (uInfo.perfil === 'administrativo' || user === 'diflor') ? 'admin' : uInfo.perfil
+                    perfil: perfil,
+                    nomePlanilha: nomeP,
+                    nomeCompleto: uInfo.nome_completo || nomeP,
+                    setor: setor,
+                    role: role
                 };
+
+                // Registra log de auditoria no armazenamento local
+                registrarLogLoginLocal(user, 'SUCCESS', '', dadosUsuario.nomeCompleto, setor);
+
+                sessionStorage.setItem('corino_auth_token', 'local_token_' + Date.now());
                 sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
+                localStorage.setItem('corino_auth_token', 'local_token_' + Date.now());
                 window.location.href = 'index.html';
+                return;
+            }
+
+            // Se o usuário existe mas a senha errou no modo local
+            if (USUARIOS_CORINO[user] || localUser) {
+                registrarLogLoginLocal(user, 'FAILED', 'Senha incorreta');
+                errorMsg.innerText = "Palavra-passe incorreta.";
+                errorMsg.style.display = 'block';
+                restaurarBotaoLogin(btnLogin);
                 return;
             }
 

@@ -90,6 +90,9 @@ const GCSStorage = (function () {
             } else {
                 cacheUrls.delete(cacheKey);
             }
+        // Em ambiente estático sem backend Node.js (ex: GitHub Pages), retorna URL direta do storage
+        if (window.location.hostname.includes('github.io') || window.location.protocol === 'file:') {
+            return raw.startsWith('http') ? raw : `https://storage.googleapis.com/corino-documentos-ms/${cleanPath}`;
         }
 
         try {
@@ -102,6 +105,15 @@ const GCSStorage = (function () {
                     filename: nomeArquivo
                 })
             });
+
+            if (!res.ok) {
+                return raw.startsWith('http') ? raw : `https://storage.googleapis.com/corino-documentos-ms/${cleanPath}`;
+            }
+
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                return raw.startsWith('http') ? raw : `https://storage.googleapis.com/corino-documentos-ms/${cleanPath}`;
+            }
 
             const data = await res.json();
             if (data.status === 'success' && data.signedUrl) {
