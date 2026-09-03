@@ -262,46 +262,81 @@ function calcularDiasRestantes(dataInicioStr, prazoStr) {
 }
 
 /**
- * Executa chamadas à API central com prioridade para o Proxy Local (sem CORS/bloqueios do Google)
- * e com fallback seguro para Google Apps Script direto.
+ * Executa chamadas à API central com prioridade para o Proxy Local (quando disponível)
+ * e com fallback resiliente com retentativas automáticas para o Google Apps Script direto.
  */
 async function executarAcaoGAS(payload) {
     if (!payload || typeof payload !== 'object') payload = {};
 
-    // 1. Prioridade: Proxy local Node.js (mesma origem, zero CORS, cache em RAM)
-    try {
-        const resposta = await fetch('/api/dados-central', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (resposta.ok) {
-            const texto = await resposta.text();
-            if (!texto.trim().startsWith('<')) {
-                const json = JSON.parse(texto);
-                if (json && (json.status === 'success' || json.dados)) {
-                    return json;
+    // 1. Prioridade: Proxy local Node.js (apenas se NÃO estiver em host estático como GitHub Pages)
+    const isStaticHost = window.location.hostname.includes('github.io') || window.location.protocol === 'file:';
+    if (!isStaticHost) {
+        try {
+            const resposta = await fetch('/api/dados-central', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (resposta.ok) {
+                const texto = await resposta.text();
+                if (!texto.trim().startsWith('<')) {
+                    const json = JSON.parse(texto);
+                    if (json && (json.status === 'success' || json.dados)) {
+                        return json;
+                    }
                 }
             }
+        } catch (eLocal) {
+            // Prossegue para o fallback do Google Apps Script
         }
-    } catch (eLocal) {
-        // Prossegue para o fallback
     }
 
-    // 2. Fallback direto para Google Apps Script
-    const appsScriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
-    try {
-        const resposta = await fetch(appsScriptUrl, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        const texto = await resposta.text();
-        if (texto.trim().startsWith('<')) {
-            throw new Error('Google Apps Script retornou uma página HTML em vez de dados JSON.');
+    // 2. Fallback direto para Google Apps Script com retentativas para bloqueios temporários
+    const appsScriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') 
+        ? APPS_SCRIPT_URL 
+        : 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
+
+    const maxTentativas = 3;
+    let ultimoErro = null;
+
+    for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+        try {
+            const resposta = await fetch(appsScriptUrl, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            const texto = await resposta.text();
+            if (texto.trim().startsWith('<')) {
+                throw new Error('Google Apps Script retornou uma página HTML em vez de dados JSON.');
+            }
+            const json = JSON.parse(texto);
+
+            // Se o Google Apps Script reportar bloqueio de concorrência (LockService timeout)
+            const msgErro = String(json?.message || '');
+            if (json && json.status === 'error' && (msgErro.includes('bloqueio') || msgErro.includes('Lock') || msgErro.includes('limite'))) {
+                if (tentativa < maxTentativas) {
+                    console.warn(`⏳ [GAS Lock] Tentativa ${tentativa} aguardando liberação de bloqueio no Google... Retentando em ${tentativa * 1.5}s`);
+                    await new Promise(res => setTimeout(res, tentativa * 1500));
+                    continue;
+                }
+            }
+
+            return json;
+        } catch (erro) {
+            ultimoErro = erro;
+            const errStr = String(erro?.message || erro || '');
+            if ((errStr.includes('bloqueio') || errStr.includes('Lock') || errStr.includes('limite')) && tentativa < maxTentativas) {
+                console.warn(`⏳ [GAS Lock] Erro na tentativa ${tentativa}. Retentando em ${tentativa * 1.5}s...`);
+                await new Promise(res => setTimeout(res, tentativa * 1500));
+                continue;
+            }
+            if (tentativa === maxTentativas) {
+                console.error('Erro na comunicação com a API Central:', erro);
+                throw erro;
+            }
+            await new Promise(res => setTimeout(res, 1000));
         }
-        return JSON.parse(texto);
-    } catch (erro) {
-        console.error('Erro na comunicação com a API Central:', erro);
-        throw erro;
     }
+
+    throw ultimoErro || new Error('Falha na comunicação com a API Central após retentativas.');
 }
