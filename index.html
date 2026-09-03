@@ -5,7 +5,30 @@
     <script>
         if (!sessionStorage.getItem('corino_user')) {
             window.location.replace('login.html');
+        } else {
+            try {
+                const uRaw = sessionStorage.getItem('corino_user');
+                if (uRaw) {
+                    const uObj = JSON.parse(uRaw);
+                    if (uObj && uObj.username === 'rcosta' && (!uObj.nomePlanilha || uObj.nomePlanilha === 'Rodrigo Costa')) {
+                        uObj.nomePlanilha = 'RODRIGO';
+                        sessionStorage.setItem('corino_user', JSON.stringify(uObj));
+                    }
+                }
+            } catch (e) {}
         }
+        // Limpeza de cache legado/vazio de sessões anteriores
+        ['corino_cache_dados_coringa_rcosta', 'corino_cache_dados_autos_rcosta'].forEach(key => {
+            const val = localStorage.getItem(key);
+            if (val) {
+                try {
+                    const parsed = JSON.parse(val);
+                    if (Array.isArray(parsed) && parsed.length === 0) {
+                        localStorage.removeItem(key);
+                    }
+                } catch(e) {}
+            }
+        });
         const savedTheme = localStorage.getItem('corino_theme') || 'dark';
         if (savedTheme === 'light') {
             document.documentElement.classList.add('light-mode');
@@ -22,59 +45,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>C.O.R.I.N.O. | Diretoria Florestal</title>
-    <link rel="stylesheet" href="style.css?v=10">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=25">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
-    <aside class="sidebar" id="sidebar">
+    <!-- BARRA SUPERIOR DE NAVEGAÇÃO (TOP NAVBAR MODERNA) -->
+    <header class="top-navbar" id="topNavbar">
+        <div class="top-nav-brand" onclick="mudarAbaPrincipal('inicio')" style="cursor: pointer;">
+            <span class="top-logo-icon"><i class="ci ci-tree"></i></span>
+            <div>
+                <span class="top-logo-text">CORINO</span>
+                <span class="top-logo-sub">DIFLOR • Gestão de Processos</span>
+            </div>
+        </div>
+
+        <nav class="top-nav-menu">
+            <button class="top-nav-btn active" id="top-btn-inicio" onclick="selecionarModuloInicio('todos', this)" title="Exibir Todos os Processos">
+                <i class="ci ci-home"></i> <span>Início</span>
+            </button>
+            <button class="top-nav-btn" id="top-btn-oficios" onclick="selecionarModuloInicio('oficios', this)" title="Filtrar por Ofícios">
+                <i class="ci ci-folder"></i> <span>Ofícios</span>
+            </button>
+            <button class="top-nav-btn" id="top-btn-cartas" onclick="selecionarModuloInicio('cartas', this)" title="Filtrar por Cartas Consulta">
+                <i class="ci ci-mail"></i> <span>Cartas Consulta</span>
+            </button>
+            <button class="top-nav-btn" id="top-btn-autos" onclick="selecionarModuloInicio('autos', this)" title="Filtrar por Autos de Infração">
+                <i class="ci ci-scale"></i> <span>Autos de Infração</span>
+            </button>
+            <button class="top-nav-btn" id="top-btn-externos" onclick="selecionarModuloInicio('externos', this)" title="Filtrar por Ofícios Externos">
+                <i class="ci ci-building"></i> <span>Ofícios Externos</span>
+            </button>
+            <button class="top-nav-btn" id="top-btn-admin" onclick="mudarAbaPrincipal('admin')" style="display: none;" title="Administração & Gestão de Usuários">
+                <i class="ci ci-shield"></i> <span>Administração</span>
+            </button>
+        </nav>
+
+        <div class="top-nav-right">
+            <div class="top-live-clock" id="topLiveClock">--:--:--</div>
+            <div class="top-user-info" id="topUserInfo">
+                <span class="user-avatar-circle"><i class="ci ci-user"></i></span>
+                <span id="user-display-name" class="user-name-text">Carregando...</span>
+            </div>
+            <button id="btn-theme-toggle" class="top-icon-btn" onclick="alternarTema()" title="Alternar Tema"><i class="ci ci-theme"></i></button>
+            <button class="top-logout-btn" onclick="fazerLogout()" title="Sair do Sistema"><i class="ci ci-logout"></i> Sair</button>
+        </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar" style="display: none;">
         <div class="brand" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 10px;">
             <div>
-                <h1 class="logo" style="font-size: 24px;">🌲 DIFLOR</h1>
+                <h1 class="logo" style="font-size: 24px;"><i class="ci ci-tree"></i> DIFLOR</h1>
                 <p class="subtitle">Sistema da Diretoria Florestal</p>
             </div>
-            <button id="btn-theme-toggle" class="btn-theme-toggle" onclick="alternarTema()" title="Alternar Tema" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 18px; padding: 6px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: var(--text-light); flex-shrink: 0;">
-                🌓
-            </button>
         </div>
         <hr class="divider">
         <nav class="menu" style="flex-grow: 1;">
             <div class="module-section">
                 <div class="module-header" id="header-mod-oficios" onclick="toggleModule('mod-oficios')">
-                    <span>📁 Ofícios</span>
+                    <span><i class="ci ci-folder"></i> Ofícios</span>
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content" id="mod-oficios">
-                    <button class="menu-btn active" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')">🔍 Consulta Geral</button>
+                    <button class="menu-btn" id="btn-menu-todos" onclick="mudarAbaPrincipal('todos')"><i class="ci ci-search"></i> Consulta Geral</button>
                     <button class="menu-btn" id="btn-menu-distribuicao" onclick="mudarAbaPrincipal('distribuicao')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-distribuicao" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-inbox"></i> Aguard. Distribuição</span> <span id="badge-menu-distribuicao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-andamento" onclick="mudarAbaPrincipal('andamento')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>⏳ Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-clock"></i> Em Andamento</span> <span id="badge-menu-andamento" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-atrasados" onclick="mudarAbaPrincipal('atrasados')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>🚨 Painel de Atrasados</span> <span id="badge-menu-atrasados" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-alert"></i> Painel de Atrasados</span> <span id="badge-menu-atrasados" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-respondidos" onclick="mudarAbaPrincipal('respondidos')" style="display: none; margin-top: 5px; color: #ffa500;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-respondidos" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-folder-check"></i> Aguardando Revisão</span> <span id="badge-menu-respondidos" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-comunicacao" onclick="mudarAbaPrincipal('comunicacao')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📢 Fazer Comunicação</span> <span id="badge-menu-comunicacao" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-megaphone"></i> Fazer Comunicação</span> <span id="badge-menu-comunicacao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-assinatura-oficios" onclick="mudarAbaPrincipal('assinatura-oficios')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>✍️ Aguardand. Assinatura</span> <span id="badge-menu-assinatura-oficios" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-pen"></i> Aguardand. Assinatura</span> <span id="badge-menu-assinatura-oficios" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                 </div>
@@ -82,44 +145,44 @@
 
             <div class="module-section">
                 <div class="module-header collapsed" id="header-mod-autos" onclick="toggleModule('mod-autos')">
-                    <span>⚖️ Autos de Infração</span>
+                    <span><i class="ci ci-scale"></i> Autos de Infração</span>
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content collapsed" id="mod-autos">
-                    <button class="menu-btn" id="btn-menu-autos" onclick="mudarAbaPrincipal('autos')">📋 Controle de Autos</button>
+                    <button class="menu-btn" id="btn-menu-autos" onclick="mudarAbaPrincipal('autos')"><i class="ci ci-scale"></i> Controle de Autos</button>
                 </div>
             </div>
 
             <div class="module-section">
                 <div class="module-header collapsed" id="header-mod-externos" onclick="toggleModule('mod-externos')">
-                    <span>🏢 Ofícios Externos</span>
+                    <span><i class="ci ci-building"></i> Ofícios Externos</span>
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content collapsed" id="mod-externos">
-                    <button class="menu-btn" id="btn-menu-externos" onclick="mudarAbaPrincipal('externos')">🔍 Consulta Geral</button>
+                    <button class="menu-btn" id="btn-menu-externos" onclick="mudarAbaPrincipal('externos')"><i class="ci ci-search"></i> Consulta Geral</button>
                     <button class="menu-btn" id="btn-menu-externos-distribuicao" onclick="mudarAbaPrincipal('externos-distribuicao')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-externos-distribuicao" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-inbox"></i> Aguard. Distribuição</span> <span id="badge-menu-externos-distribuicao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-externos-andamento" onclick="mudarAbaPrincipal('externos-andamento')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>⏳ Em Andamento</span> <span id="badge-menu-externos-andamento" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-clock"></i> Em Andamento</span> <span id="badge-menu-externos-andamento" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-externos-revisao" onclick="mudarAbaPrincipal('externos-revisao')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-externos-revisao" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-folder-check"></i> Aguardando Revisão</span> <span id="badge-menu-externos-revisao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-externos-despacho" onclick="mudarAbaPrincipal('externos-despacho')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📢 Fazer Despacho</span> <span id="badge-menu-externos-despacho" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-megaphone"></i> Fazer Despacho</span> <span id="badge-menu-externos-despacho" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-externos-assinatura" onclick="mudarAbaPrincipal('externos-assinatura')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>✍️ Aguard. Assinatura</span> <span id="badge-menu-externos-assinatura" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-pen"></i> Aguard. Assinatura</span> <span id="badge-menu-externos-assinatura" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                 </div>
@@ -127,54 +190,199 @@
 
             <div class="module-section">
                 <div class="module-header collapsed" id="header-mod-cartas" onclick="toggleModule('mod-cartas')">
-                    <span>✉️ Cartas Consulta</span>
+                    <span><i class="ci ci-mail"></i> Cartas Consulta</span>
                     <span class="icon-chevron">▼</span>
                 </div>
                 <div class="module-content collapsed" id="mod-cartas">
-                    <button class="menu-btn" id="btn-menu-cartas" onclick="mudarAbaPrincipal('cartas')">🔍 Consulta Geral</button>
+                    <button class="menu-btn" id="btn-menu-cartas" onclick="mudarAbaPrincipal('cartas')"><i class="ci ci-search"></i> Consulta Geral</button>
                     <button class="menu-btn" id="btn-menu-cartas-distribuicao" onclick="mudarAbaPrincipal('cartas-distribuicao')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📥 Aguard. Distribuição</span> <span id="badge-menu-cartas-distribuicao" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-inbox"></i> Aguard. Distribuição</span> <span id="badge-menu-cartas-distribuicao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-cartas-andamento" onclick="mudarAbaPrincipal('cartas-andamento')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>⏳ Em Andamento</span> <span id="badge-menu-cartas-andamento" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-clock"></i> Em Andamento</span> <span id="badge-menu-cartas-andamento" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-cartas-atrasados" onclick="mudarAbaPrincipal('cartas-atrasados')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>🚨 Painel de Atrasados</span> <span id="badge-menu-cartas-atrasados" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-alert"></i> Painel de Atrasados</span> <span id="badge-menu-cartas-atrasados" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-cartas-revisao" onclick="mudarAbaPrincipal('cartas-revisao')" style="display: none; margin-top: 5px; color: #ffa500;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📁 Aguardando Revisão</span> <span id="badge-menu-cartas-revisao" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-folder-check"></i> Aguardando Revisão</span> <span id="badge-menu-cartas-revisao" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-cartas-despacho" onclick="mudarAbaPrincipal('cartas-despacho')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>📢 Fazer Despacho</span> <span id="badge-menu-cartas-despacho" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-megaphone"></i> Fazer Despacho</span> <span id="badge-menu-cartas-despacho" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                     <button class="menu-btn" id="btn-menu-cartas-assinatura" onclick="mudarAbaPrincipal('cartas-assinatura')">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span>✍️ Aguard. Assinatura</span> <span id="badge-menu-cartas-assinatura" class="notification-badge" style="display: none;">0</span>
+                            <span><i class="ci ci-pen"></i> Aguard. Assinatura</span> <span id="badge-menu-cartas-assinatura" class="notification-badge" style="display: none;">0</span>
                         </div>
                     </button>
                 </div>
             </div>
         </nav>
-        <div class="user-profile-panel">
-            <div id="user-display-name">Carregando...</div>
-            <button class="menu-btn" style="color: #ff4b4b;" onclick="fazerLogout()">🚪 Sair</button>
-        </div>
     </aside>
 
     <main class="main-content" id="mainContent">
+        <!-- ABA: INÍCIO (DASHBOARD UNIFICADO DE PROCESSOS EM ANDAMENTO) -->
+        <div id="aba-inicio" class="tab-section active">
+            <div class="dash-hero-header">
+                <div>
+                    <h2 class="dash-title">Dados Gerais - Processos em Andamento</h2>
+                    <p class="dash-subtitle">Painel principal para acompanhamento de processos administrativos digitais</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <button id="btn-cadastrar-processo" class="btn-cta-cadastro" onclick="abrirModalCadastroUnificado()" style="display: none;">
+                        <i class="ci ci-plus"></i> Cadastrar Novo Processo
+                    </button>
+                    <div class="dash-clock-badge" id="dashHeroClock">Carregando data e hora...</div>
+                </div>
+            </div>
+
+            <!-- 6 CARDS KPIS DE INDICADORES -->
+            <div class="kpi-row-grid">
+                <div class="kpi-metric-card" id="kpi-card-distribuicao" onclick="filtrarKpiInicio('distribuicao')" title="Filtrar processos Aguardando Distribuição (Multi-seleção)">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">AGUARD. DISTRIBUIÇÃO</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-main-number" id="kpi-num-distribuicao">0</span>
+                            <span class="kpi-badge kpi-badge-orange" id="kpi-badge-distribuicao">0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-icon-bubble"><i class="ci ci-inbox"></i></div>
+                </div>
+
+                <div class="kpi-metric-card" id="kpi-card-manifestacao" onclick="filtrarKpiInicio('manifestacao')" title="Filtrar processos Aguardando Manifestação (Multi-seleção)">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">AGUARD. MANIFESTAÇÃO</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-main-number" id="kpi-num-manifestacao">0</span>
+                            <span class="kpi-badge kpi-badge-blue" id="kpi-badge-manifestacao">0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-icon-bubble"><i class="ci ci-clock"></i></div>
+                </div>
+
+                <div class="kpi-metric-card" id="kpi-card-revisao" onclick="filtrarKpiInicio('revisao')" title="Filtrar processos Aguardando Revisão (Multi-seleção)">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">AGUARD. REVISÃO</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-main-number" id="kpi-num-revisao">0</span>
+                            <span class="kpi-badge kpi-badge-purple" id="kpi-badge-revisao">0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-icon-bubble"><i class="ci ci-folder-check"></i></div>
+                </div>
+
+                <div class="kpi-metric-card" id="kpi-card-assinatura" onclick="filtrarKpiInicio('assinatura')" title="Filtrar processos Aguardando Assinatura (Multi-seleção)">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">AGUARD. ASSINATURA</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-main-number" id="kpi-num-assinatura">0</span>
+                            <span class="kpi-badge kpi-badge-cyan" id="kpi-badge-assinatura">0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-icon-bubble"><i class="ci ci-pen"></i></div>
+                </div>
+
+                <div class="kpi-metric-card" id="kpi-card-atrasados" onclick="filtrarKpiInicio('atrasados')" title="Filtrar processos com Prazo Atrasado (Multi-seleção)">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">PROCESSOS ATRASADOS</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-main-number" id="kpi-num-atrasados">0</span>
+                            <span class="kpi-badge kpi-badge-red" id="kpi-badge-atrasados">0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-icon-bubble"><i class="ci ci-alert"></i></div>
+                </div>
+
+                <div class="kpi-metric-card" id="kpi-card-sobrestados" onclick="filtrarKpiInicio('sobrestados')" title="Filtrar processos Sobrestados (Multi-seleção)">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">PROCESSOS SOBRESTADOS</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-main-number" id="kpi-num-sobrestados">0</span>
+                            <span class="kpi-badge kpi-badge-yellow" id="kpi-badge-sobrestados">0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-icon-bubble"><i class="ci ci-pause"></i></div>
+                </div>
+            </div>
+
+            <!-- GRÁFICO DE PROCESSOS EM ANDAMENTO POR TÉCNICO -->
+            <div class="dash-chart-card">
+                <div class="dash-chart-header">
+                    <div class="dash-chart-title"><i class="ci ci-chart"></i> Quantidade de Processos em Andamento por Técnico</div>
+                    <div class="dash-chart-counter" id="dashChartTotal">Total em Andamento: 0</div>
+                </div>
+                <div style="position: relative; height: 320px; width: 100%;">
+                    <canvas id="chartTecnicosProcessos"></canvas>
+                </div>
+            </div>
+
+            <!-- TABELA UNIFICADA DE PROCESSOS EM ANDAMENTO -->
+            <div class="unified-process-section">
+                <div class="unified-toolbar">
+                    <div class="unified-toolbar-left">
+                        <div class="unified-search-box">
+                            <span class="search-icon"><i class="ci ci-search"></i></span>
+                            <input type="text" id="filtroInicioBusca" placeholder="Pesquisar por NUP, Processo, Ofício ou Interessado..." oninput="filtrarTabelaInicio()">
+                        </div>
+                    </div>
+                    <div class="unified-toolbar-right">
+                        <select id="filtroInicioTecnico" class="dash-select" onchange="filtrarTabelaInicio()">
+                            <option value="">-- Todos os Técnicos --</option>
+                        </select>
+                        <select id="filtroInicioStatus" class="dash-select" onchange="filtrarTabelaInicio()">
+                            <option value="">-- Todos os Status --</option>
+                            <option value="AGUARDANDO DISTRIBUIÇÃO">Aguardando Distribuição</option>
+                            <option value="AGUARDANDO MANIFESTAÇÃO">Aguardando Manifestação</option>
+                            <option value="REVISÃO">Aguardando Revisão</option>
+                            <option value="FAZER CI">Fazer C.I.</option>
+                            <option value="FAZER DESPACHO">Fazer Despacho</option>
+                            <option value="SOBRESTADO">Sobrestado</option>
+                            <option value="AGUARDANDO ASSINATURA">Aguardando Assinatura</option>
+                            <option value="ATRASADOS">Atrasados</option>
+                        </select>
+                        <button class="btn-drive btn-soft-gray" onclick="limparFiltrosInicio()" style="margin: 0; padding: 0 14px; height: 38px;"><i class="ci ci-refresh"></i> Limpar</button>
+                    </div>
+                </div>
+
+                <div class="unified-table-container">
+                    <table class="unified-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 130px;">MÓDULO</th>
+                                <th style="width: 180px;">NUP / PROCESSO</th>
+                                <th>INTERESSADO / ASSUNTO</th>
+                                <th style="width: 170px;">TÉCNICO</th>
+                                <th style="width: 180px;">STATUS ATUAL</th>
+                                <th style="width: 130px;">DIAS / PRAZO</th>
+                                <th style="width: 110px; text-align: center;">AÇÕES</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-inicio-body">
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding: 40px; color: #888;">Carregando processos em andamento...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="unified-footer-info" id="tabela-inicio-footer">
+                    Exibindo 0 processos em andamento.
+                </div>
+            </div>
+        </div>
+
         <!-- ABA: CONSULTA GERAL -->
-        <div id="aba-todos" class="tab-section">
-            <h2 class="page-title">🔍 Consulta Geral</h2>
+        <div id="aba-todos" class="tab-section" style="display: none;">
+            <h2 class="page-title"><i class="ci ci-search"></i> Consulta Geral</h2>
             <details class="advanced-filters" open>
                 <summary>Filtros Avançados</summary>
                 <div class="filter-grid">
@@ -231,7 +439,7 @@
 
         <!-- ABA: AGUARDANDO DISTRIBUIÇÃO -->
         <div id="aba-distribuicao" class="tab-section" style="display: none;">
-            <h2 class="page-title">📥 Aguardando Distribuição</h2>
+            <h2 class="page-title"><i class="ci ci-inbox"></i> Aguardando Distribuição</h2>
             <div id="alerta-distribuicao" class="alert-banner alert-info">Há 0 processos aguardando distribuição no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-distribuicao">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
@@ -255,7 +463,7 @@
 
         <!-- ABA: EM ANDAMENTO -->
         <div id="aba-andamento" class="tab-section" style="display: none;">
-            <h2 class="page-title">⏳ Em Andamento</h2>
+            <h2 class="page-title"><i class="ci ci-clock"></i> Em Andamento</h2>
             <div id="alerta-andamento" class="alert-banner alert-info">Há 0 processos em andamento no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-andamento">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
@@ -293,7 +501,7 @@
 
         <!-- ABA: PAINEL DE ATRASADOS -->
         <div id="aba-atrasados" class="tab-section" style="display: none;">
-            <h2 class="page-title">🚨 Painel de Atrasados</h2>
+            <h2 class="page-title"><i class="ci ci-alert"></i> Painel de Atrasados</h2>
             <div id="alerta-atrasados" class="alert-banner alert-danger">Atenção - Há 0 processos em atraso no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-atrasados">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
@@ -331,7 +539,7 @@
 
         <!-- ABA: AGUARDANDO REVISÃO -->
         <div id="aba-respondidos" class="tab-section" style="display: none;">
-            <h2 class="page-title">📁 Aguardando Revisão</h2>
+            <h2 class="page-title"><i class="ci ci-folder-check"></i> Aguardando Revisão</h2>
             <div id="alerta-respondidos" class="alert-banner alert-info">Há 0 processos nesta aba.</div>
             <div class="mini-tabs" id="mini-tabs-respondidos">
                 <button class="mini-tab active" id="btn-tab-todos" onclick="setSubAba('Geral')">Geral</button>
@@ -361,7 +569,7 @@
 
         <!-- ABA: FAZER COMUNICAÇÃO -->
         <div id="aba-comunicacao" class="tab-section" style="display: none;">
-            <h2 class="page-title">📢 Fazer Comunicação (C.I.)</h2>
+            <h2 class="page-title"><i class="ci ci-megaphone"></i> Fazer Comunicação (C.I.)</h2>
             <div id="alerta-comunicacao" class="alert-banner alert-info">Há 0 processos aguardando realização de C.I. no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-comunicacao">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
@@ -385,7 +593,7 @@
 
         <!-- ABA: AGUARDAND. ASSINATURA -->
         <div id="aba-assinatura-oficios" class="tab-section" style="display: none;">
-            <h2 class="page-title">✍️ Aguardando Assinatura</h2>
+            <h2 class="page-title"><i class="ci ci-pen"></i> Aguardando Assinatura</h2>
             <div id="alerta-assinatura-oficios" class="alert-banner alert-info">Há 0 processos aguardando assinatura no sistema.</div>
             <div class="mini-tabs" id="mini-tabs-assinatura-oficios">
                 <button class="mini-tab active" onclick="setSubAba('Geral')">Geral</button>
@@ -409,7 +617,7 @@
 
         <!-- ABA: AUTOS DE INFRAÇÃO -->
         <div id="aba-autos" class="tab-section" style="display: none;">
-            <h2 class="page-title">⚖️ Controle de Autos de Infração</h2>
+            <h2 class="page-title"><i class="ci ci-scale"></i> Controle de Autos de Infração</h2>
             <div class="advanced-filters">
                 <div class="filter-grid">
                     <div class="filter-group">
@@ -455,14 +663,14 @@
                     </div>
                 </div>
             </div>
-            <div id="loading-autos" class="loading" style="display: none;">⏳ Carregando autos...</div>
+            <div id="loading-autos" class="loading" style="display: none;"><i class="ci ci-clock"></i> Carregando autos...</div>
             <div id="lista-autos-container"></div>
             <div id="contador-autos" class="results-count" style="margin-top: 15px;"></div>
         </div>
 
         <!-- ABA: OFÍCIOS EXTERNOS -->
         <div id="aba-externos" class="tab-section" style="display: none;">
-            <h2 class="page-title">🏢 Ofícios Externos</h2>
+            <h2 class="page-title"><i class="ci ci-building"></i> Ofícios Externos</h2>
 
             <div class="mini-tabs" id="mini-tabs-externos" style="display: none; margin-bottom: 20px;">
                 <button class="mini-tab active" onclick="setSubAbaExternos('Geral')">Geral</button>
@@ -511,14 +719,14 @@
                     </div>
                 </div>
             </div>
-            <div id="loading-externos" class="loading" style="display: none;">⏳ Carregando ofícios externos...</div>
+            <div id="loading-externos" class="loading" style="display: none;"><i class="ci ci-clock"></i> Carregando ofícios externos...</div>
             <div id="lista-externos-container"></div>
             <div id="contador-externos" class="results-count" style="margin-top: 15px;"></div>
         </div>
 
         <!-- ABA: CARTAS CONSULTA (NOVO MÓDULO) -->
         <div id="aba-cartas" class="tab-section" style="display: none;">
-            <h2 class="page-title">✉️ Controle de Cartas Consulta</h2>
+            <h2 class="page-title"><i class="ci ci-mail"></i> Controle de Cartas Consulta</h2>
             
             <div class="mini-tabs" id="mini-tabs-cartas" style="display: none; margin-bottom: 20px;">
                 <button class="mini-tab active" onclick="setSubAbaCartas('Geral')">Geral</button>
@@ -578,7 +786,7 @@
                     </div>
                     
                     <div class="filter-group" style="display: flex; align-items: flex-end;">
-                        <button onclick="limparFiltrosCartas()" class="btn-drive btn-soft-gray" style="margin: 0; height: 42px; width: 100%;">🧹 Limpar Filtros</button>
+                        <button onclick="limparFiltrosCartas()" class="btn-drive btn-soft-gray" style="margin: 0; height: 42px; width: 100%;"><i class="ci ci-brush"></i> Limpar Filtros</button>
                     </div>
                 </div>
             </details>
@@ -586,12 +794,12 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; flex-wrap: wrap;">
                 <div id="contador-cartas" class="results-count" style="color: var(--text-light); margin: 0; font-size: 15px;">Exibindo 0 resultados.</div>
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                    <button id="btnExportCartas" class="btn-drive btn-download" onclick="exportarCSVCartas()" style="width: auto; padding: 0 20px; height: 42px; margin: 0; display: inline-flex; align-items: center; gap: 8px;">📥 Exportar Lista (CSV)</button>
+                    <button id="btnExportCartas" class="btn-drive btn-download" onclick="exportarCSVCartas()" style="width: auto; padding: 0 20px; height: 42px; margin: 0; display: inline-flex; align-items: center; gap: 8px;"><i class="ci ci-download"></i> Exportar Lista (CSV)</button>
                 </div>
             </div>
 
             <section class="cartas-list-panel" style="width: 100%; background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px; overflow: visible; box-sizing: border-box; margin-top: 10px;">
-                <div id="loading-cartas" class="loading" style="display: none; text-align: center; padding: 10px; color: #888;">⏳ Carregando cartas...</div>
+                <div id="loading-cartas" class="loading" style="display: none; text-align: center; padding: 10px; color: #888;"><i class="ci ci-clock"></i> Carregando cartas...</div>
                 
                 <!-- VISÃO: TABELA -->
                 <div id="cartas-tabela-view" style="display: block;">
@@ -600,23 +808,229 @@
             </section>
         </div>
 
+        <!-- ============================================================= -->
+        <!-- ABA: MÓDULO ADMINISTRATIVO (USUÁRIOS & MÉTRICAS DE ACESSO)    -->
+        <!-- ============================================================= -->
+        <div id="aba-admin" class="tab-section" style="display: none;">
+            <!-- HERO HEADER ADMINISTRATIVO -->
+            <div class="dash-hero-header" style="margin-bottom: 25px;">
+                <div class="dash-hero-left">
+                    <div class="dash-hero-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.3);">
+                        <span class="live-dot" style="background-color: #10b981;"></span> ADMINISTRAÇÃO DO SISTEMA
+                    </div>
+                    <h2 class="dash-title" style="margin-top: 5px;">
+                        Gestão de Usuários & Métricas de Acesso
+                    </h2>
+                    <p class="dash-subtitle">
+                        Auditoria de acessos, estatísticas de sessões e controle de permissões por setor.
+                    </p>
+                </div>
+                <div class="dash-hero-right">
+                    <button class="btn-cta-cadastro" onclick="abrirModalNovoUsuario()" style="padding: 12px 22px; font-size: 14px;">
+                        <i class="ci ci-plus"></i> Cadastrar Novo Usuário
+                    </button>
+                </div>
+            </div>
+
+            <!-- CARDS DE MÉTRICAS KPI -->
+            <div class="kpi-row-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+                <!-- Total de Acessos -->
+                <div class="kpi-metric-card" style="border-top: 3px solid #38bdf8;">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">
+                            <span class="kpi-icon-bubble" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8;"><i class="ci ci-key"></i></span>
+                            <span class="kpi-title-text">Total de Acessos</span>
+                        </div>
+                        <div class="kpi-value-row">
+                            <div class="kpi-main-number" id="admin-kpi-total-logins">0</div>
+                            <span class="kpi-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">Histórico</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logins Bem-sucedidos -->
+                <div class="kpi-metric-card" style="border-top: 3px solid #10b981;">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">
+                            <span class="kpi-icon-bubble" style="background: rgba(16, 185, 129, 0.12); color: #10b981;"><i class="ci ci-check"></i></span>
+                            <span class="kpi-title-text">Acessos Bem-sucedidos</span>
+                        </div>
+                        <div class="kpi-value-row">
+                            <div class="kpi-main-number" id="admin-kpi-active-logins">0</div>
+                            <span class="kpi-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">Sucesso</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Falhas Recentes de Acesso -->
+                <div class="kpi-metric-card" style="border-top: 3px solid #ef4444;">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">
+                            <span class="kpi-icon-bubble" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;"><i class="ci ci-alert"></i></span>
+                            <span class="kpi-title-text">Falhas de Autenticação</span>
+                        </div>
+                        <div class="kpi-value-row">
+                            <div class="kpi-main-number" id="admin-kpi-failed-logins">0</div>
+                            <span class="kpi-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Segurança</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usuários Ativos -->
+                <div class="kpi-metric-card" style="border-top: 3px solid #a855f7;">
+                    <div class="kpi-card-inner">
+                        <div class="kpi-top-label">
+                            <span class="kpi-icon-bubble" style="background: rgba(168, 85, 247, 0.12); color: #c084fc;"><i class="ci ci-user"></i></span>
+                            <span class="kpi-title-text">Usuários Ativos</span>
+                        </div>
+                        <div class="kpi-value-row">
+                            <div class="kpi-main-number" id="admin-kpi-active-users">0</div>
+                            <span class="kpi-badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">Cadastrados</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL: TABELA DE GESTÃO DE USUÁRIOS -->
+            <div class="cartas-list-panel" style="width: 100%; background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 22px; margin-bottom: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 17px; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                            <i class="ci ci-user"></i> Usuários do Sistema
+                        </h3>
+                        <div id="admin-contador-usuarios" style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Carregando usuários...</div>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="btn-drive btn-soft-gray" onclick="carregarPainelAdmin()" title="Atualizar dados">
+                            <i class="ci ci-brush"></i> Atualizar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BARRA DE FILTROS DO MÓDULO ADMIN -->
+                <div class="filter-row-grid" style="display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1fr auto; gap: 12px; margin-bottom: 20px; align-items: flex-end;">
+                    <div class="filter-group">
+                        <label>Buscar Usuário</label>
+                        <input type="text" id="filtroAdminBusca" placeholder="Nome ou utilizador..." oninput="aplicarFiltrosAdminComDebounce()" class="login-input" style="height: 38px;">
+                    </div>
+                    <div class="filter-group">
+                        <label>Setor</label>
+                        <select id="filtroAdminSetor" onchange="carregarUsuariosAdmin(1)" class="login-input" style="height: 38px;">
+                            <option value="">Todos os Setores</option>
+                            <option value="DIFLOR">DIFLOR</option>
+                            <option value="GCAR">GCAR</option>
+                            <option value="GEAA">GEAA</option>
+                            <option value="GEAMB">GEAMB</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Função / Cargo</label>
+                        <input type="text" id="filtroAdminFuncao" placeholder="Ex: Analista, Revisor..." oninput="aplicarFiltrosAdminComDebounce()" class="login-input" style="height: 38px;">
+                    </div>
+                    <div class="filter-group">
+                        <label>Permissão (Role)</label>
+                        <select id="filtroAdminRole" onchange="carregarUsuariosAdmin(1)" class="login-input" style="height: 38px;">
+                            <option value="">Todas</option>
+                            <option value="admin">Administrador</option>
+                            <option value="revisor">Revisor</option>
+                            <option value="tecnico">Técnico</option>
+                            <option value="user">Usuário Comum</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="filtroAdminStatus" onchange="carregarUsuariosAdmin(1)" class="login-input" style="height: 38px;">
+                            <option value="">Todos</option>
+                            <option value="ativo">Ativo</option>
+                            <option value="inativo">Inativo</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button onclick="limparFiltrosAdmin()" class="btn-drive btn-soft-gray" style="height: 38px; margin: 0; white-space: nowrap;" title="Limpar Filtros">
+                            <i class="ci ci-brush"></i> Limpar
+                        </button>
+                    </div>
+                </div>
+
+                <div id="admin-usuarios-loading" class="loading" style="display: none; text-align: center; padding: 15px; color: #888;">
+                    <i class="ci ci-clock"></i> Carregando lista de usuários...
+                </div>
+
+                <!-- TABELA UNIFICADA DE USUÁRIOS -->
+                <div class="unified-table-container" style="overflow-x: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                    <table class="unified-table">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Nome Completo</th>
+                                <th>Setor</th>
+                                <th>Função / Cargo</th>
+                                <th>Permissão</th>
+                                <th>Status</th>
+                                <th>Último Acesso</th>
+                                <th style="text-align: center; width: 130px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-usuarios-body">
+                            <!-- Preenchido via admin.js -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- BARRA DE PAGINAÇÃO -->
+                <div id="admin-pagination-container" class="admin-pagination-bar" style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <!-- Preenchido via admin.js -->
+                </div>
+            </div>
+
+            <!-- PAINEL: AUDITORIA DE ACESSOS RECENTES -->
+            <div class="cartas-list-panel" style="width: 100%; background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 22px;">
+                <div style="margin-bottom: 18px;">
+                    <h3 style="margin: 0; font-size: 17px; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                        <i class="ci ci-scale"></i> Auditoria de Acessos Recentes
+                    </h3>
+                    <p style="color: #94a3b8; font-size: 13px; margin: 4px 0 0 0;">
+                        Registro das últimas tentativas de login (sucessos e bloqueios) com IP e timestamp.
+                    </p>
+                </div>
+
+                <div class="unified-table-container" style="overflow-x: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                    <table class="unified-table">
+                        <thead>
+                            <tr>
+                                <th>Data / Hora</th>
+                                <th>Usuário Informado</th>
+                                <th>Colaborador Associado</th>
+                                <th>Endereço IP</th>
+                                <th>Status</th>
+                                <th>Resultado / Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-logs-body">
+                            <!-- Preenchido via admin.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- SEÇÃO DE EXPORTAÇÃO -->
         <div id="export-section" class="export-container" style="margin-top: 25px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
             <div id="contador-processos" class="results-count"></div>
-            <button id="btnExport" class="btn-export-full" onclick="exportarCSV()" style="max-width: 300px; margin-bottom: 0;">📥 Exportar lista filtrada</button>
+            <button id="btnExport" class="btn-export-full" onclick="exportarCSV()" style="max-width: 300px; margin-bottom: 0;"><i class="ci ci-download"></i> Exportar lista filtrada</button>
         </div>
 
         <!-- INDICADOR DE CARREGAMENTO -->
-        <div id="loading" class="loading">⏳ Carregando dados da base central...</div>
+        <div id="loading" class="loading"><i class="ci ci-clock"></i> Carregando dados da base central...</div>
 
         <!-- CONTEÚDO DOS CARDS -->
         <div id="cards-container" class="grid-layout"></div>
 
         <!-- BOTÕES FLUTUANTES (FAB) -->
-        <button id="fab-novo-oficio" class="fab-button" onclick="abrirModalCadastro()" style="display: none;">➕ Novo</button>
-        <button id="fab-novo-auto" class="fab-button" onclick="abrirModalCadastroAuto()" style="display: none;">➕ Novo Auto</button>
-        <button id="fab-novo-externo" class="fab-button" onclick="abrirModalCadastroExterno()" style="display: none; background-color: #8e44ad;">➕ Novo Externo</button>
-        <button id="fab-novo-carta" class="fab-button" onclick="abrirModalCadastroCarta()" style="display: none; background-color: #1a6b4a;">✉️ Nova Carta</button>
+        <button id="fab-novo-oficio" class="fab-button" onclick="abrirModalCadastro()" style="display: none;"><i class="ci ci-plus"></i> Novo</button>
+        <button id="fab-novo-auto" class="fab-button" onclick="abrirModalCadastroAuto()" style="display: none;"><i class="ci ci-plus"></i> Novo Auto</button>
+        <button id="fab-novo-externo" class="fab-button" onclick="abrirModalCadastroExterno()" style="display: none; background-color: #8e44ad;"><i class="ci ci-plus"></i> Novo Externo</button>
+        <button id="fab-novo-carta" class="fab-button" onclick="abrirModalCadastroCarta()" style="display: none; background-color: #1a6b4a;"><i class="ci ci-plus"></i> Nova Carta</button>
     </main>
 
     <!-- MODAL: DETALHES -->
@@ -635,7 +1049,7 @@
         <div class="modal-content" style="max-width: 450px;">
             <span class="close-btn" onclick="document.getElementById('confirmModal').style.display='none'">&times;</span>
             <div style="padding: 25px; text-align: center;">
-                <div id="confirmIcon" style="font-size: 40px; margin-bottom: 15px;">⚠️</div>
+                <div id="confirmIcon" style="font-size: 40px; margin-bottom: 15px;"><i class="ci ci-alert ci-xl" style="color: #f39c12;"></i></div>
                 <h3 id="confirmTitle" style="color: white; font-size: 20px; margin-bottom: 10px;">Confirmar Ação</h3>
                 <p id="confirmMessage" style="color: #aaa; font-size: 14px; line-height: 1.5; margin-bottom: 20px;"></p>
                 <div id="confirmInputContainer" style="display: none; margin-bottom: 20px;">
@@ -653,7 +1067,7 @@
     <div id="cadastroModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <span class="close-btn" onclick="fecharModalCadastro()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">➕ Cadastrar Novo Ofício</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-plus"></i> Cadastrar Novo Ofício</h2>
             <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
                 <div class="filter-group">
                     <label>Aba Destino</label>
@@ -716,7 +1130,7 @@
                 <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
                     <label>Anexar Ficheiro PDF</label>
                     <label id="cadOficioArquivoLabel" class="file-upload-label">
-                        <span class="upload-icon">📁</span>
+                        <span class="upload-icon"><i class="ci ci-folder ci-xl"></i></span>
                         <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
                         <input type="file" id="cadOficioArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameOficio(this)">
                     </label>
@@ -724,7 +1138,7 @@
             </div>
             <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
                 <div class="modal-buttons">
-                    <button id="btnSalvarCadastro" onclick="salvarNovoOficio()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Processo</button>
+                    <button id="btnSalvarCadastro" onclick="salvarNovoOficio()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Processo</button>
                     <button onclick="fecharModalCadastro()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
@@ -735,7 +1149,7 @@
     <div id="cadastroAutoModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <span class="close-btn" onclick="fecharModalCadastroAuto()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">⚖️ Cadastrar Novo Auto</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-scale"></i> Cadastrar Novo Auto</h2>
             <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
                 <div class="filter-group">
                     <label>NUP</label>
@@ -793,7 +1207,7 @@
                 <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
                     <label>Anexar Ficheiro PDF</label>
                     <label id="cadAutoArquivoLabel" class="file-upload-label">
-                        <span class="upload-icon">📁</span>
+                        <span class="upload-icon"><i class="ci ci-folder ci-xl"></i></span>
                         <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
                         <input type="file" id="cadAutoArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameAuto(this)">
                     </label>
@@ -801,7 +1215,7 @@
             </div>
             <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
                 <div class="modal-buttons">
-                    <button id="btnSalvarCadastroAuto" onclick="salvarNovoAuto()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Auto</button>
+                    <button id="btnSalvarCadastroAuto" onclick="salvarNovoAuto()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Auto</button>
                     <button onclick="fecharModalCadastroAuto()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
@@ -812,7 +1226,7 @@
     <div id="cadastroExternoModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <span class="close-btn" onclick="fecharModalCadastroExterno()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">🏢 Cadastrar Novo Ofício Externo</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-building"></i> Cadastrar Novo Ofício Externo</h2>
             <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
                 <div class="filter-group">
                     <label>NUP</label>
@@ -857,7 +1271,7 @@
                 <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
                     <label>Anexar Ficheiro PDF</label>
                     <label id="cadExternoArquivoLabel" class="file-upload-label">
-                        <span class="upload-icon">📁</span>
+                        <span class="upload-icon"><i class="ci ci-folder ci-xl"></i></span>
                         <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
                         <input type="file" id="cadExtArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameExterno(this)">
                     </label>
@@ -865,7 +1279,7 @@
             </div>
             <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
                 <div class="modal-buttons">
-                    <button id="btnSalvarCadastroExt" onclick="salvarNovoExterno()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Externo</button>
+                    <button id="btnSalvarCadastroExt" onclick="salvarNovoExterno()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Externo</button>
                     <button onclick="fecharModalCadastroExterno()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
@@ -876,15 +1290,15 @@
     <div id="atribuirTecnicoOficioModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
             <span class="close-btn" onclick="fecharModalAtribuirTecnicoOficio()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">👤 Distribuir Ofício</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-user"></i> Distribuir / Atribuir Responsável</h2>
             <div style="padding: 20px;">
                 <input type="hidden" id="atrOficioNup">
                 <div class="filter-group">
-                    <label>Selecionar Técnico</label>
+                    <label>Selecionar Responsável (Técnico / Administrativo / Revisor)</label>
                     <select id="atrOficioTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; margin-bottom: 20px;"></select>
                 </div>
                 <div class="modal-buttons">
-                    <button id="btnSalvarAtribuicaoOficio" onclick="salvarAtribuicaoTecnicoOficio()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Distribuição</button>
+                    <button id="btnSalvarAtribuicaoOficio" onclick="salvarAtribuicaoTecnicoOficio()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Distribuição</button>
                     <button onclick="fecharModalAtribuirTecnicoOficio()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
@@ -895,7 +1309,7 @@
     <div id="cadastroReiteracaoModal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <span class="close-btn" onclick="fecharModalCadastroReiteracao()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">🔁 Cadastrar Reiteração</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-repeat"></i> Cadastrar Reiteração</h2>
             <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
                 <input type="hidden" id="reitOriginalNup">
                 
@@ -932,7 +1346,7 @@
                     <label>PDF do Novo Ofício (Opcional)</label>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <input type="file" id="reitNovoPdfFile" accept="application/pdf" style="display: none;" onchange="updateReitFileName(this)">
-                        <button type="button" onclick="document.getElementById('reitNovoPdfFile').click()" class="btn-drive btn-upload" style="margin: 0; width: 100%;">📁 Selecionar PDF</button>
+                        <button type="button" onclick="document.getElementById('reitNovoPdfFile').click()" class="btn-drive btn-upload" style="margin: 0; width: 100%;"><i class="ci ci-folder"></i> Selecionar PDF</button>
                         <span id="reitPdfFileName" style="font-size: 12px; color: #888; text-align: center; word-break: break-all;">Nenhum arquivo selecionado</span>
                     </div>
                 </div>
@@ -945,19 +1359,97 @@
         </div>
     </div>
 
+    <!-- MODAL: SOBRESTAR PROCESSO (IDA) -->
+    <div id="sobrestarModal" class="modal">
+        <div class="modal-content" style="max-width: 500px; border-top: 4px solid #f39c12;">
+            <span class="close-btn" onclick="fecharModalSobrestar()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white; display: flex; align-items: center; gap: 8px;"><i class="ci ci-pause"></i> Sobrestar Processo</h2>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="sobrestarNup">
+                <input type="hidden" id="sobrestarTipo">
+                
+                <div style="font-size: 13px; color: #bbb; line-height: 1.4; background: rgba(243, 156, 18, 0.1); border-left: 3px solid #f39c12; padding: 10px; border-radius: 4px;">
+                    Ao sobrestar, a manifestação preliminar aprovada será consolidada no dossiê do processo para posterior visualização conjunta.
+                </div>
+
+                <div class="filter-group">
+                    <label>Setor de Encaminhamento *</label>
+                    <select id="sobrestarSetor" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px;">
+                        <option value="">-- Selecione o Setor de Destino --</option>
+                        <option value="DIPRE - Diretoria da Presidência">DIPRE - Diretoria da Presidência</option>
+                        <option value="GEAMB - Gerência de Assuntos Ambientais">GEAMB - Gerência de Assuntos Ambientais</option>
+                        <option value="CJUR - Coordenadoria Jurídica">CJUR - Coordenadoria Jurídica</option>
+                        <option value="PGE - Procuradoria Geral do Estado">PGE - Procuradoria Geral do Estado</option>
+                        <option value="OUTRO">OUTRO SETOR</option>
+                    </select>
+                </div>
+
+                <div class="filter-group" id="containerSobrestarOutroSetor" style="display: none;">
+                    <label>Nome do Setor / Órgão Externo *</label>
+                    <input type="text" id="sobrestarOutroSetor" placeholder="Digite o nome do setor ou órgão externo">
+                </div>
+
+                <div class="filter-group">
+                    <label>Motivo / Justificativa do Sobrestamento *</label>
+                    <textarea id="sobrestarMotivo" placeholder="Descreva detalhadamente o motivo do sobrestamento e a manifestação necessária do setor externo..." style="width: 100%; height: 90px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; resize: vertical; box-sizing: border-box;"></textarea>
+                </div>
+
+                <div class="modal-buttons" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button onclick="fecharModalSobrestar()" class="btn-drive btn-soft-gray" style="width: auto; margin: 0;">Cancelar</button>
+                    <button id="btnConfirmarSobrestamento" onclick="executarSobrestamentoProcesso()" class="btn-drive" style="background-color: #f39c12; border-color: #d68910; color: #111; font-weight: bold; width: auto; margin: 0;"><i class="ci ci-pause"></i> Confirmar Sobrestamento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: RETORNO DE SOBRESTAMENTO (VOLTA COM PARECER EXTERNO) -->
+    <div id="retornoSobrestamentoModal" class="modal">
+        <div class="modal-content" style="max-width: 520px; border-top: 4px solid #27ae60;">
+            <span class="close-btn" onclick="fecharModalRetornoSobrestamento()">&times;</span>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white; display: flex; align-items: center; gap: 8px;">▶️ Retornar do Sobrestamento</h2>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="retornoSobrestamentoNup">
+                <input type="hidden" id="retornoSobrestamentoTipo">
+                
+                <div style="font-size: 13px; color: #bbb; line-height: 1.4; background: rgba(39, 174, 96, 0.1); border-left: 3px solid #27ae60; padding: 10px; border-radius: 4px;">
+                    Anexe o Parecer / Documento emitido pelo setor externo. Ele será incorporado ao processo e o status voltará para <strong>Aguardando Manifestação</strong> para o Técnico elaborar a manifestação final conclusiva.
+                </div>
+
+                <div class="filter-group custom-file-upload">
+                    <label>Parecer do Setor Externo (PDF) *</label>
+                    <label id="retornoParecerArquivoLabel" class="file-upload-label" style="padding: 15px; text-align: center; border: 1px dashed #27ae60; border-radius: 6px; cursor: pointer; display: block;">
+                        <span class="upload-icon" style="display: block; margin-bottom: 5px;"><i class="ci ci-court ci-xl"></i></span>
+                        <span id="retornoParecerArquivoNome" class="upload-text" style="color: #2ecc71; font-size: 13px; font-weight: bold;">Clique para selecionar o PDF do Parecer Externo</span>
+                        <input type="file" id="retornoParecerArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameParecerRetorno(this)">
+                    </label>
+                </div>
+
+                <div class="filter-group">
+                    <label>Observações do Retorno (Opcional)</label>
+                    <textarea id="retornoParecerObs" placeholder="Ex: Parecer favorável emitido pela PGE sob nº 456/2026..." style="width: 100%; height: 75px; padding: 10px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; resize: vertical; box-sizing: border-box;"></textarea>
+                </div>
+
+                <div class="modal-buttons" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button onclick="fecharModalRetornoSobrestamento()" class="btn-drive btn-soft-gray" style="width: auto; margin: 0;">Cancelar</button>
+                    <button id="btnConfirmarRetornoSobrestamento" onclick="executarRetornoSobrestamentoProcesso()" class="btn-drive" style="background-color: #27ae60; border-color: #1e8449; color: white; font-weight: bold; width: auto; margin: 0;">▶️ Retomar para Manifestação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: ATRIBUIR TÉCNICO AO AUTO -->
     <div id="atribuirTecnicoModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
             <span class="close-btn" onclick="fecharModalAtribuirTecnico()">&times;</span>
-            <h2 id="atribuirTecnicoModalTitle" style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">👤 Distribuir Auto</h2>
+            <h2 id="atribuirTecnicoModalTitle" style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-user"></i> Distribuir / Atribuir Responsável</h2>
             <div style="padding: 20px;">
                 <input type="hidden" id="atrAutoNup">
                 <div class="filter-group">
-                    <label>Selecionar Técnico</label>
+                    <label>Selecionar Responsável (Técnico / Administrativo / Revisor)</label>
                     <select id="atrAutoTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; margin-bottom: 20px;"></select>
                 </div>
                 <div class="modal-buttons">
-                    <button id="btnSalvarAtribuicao" onclick="salvarAtribuicaoTecnico()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Distribuição</button>
+                    <button id="btnSalvarAtribuicao" onclick="salvarAtribuicaoTecnico()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Distribuição</button>
                     <button onclick="fecharModalAtribuirTecnico()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
@@ -968,15 +1460,15 @@
     <div id="atribuirTecnicoExternoModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
             <span class="close-btn" onclick="fecharModalAtribuirTecnicoExterno()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">👤 Distribuir Ofício Externo</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-user"></i> Distribuir / Atribuir Responsável</h2>
             <div style="padding: 20px;">
                 <input type="hidden" id="atrExternoNup">
                 <div class="filter-group">
-                    <label>Selecionar Técnico</label>
+                    <label>Selecionar Responsável (Técnico / Administrativo / Revisor)</label>
                     <select id="atrExternoTecnico" style="width: 100%; height: 42px; padding: 0 12px; border-radius: 6px; border: 1px solid #333; background-color: #1a1a1a; color: white; outline: none; font-size: 14px; margin-bottom: 20px;"></select>
                 </div>
                 <div class="modal-buttons">
-                    <button id="btnSalvarAtribuicaoExterno" onclick="salvarAtribuicaoTecnicoExterno()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Distribuição</button>
+                    <button id="btnSalvarAtribuicaoExterno" onclick="salvarAtribuicaoTecnicoExterno()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Distribuição</button>
                     <button onclick="fecharModalAtribuirTecnicoExterno()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
@@ -987,7 +1479,7 @@
     <div id="cadastroCartaModal" class="modal">
         <div class="modal-content" style="max-width: 720px;">
             <span class="close-btn" onclick="fecharModalCadastroCarta()">&times;</span>
-            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;">✉️ Cadastrar Nova Carta Consulta</h2>
+            <h2 style="padding: 20px; border-bottom: 1px solid #333; font-weight: 800; color: white;"><i class="ci ci-mail"></i> Cadastrar Nova Carta Consulta</h2>
             <div class="modal-grid" style="grid-template-columns: repeat(2, 1fr); padding: 20px;">
                 <div class="filter-group">
                     <label>NUP *</label>
@@ -1054,7 +1546,7 @@
                 <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
                     <label>Anexar Ficheiro PDF (opcional)</label>
                     <label id="cadCartaArquivoLabel" class="file-upload-label">
-                        <span class="upload-icon">📁</span>
+                        <span class="upload-icon"><i class="ci ci-folder ci-xl"></i></span>
                         <span class="upload-text">Clique para selecionar ou arraste o ficheiro PDF</span>
                         <input type="file" id="cadCartaArquivo" accept="application/pdf" style="display: none;" onchange="updateFileNameCarta(this)">
                     </label>
@@ -1062,7 +1554,7 @@
                 <div class="filter-group custom-file-upload" style="grid-column: span 2; margin-top: 10px;">
                     <label>Anexar Ficheiro Shapefile (.zip) (opcional)</label>
                     <label id="cadCartaShapeLabel" class="file-upload-label">
-                        <span class="upload-icon">🗺️</span>
+                        <span class="upload-icon"><i class="ci ci-map ci-xl"></i></span>
                         <span class="upload-text">Clique para selecionar ou arraste o ficheiro ZIP</span>
                         <input type="file" id="cadCartaShape" accept=".zip" style="display: none;" onchange="updateFileNameCartaShape(this)">
                     </label>
@@ -1070,10 +1562,447 @@
             </div>
             <div class="modal-footer" style="padding: 20px; border-top: 1px solid #333;">
                 <div class="modal-buttons">
-                    <button id="btnSalvarCadastroCarta" onclick="salvarNovaCarta()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;">💾 Salvar Carta</button>
+                    <button id="btnSalvarCadastroCarta" onclick="salvarNovaCarta()" class="btn-drive" style="background-color: var(--primary-green); border-color: #268b3c;"><i class="ci ci-save"></i> Salvar Carta</button>
                     <button onclick="fecharModalCadastroCarta()" class="btn-drive btn-soft-gray">Cancelar</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRO UNIFICADO (STEPPER) -->
+    <div id="cadastroUnificadoModal" class="modal">
+        <div class="modal-content" style="max-width: 750px;">
+            <span class="close-btn" onclick="fecharModalCadastroUnificado()">&times;</span>
+
+            <!-- STEP 1: Seleção do Tipo de Documento -->
+            <div id="step-selecao-tipo" class="cadastro-step">
+                <h2 style="padding: 20px 24px 8px; font-weight: 800; color: white;"><i class="ci ci-plus"></i> Cadastrar Novo Processo</h2>
+                <p class="step-subtitle">Selecione o tipo de documento que deseja cadastrar:</p>
+                <div class="tipo-documento-grid">
+                    <div class="tipo-doc-card" onclick="selecionarTipoDocumento('oficio')" data-tipo="oficio">
+                        <div class="tipo-doc-icon" style="background: rgba(46,160,67,0.15); color: #3fb950;"><i class="ci ci-folder ci-xl"></i></div>
+                        <span>Ofícios</span>
+                        <small>Demandas técnicas e juntadas</small>
+                    </div>
+                    <div class="tipo-doc-card" onclick="selecionarTipoDocumento('externo')" data-tipo="externo">
+                        <div class="tipo-doc-icon" style="background: rgba(142,68,173,0.15); color: #b07cd8;"><i class="ci ci-inbox ci-xl"></i></div>
+                        <span>Ofícios Externos</span>
+                        <small>Órgãos remetentes e recebimento</small>
+                    </div>
+                    <div class="tipo-doc-card" onclick="selecionarTipoDocumento('auto')" data-tipo="auto">
+                        <div class="tipo-doc-icon" style="background: rgba(230,126,34,0.15); color: #e67e22;"><i class="ci ci-scale ci-xl"></i></div>
+                        <span>Autos de Infração</span>
+                        <small>Autos, contraditas e manifestações</small>
+                    </div>
+                    <div class="tipo-doc-card" onclick="selecionarTipoDocumento('carta')" data-tipo="carta">
+                        <div class="tipo-doc-icon" style="background: rgba(26,107,74,0.15); color: #2ecc71;"><i class="ci ci-pen ci-xl"></i></div>
+                        <span>Cartas Consulta</span>
+                        <small>Consultas com shapefile e prazo</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: Formulário Dinâmico -->
+            <div id="step-formulario" class="cadastro-step" style="display: none;">
+                <div class="step-header">
+                    <button class="btn-voltar-step" onclick="voltarParaSelecao()">
+                        <i class="ci ci-arrow-left"></i> Voltar
+                    </button>
+                    <h2 id="titulo-formulario-dinamico">Cadastrar</h2>
+                </div>
+                <div id="formulario-dinamico-container">
+                    <!-- Formulário e botões serão carregados dinamicamente aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAIS DO MÓDULO ADMINISTRATIVO                              -->
+    <!-- ============================================================= -->
+
+    <!-- MODAL 1: CADASTRAR NOVO USUÁRIO -->
+    <div id="modalNovoUsuario" class="modal modal-premium" style="display: none;">
+        <div class="modal-content modal-content-premium" style="max-width: 620px;">
+            <!-- HEADER MODERNO -->
+            <div class="modal-header-premium">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="modal-icon-bubble" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1)); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+                        <i class="ci ci-plus"></i>
+                    </div>
+                    <div>
+                        <h3 class="modal-title-premium">Cadastrar Novo Usuário</h3>
+                        <p class="modal-subtitle-premium">Crie um novo acesso individual com permissões e credenciais seguras.</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close-round" onclick="fecharModalNovoUsuario()" title="Fechar">
+                    &times;
+                </button>
+            </div>
+
+            <form id="formNovoUsuario" onsubmit="salvarNovoUsuario(event)">
+                <div class="form-section-title">
+                    <i class="ci ci-user"></i> Identificação
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Utilizador (Login) *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-user"></i></span>
+                            <input type="text" id="novoUserUsername" required placeholder="ex: mmacedo" class="form-input-premium">
+                        </div>
+                        <small class="field-help">Min. 3 caracteres (minúsculas).</small>
+                    </div>
+
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Nome Completo *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-pen"></i></span>
+                            <input type="text" id="novoUserNome" required placeholder="Nome e Sobrenome" class="form-input-premium">
+                        </div>
+                        <small class="field-help">Nome de exibição no sistema.</small>
+                    </div>
+                </div>
+
+                <div class="form-section-title">
+                    <i class="ci ci-building"></i> Lotação & Cargo
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Setor / Lotação *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-building"></i></span>
+                            <select id="novoUserSetor" required class="form-input-premium form-select-premium">
+                                <option value="">Selecione o setor...</option>
+                                <option value="DIFLOR">DIFLOR — Diretoria Florestal</option>
+                                <option value="GCAR">GCAR — Cadastro Ambiental Rural</option>
+                                <option value="GEAA">GEAA — Autorizações Ambientais</option>
+                                <option value="GEAMB">GEAMB — Assuntos Ambientais</option>
+                            </select>
+                        </div>
+                        <small class="field-help">Gerência onde atuará.</small>
+                    </div>
+
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Função / Cargo *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-folder"></i></span>
+                            <input type="text" id="novoUserFuncao" required placeholder="ex: Analista Ambiental" class="form-input-premium">
+                        </div>
+                        <small class="field-help">Função técnica ou administrativa.</small>
+                    </div>
+                </div>
+
+                <div class="form-section-title">
+                    <i class="ci ci-shield"></i> Acesso & Credenciais
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Nível de Acesso (Role) *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-shield"></i></span>
+                            <select id="novoUserRole" required class="form-input-premium form-select-premium">
+                                <option value="tecnico" selected>Técnico (Operacional)</option>
+                                <option value="revisor">Revisor (Gerência / Supervisão)</option>
+                                <option value="user">Usuário Administrativo Comum</option>
+                                <option value="admin">Administrador Geral</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Status da Conta *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-check"></i></span>
+                            <select id="novoUserStatus" required class="form-input-premium form-select-premium">
+                                <option value="ativo" selected>🟢 Ativo (Acesso Liberado)</option>
+                                <option value="inativo">🔴 Inativo (Acesso Bloqueado)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group form-field-group" style="margin-bottom: 10px;">
+                    <label class="field-label">
+                        <span>Senha Inicial de Acesso *</span>
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <div class="input-with-icon" style="flex: 1;">
+                            <span class="input-icon-left"><i class="ci ci-lock"></i></span>
+                            <input type="text" id="novoUserPassword" required placeholder="Senha inicial" class="form-input-premium" style="font-family: monospace;">
+                        </div>
+                        <button type="button" class="btn-premium-cancel" onclick="gerarSenhaAleatoriaNovo()" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;" title="Gerar Senha Segura">
+                            <i class="ci ci-refresh"></i> Gerar Segura
+                        </button>
+                    </div>
+                    <small class="field-help">Salva automaticamente com hash scrypt seguro.</small>
+                </div>
+
+                <!-- FOOTER MODERNO -->
+                <div class="modal-footer-premium">
+                    <span class="footer-info-note">
+                        <i class="ci ci-shield"></i> Criptografia OWASP scrypt ativa
+                    </span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" class="btn-premium-cancel" onclick="fecharModalNovoUsuario()">Cancelar</button>
+                        <button type="submit" id="btnSalvarNovoUsuario" class="btn-premium-save">
+                            <i class="ci ci-check"></i> Concluir Cadastro
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EDITAR USUÁRIO & TRANSFERÊNCIA -->
+    <div id="modalEditarUsuario" class="modal modal-premium" style="display: none;">
+        <div class="modal-content modal-content-premium" style="max-width: 640px;">
+            <!-- HEADER MODERNO -->
+            <div class="modal-header-premium">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="modal-icon-bubble" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.1)); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                        <i class="ci ci-pen"></i>
+                    </div>
+                    <div>
+                        <h3 class="modal-title-premium">Editar Dados do Usuário</h3>
+                        <p class="modal-subtitle-premium">Atualize as informações cadastrais, lotação e permissões deste usuário.</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close-round" onclick="fecharModalEditarUsuario()" title="Fechar">
+                    &times;
+                </button>
+            </div>
+
+            <!-- PROFILE SUMMARY BANNER -->
+            <div class="user-summary-card">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div id="editUserAvatarInitials" class="user-avatar-initials" style="width: 44px; height: 44px; font-size: 15px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);">
+                        --
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="editUserBadgeUsername" style="font-family: monospace; font-size: 14px; font-weight: 700; color: #f8fafc; letter-spacing: 0.3px;">
+                                @usuario
+                            </span>
+                            <span id="editUserBadgeId" class="badge-tag-id">ID #--</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <span id="editUserBadgeRole" class="badge-role badge-role-user">Usuário</span>
+                            <span id="editUserBadgeSetor" class="badge-setor badge-setor-default">SETOR</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-summary-security-note">
+                    <i class="ci ci-shield"></i> Dados Auditados
+                </div>
+            </div>
+
+            <form id="formEditarUsuario" onsubmit="salvarEdicaoUsuario(event)">
+                <input type="hidden" id="editUserId">
+
+                <div class="form-section-title">
+                    <i class="ci ci-user"></i> Identificação
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Utilizador (Login)</span>
+                            <i class="ci ci-lock" style="font-size: 11px; color: #64748b;" title="Identificador de login não editável"></i>
+                        </label>
+                        <div class="input-with-icon readonly-wrapper">
+                            <span class="input-icon-left"><i class="ci ci-user"></i></span>
+                            <input type="text" id="editUserUsername" readonly class="form-input-premium readonly-input" placeholder="login">
+                        </div>
+                        <small class="field-help">Chave de acesso única (imutável).</small>
+                    </div>
+
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Nome Completo *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-pen"></i></span>
+                            <input type="text" id="editUserNome" required class="form-input-premium" placeholder="Nome completo do usuário">
+                        </div>
+                        <small class="field-help">Nome exibido em documentos e relatórios.</small>
+                    </div>
+                </div>
+
+                <div class="form-section-title">
+                    <i class="ci ci-building"></i> Lotação & Cargo
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Setor / Transferência *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-building"></i></span>
+                            <select id="editUserSetor" required class="form-input-premium form-select-premium">
+                                <option value="DIFLOR">DIFLOR — Diretoria Florestal</option>
+                                <option value="GCAR">GCAR — Cadastro Ambiental Rural</option>
+                                <option value="GEAA">GEAA — Autorizações Ambientais</option>
+                                <option value="GEAMB">GEAMB — Assuntos Ambientais</option>
+                            </select>
+                        </div>
+                        <small class="field-help">Gerência onde o colaborador atua.</small>
+                    </div>
+
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Função / Cargo *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-folder"></i></span>
+                            <input type="text" id="editUserFuncao" required class="form-input-premium" placeholder="ex: Analista Ambiental">
+                        </div>
+                        <small class="field-help">Cargo ou atividade funcional.</small>
+                    </div>
+                </div>
+
+                <div class="form-section-title">
+                    <i class="ci ci-key"></i> Permissões & Status
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px;">
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Nível de Acesso (Role) *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-shield"></i></span>
+                            <select id="editUserRole" required class="form-input-premium form-select-premium">
+                                <option value="tecnico">Técnico (Operacional)</option>
+                                <option value="revisor">Revisor (Gerência / Supervisão)</option>
+                                <option value="user">Usuário Administrativo Comum</option>
+                                <option value="admin">Administrador Geral</option>
+                            </select>
+                        </div>
+                        <small class="field-help">Define visibilidade de abas e ações.</small>
+                    </div>
+
+                    <div class="filter-group form-field-group">
+                        <label class="field-label">
+                            <span>Status da Conta *</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <span class="input-icon-left"><i class="ci ci-check"></i></span>
+                            <select id="editUserStatus" required class="form-input-premium form-select-premium">
+                                <option value="ativo">🟢 Ativo (Acesso Permitido)</option>
+                                <option value="inativo">🔴 Inativo (Acesso Bloqueado)</option>
+                            </select>
+                        </div>
+                        <small class="field-help">Se inativo, as sessões caem na hora.</small>
+                    </div>
+                </div>
+
+                <!-- FOOTER MODERNO -->
+                <div class="modal-footer-premium">
+                    <span class="footer-info-note">
+                        <i class="ci ci-clock"></i> Efeito imediato após confirmação
+                    </span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" class="btn-premium-cancel" onclick="fecharModalEditarUsuario()">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="btnSalvarEdicaoUsuario" class="btn-premium-save">
+                            <i class="ci ci-check"></i> Salvar Alterações
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: REDEFINIR SENHA ADMINISTRATIVA -->
+    <div id="modalResetSenha" class="modal modal-premium" style="display: none;">
+        <div class="modal-content modal-content-premium" style="max-width: 500px;">
+            <!-- HEADER MODERNO -->
+            <div class="modal-header-premium">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="modal-icon-bubble" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.1)); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">
+                        <i class="ci ci-lock"></i>
+                    </div>
+                    <div>
+                        <h3 class="modal-title-premium">Redefinir Senha de Acesso</h3>
+                        <p class="modal-subtitle-premium">Gere ou defina uma nova senha administrativa para o usuário.</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close-round" onclick="fecharModalResetSenha()" title="Fechar">
+                    &times;
+                </button>
+            </div>
+
+            <form id="formResetSenha" onsubmit="executarResetSenha(event)">
+                <input type="hidden" id="resetUserId">
+
+                <div class="user-summary-card" style="margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="user-avatar-initials" style="width: 38px; height: 38px; background: linear-gradient(135deg, #d97706, #b45309); color: #fff;">
+                            <i class="ci ci-key"></i>
+                        </span>
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Usuário Selecionado</div>
+                            <div id="resetUserUsernameDisplay" style="font-family: monospace; font-size: 15px; font-weight: 700; color: #38bdf8;">--</div>
+                        </div>
+                    </div>
+                    <div class="badge-role badge-role-admin" style="font-size: 10px;">
+                        Ação Restrita
+                    </div>
+                </div>
+
+                <div class="filter-group form-field-group" style="margin-bottom: 12px;">
+                    <label class="field-label">
+                        <span>Nova Senha *</span>
+                        <span style="color: #64748b; font-size: 10px; font-weight: 400;">Mínimo de 4 caracteres</span>
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <div class="input-with-icon" style="flex: 1;">
+                            <span class="input-icon-left"><i class="ci ci-lock"></i></span>
+                            <input type="text" id="resetNewPassword" required class="form-input-premium" style="font-family: monospace; font-size: 14px;">
+                        </div>
+                        <button type="button" class="btn-premium-cancel" onclick="gerarSenhaAleatoriaReset()" style="display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;" title="Gerar Senha">
+                            <i class="ci ci-refresh"></i> Gerar
+                        </button>
+                        <button type="button" class="btn-premium-cancel" onclick="copiarSenhaReset()" style="display: inline-flex; align-items: center; gap: 6px; padding: 0 12px;" title="Copiar Senha">
+                            <i class="ci ci-copy"></i>
+                        </button>
+                    </div>
+                    <small class="field-help" style="color: #f59e0b;">
+                        ⚠️ Atenção: As sessões ativas deste usuário serão encerradas imediatamente.
+                    </small>
+                </div>
+
+                <!-- FOOTER MODERNO -->
+                <div class="modal-footer-premium">
+                    <span class="footer-info-note">
+                        <i class="ci ci-alert"></i> Requer reautenticação
+                    </span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" class="btn-premium-cancel" onclick="fecharModalResetSenha()">Cancelar</button>
+                        <button type="submit" id="btnExecutarResetSenha" class="btn-premium-save" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);">
+                            <i class="ci ci-key"></i> Redefinir Senha
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1088,16 +2017,17 @@
     <div id="toast-container"></div>
 
     <!-- IMPORTS JAVASCRIPT -->
-    <script src="gcs-storage.js"></script>
-    <script src="leitor.js"></script>
+    <script src="gcs-storage.js?v=2"></script>
+    <script src="leitor.js?v=4"></script>
     <script src="flatpickr.min.js"></script>
     <script src="flatpickr.pt.js"></script>
-    <script src="utils.js"></script>
-    <script src="app.js?v=3"></script>
-    <script src="autos.js?v=2"></script>
-    <script src="externos.js?v=2"></script>
-    <script src="cartas.js?v=4"></script>
+    <script src="utils.js?v=12"></script>
+    <script src="app.js?v=26"></script>
+    <script src="autos.js?v=17"></script>
+    <script src="externos.js?v=17"></script>
+    <script src="cartas.js?v=19"></script>
     <script src="shapefile_reader.js"></script>
+    <script src="admin.js?v=2"></script>
 </body>
 
 </html>

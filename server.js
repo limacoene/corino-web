@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const { Storage } = require('@google-cloud/storage');
+const db = require('./db.js');
 
 // Carrega configurações de gcs-config.json ou variáveis de ambiente
 let config = {
@@ -98,6 +99,75 @@ function normalizarCaminhoGCS(caminho) {
     return limpo.replace(/^\/+/, '');
 }
 
+const https = require('https');
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
+global.gasCache = {};
+let gasQueue = Promise.resolve();
+
+function requestRawGas(payload) {
+    const postData = JSON.stringify(payload);
+    return new Promise((resolve, reject) => {
+        function doRequest(targetUrl, isGet = false, postBody = null) {
+            const options = {
+                method: isGet ? 'GET' : 'POST'
+            };
+            if (!isGet && postBody) {
+                options.headers = {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(postBody)
+                };
+            }
+            const req = https.request(targetUrl, options, (res) => {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    return doRequest(res.headers.location, true);
+                }
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(data);
+                        resolve(parsed);
+                    } catch (e) {
+                        reject(new Error('Resposta inválida do Google Apps Script: ' + data.substring(0, 100)));
+                    }
+                });
+            });
+            req.on('error', reject);
+            if (!isGet && postBody) req.write(postBody);
+            req.end();
+        }
+        doRequest(GAS_URL, false, postData);
+    });
+}
+
+async function requestGasComRetry(payload, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const res = await requestRawGas(payload);
+            if (res && res.status === 'error' && String(res.message).toLowerCase().includes('bloqueio')) {
+                console.warn(`⚠️ [GAS Queue] Tentativa ${attempt} encontrou bloqueio no Apps Script. Aguardando 2s para retry...`);
+                await new Promise(r => setTimeout(r, 2000));
+                continue;
+            }
+            return res;
+        } catch (err) {
+            if (attempt === maxRetries) throw err;
+            console.warn(`⚠️ [GAS Queue] Erro de comunicação na tentativa ${attempt}. Retentando em 1.5s...`);
+            await new Promise(r => setTimeout(r, 1500));
+        }
+    }
+}
+
+function fetchGasFromNode(payload) {
+    const p = gasQueue.then(async () => {
+        const res = await requestGasComRetry(payload);
+        await new Promise(r => setTimeout(r, 250));
+        return res;
+    });
+    gasQueue = p.catch(() => {});
+    return p;
+}
+
 /**
  * MIME Types suportados para o servidor estático
  */
@@ -151,11 +221,42 @@ function sendJson(res, statusCode, data) {
     res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-corino-token',
         'Cache-Control': 'no-store, no-cache, must-revalidate'
     });
     res.end(JSON.stringify(data));
+}
+
+function getClientIp(req) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) return forwarded.split(',')[0].trim();
+    return req.socket ? req.socket.remoteAddress || '127.0.0.1' : '127.0.0.1';
+}
+
+function verificarAuthAdmin(req) {
+    let token = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7).trim();
+    } else if (req.headers['x-corino-token']) {
+        token = req.headers['x-corino-token'];
+    }
+
+    if (!token) {
+        return { ok: false, status: 401, message: 'Autenticação necessária. Token não fornecido.' };
+    }
+
+    const sessionUser = db.validarSessao(token);
+    if (!sessionUser) {
+        return { ok: false, status: 401, message: 'Sessão expirada ou inválida. Por favor, realize novo login.' };
+    }
+
+    if (sessionUser.role !== 'admin') {
+        return { ok: false, status: 403, message: 'Acesso negado: operação exclusiva para administradores.' };
+    }
+
+    return { ok: true, user: sessionUser };
 }
 
 /**
@@ -166,8 +267,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
         res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-corino-token',
             'Access-Control-Max-Age': '86400'
         });
         return res.end();
@@ -175,6 +276,141 @@ const server = http.createServer(async (req, res) => {
 
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
+
+    // ==========================================
+    // ROTAS DE AUTENTICAÇÃO & CONTROLE DE ACESSO
+    // ==========================================
+
+    // 1. Login com registro de métricas (login_logs)
+    if ((pathname === '/api/auth/login' || pathname === '/auth/login') && req.method === 'POST') {
+        try {
+            const body = await parseRequestBody(req);
+            const ip = getClientIp(req);
+            const userAgent = req.headers['user-agent'] || '';
+            const authResult = db.autenticarUsuario(body.username, body.password, ip, userAgent);
+            if (!authResult.success) {
+                return sendJson(res, authResult.status || 401, {
+                    status: 'error',
+                    message: authResult.message
+                });
+            }
+            return sendJson(res, 200, {
+                status: 'success',
+                token: authResult.token,
+                user: authResult.user
+            });
+        } catch (err) {
+            console.error('❌ Erro no login:', err);
+            return sendJson(res, 500, { status: 'error', message: 'Erro interno ao processar login.' });
+        }
+    }
+
+    // 2. Perfil do Usuário Autenticado
+    if ((pathname === '/api/auth/me' || pathname === '/auth/me') && req.method === 'GET') {
+        let token = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '').trim() || req.headers['x-corino-token'];
+        const sessionUser = db.validarSessao(token);
+        if (!sessionUser) {
+            return sendJson(res, 401, { status: 'error', message: 'Sessão inválida ou expirada.' });
+        }
+        return sendJson(res, 200, { status: 'success', user: sessionUser });
+    }
+
+    // ==========================================
+    // MÓDULO ADMINISTRATIVO (EXCLUSIVO ADMIN)
+    // ==========================================
+
+    // 3. GET /admin/metrics/logins - Contagem e histórico de acessos
+    if ((pathname === '/admin/metrics/logins' || pathname === '/api/admin/metrics/logins') && req.method === 'GET') {
+        const auth = verificarAuthAdmin(req);
+        if (!auth.ok) return sendJson(res, auth.status, { status: 'error', message: auth.message });
+        try {
+            const data = db.obterMetricasLogins();
+            return sendJson(res, 200, { status: 'success', ...data });
+        } catch (err) {
+            console.error('❌ Erro ao obter métricas:', err);
+            return sendJson(res, 500, { status: 'error', message: err.message });
+        }
+    }
+
+    // 4. GET /admin/users - Listagem paginada de usuários com filtros
+    if ((pathname === '/admin/users' || pathname === '/api/admin/users') && req.method === 'GET') {
+        const auth = verificarAuthAdmin(req);
+        if (!auth.ok) return sendJson(res, auth.status, { status: 'error', message: auth.message });
+        try {
+            const query = parsedUrl.query || {};
+            const result = db.listarUsuariosPaginados({
+                page: query.page,
+                limit: query.limit,
+                setor: query.setor,
+                funcao: query.funcao,
+                role: query.role,
+                status: query.status,
+                search: query.search
+            });
+            return sendJson(res, 200, { status: 'success', ...result });
+        } catch (err) {
+            console.error('❌ Erro ao listar usuários:', err);
+            return sendJson(res, 500, { status: 'error', message: err.message });
+        }
+    }
+
+    // 5. POST /admin/users - Criação de usuário com credenciais seguras
+    if ((pathname === '/admin/users' || pathname === '/api/admin/users') && req.method === 'POST') {
+        const auth = verificarAuthAdmin(req);
+        if (!auth.ok) return sendJson(res, auth.status, { status: 'error', message: auth.message });
+        try {
+            const body = await parseRequestBody(req);
+            const result = db.criarUsuario(body);
+            return sendJson(res, 201, {
+                status: 'success',
+                message: 'Usuário criado com sucesso.',
+                ...result
+            });
+        } catch (err) {
+            console.error('❌ Erro ao criar usuário:', err.message);
+            return sendJson(res, 400, { status: 'error', message: err.message });
+        }
+    }
+
+    // 6. POST /admin/users/:id/reset-password - Redefinição administrativa de senha
+    const matchReset = pathname.match(/^(?:\/api)?\/admin\/users\/(\d+)\/reset-password$/);
+    if (matchReset && req.method === 'POST') {
+        const auth = verificarAuthAdmin(req);
+        if (!auth.ok) return sendJson(res, auth.status, { status: 'error', message: auth.message });
+        try {
+            const userId = matchReset[1];
+            const body = await parseRequestBody(req);
+            const result = db.resetarSenhaUsuario(userId, body.new_password);
+            return sendJson(res, 200, {
+                status: 'success',
+                message: 'Senha redefinida com sucesso.',
+                ...result
+            });
+        } catch (err) {
+            console.error('❌ Erro ao redefinir senha:', err.message);
+            return sendJson(res, 400, { status: 'error', message: err.message });
+        }
+    }
+
+    // 7. PATCH /admin/users/:id - Edição cadastral, setor e função
+    const matchPatch = pathname.match(/^(?:\/api)?\/admin\/users\/(\d+)$/);
+    if (matchPatch && req.method === 'PATCH') {
+        const auth = verificarAuthAdmin(req);
+        if (!auth.ok) return sendJson(res, auth.status, { status: 'error', message: auth.message });
+        try {
+            const userId = matchPatch[1];
+            const body = await parseRequestBody(req);
+            const updated = db.atualizarUsuario(userId, body);
+            return sendJson(res, 200, {
+                status: 'success',
+                message: 'Usuário atualizado com sucesso.',
+                user: updated
+            });
+        } catch (err) {
+            console.error('❌ Erro ao atualizar usuário:', err.message);
+            return sendJson(res, 400, { status: 'error', message: err.message });
+        }
+    }
 
     // ==========================================
     // ROTAS DE API GOOGLE CLOUD STORAGE
@@ -378,6 +614,51 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 200, { status: 'success', message: 'Arquivo excluído com sucesso.' });
         } catch (err) {
             console.error('❌ [GCS] Erro ao excluir:', err);
+            return sendJson(res, 500, { status: 'error', message: err.message });
+        }
+    }
+
+        // ==========================================
+    // 5. Proxy Central de Dados (Google Apps Script com Cache em Memória)
+    // ==========================================
+    if (pathname === '/api/dados-central' && (req.method === 'GET' || req.method === 'POST')) {
+        let payload = { acao: parsedUrl.query.acao || 'buscar_dados' };
+        if (req.method === 'POST') {
+            try {
+                const b = await parseRequestBody(req);
+                if (b && typeof b === 'object') payload = { ...b };
+            } catch (e) {}
+        }
+        const acao = payload.acao || 'buscar_dados';
+        const isBuscar = String(acao).startsWith('buscar_');
+        // Para buscas, a chave de cache depende exclusivamente da ação para compartilhar entre GET e POST
+        const cacheKey = isBuscar ? String(acao).trim() : JSON.stringify(payload);
+        const now = Date.now();
+
+        if (!global.gasCache) global.gasCache = {};
+
+        // Retorna do cache fresco se for busca e tiver menos de 3 minutos (180s)
+        if (isBuscar && global.gasCache[cacheKey] && (now - global.gasCache[cacheKey].timestamp < 180000)) {
+            return sendJson(res, 200, global.gasCache[cacheKey].data);
+        }
+
+        try {
+            const data = await fetchGasFromNode(payload);
+            if (data && data.status === 'success' && isBuscar) {
+                global.gasCache[cacheKey] = { timestamp: now, data };
+            }
+            // Se for ação de gravação, limpa o cache de buscas para refletir atualizações
+            if (!isBuscar) {
+                global.gasCache = {};
+            }
+            return sendJson(res, 200, data);
+        } catch (err) {
+            console.error('❌ [GAS Proxy] Erro ao consultar Apps Script:', err.message);
+            // Padrão Stale-While-Revalidate: Se houver qualquer versão em cache anterior, entrega ao invés de quebrar
+            if (isBuscar && global.gasCache[cacheKey] && global.gasCache[cacheKey].data) {
+                console.log('⚠️ [GAS Proxy] Entregando versão persistida em cache após instabilidade no Apps Script:', acao);
+                return sendJson(res, 200, global.gasCache[cacheKey].data);
+            }
             return sendJson(res, 500, { status: 'error', message: err.message });
         }
     }

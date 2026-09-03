@@ -63,6 +63,7 @@ function updateFileNameCartaShape(input) {
  */
 function fecharModalCadastroCarta() {
     document.getElementById('cadastroCartaModal').style.display = 'none';
+    if (typeof fecharModalCadastroUnificado === 'function') fecharModalCadastroUnificado();
     ['cadCartaNup', 'cadCartaDataRepasse', 'cadCartaPrazo', 'cadCartaRequerente', 'cadCartaGerencia',
      'cadCartaPrioridade', 'cadCartaFisico', 'cadCartaTecnico', 'cadCartaStatus',
      'cadCartaTramitado', 'cadCartaObs', 'cadCartaArquivo'].forEach(id => {
@@ -483,8 +484,11 @@ function limparEPadronizarCartas(linha) {
     row['GERÊNCIA'] = row['GERÊNCIA'] || row['GERENCIA'] || '-';
     row['PRIORIDADE'] = normalizarPrioridadeCartas(row['GRAU DE PRIORIDADE (1/2/3)'] || row['GRAU DE PRIORIDADE'] || row['PRIORIDADE']);
     row['STATUS'] = normalizarStatusCartas(row['STATUS']);
-    row['FÍSICO/E-MS'] = row['FISICO/E-MS'] || row['FÍSICO/E-MS'] || '-';
-    row['TÉCNICO/ADM'] = row['TÉCNICO/ADMIN'] || row['TECNICO/ADMIN'] || row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || row['TÉCNICO'] || 'Não atribuído';
+    let tecCarta = (row['TÉCNICO/ADMIN'] || row['TECNICO/ADMIN'] || row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || row['TÉCNICO'] || 'Não atribuído').trim();
+    if (tecCarta.toUpperCase() === 'JOSE RENATO') {
+        tecCarta = 'JOSÉ RENATO';
+    }
+    row['TÉCNICO/ADM'] = tecCarta;
     row['OBSERVAÇÃO'] = row['OBSERVAÇÃO'] || row['OBSERVAÇÕES'] || '-';
     row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || '';
     row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
@@ -567,10 +571,10 @@ async function carregarCartas() {
 
             popularFiltrosCartas();
 
-            // Exibe/oculta as sub-abas de Cartas Consulta apenas para o perfil de Diretoria (gerencia)
+            // Exibe as sub-abas de setores de Cartas Consulta apenas para a Diretoria Global (DIFLOR)
             const miniTabsCartas = document.getElementById('mini-tabs-cartas');
             if (miniTabsCartas) {
-                if (usuarioAtivo && usuarioAtivo.perfil === 'gerencia') {
+                if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR')) {
                     miniTabsCartas.style.display = 'flex';
                 } else {
                     miniTabsCartas.style.display = 'none';
@@ -582,7 +586,6 @@ async function carregarCartas() {
             if (typeof atualizarBadgesNotificacao === 'function') {
                 atualizarBadgesNotificacao(dadosCoringa);
             }
-            preloadShapesCartas();
         } catch (e) {
             console.error("Erro ao ler cache de Cartas Consulta:", e);
         }
@@ -594,22 +597,21 @@ async function carregarCartas() {
     popularFiltrosCartas();
 
     try {
-        const resposta = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ acao: "buscar_cartas" })
-        });
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS({ acao: "buscar_cartas" });
 
         if (resultado.status === 'success') {
             const parsedRows = resultado.dados.map(limparEPadronizarCartas);
             dadosCartasGlobais = parsedRows;
             atualizarCacheCartas();
             cartasCarregadas = true;
+            if (typeof atualizarDashboardInicio === 'function' && typeof filtroAtivo !== 'undefined' && filtroAtivo === 'inicio') {
+                atualizarDashboardInicio();
+            }
 
-            // Exibe/oculta as sub-abas de Cartas Consulta apenas para o perfil de Diretoria (gerencia)
+            // Exibe as sub-abas de setores de Cartas Consulta apenas para a Diretoria Global (DIFLOR)
             const miniTabsCartas = document.getElementById('mini-tabs-cartas');
             if (miniTabsCartas) {
-                if (usuarioAtivo && usuarioAtivo.perfil === 'gerencia') {
+                if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR')) {
                     miniTabsCartas.style.display = 'flex';
                 } else {
                     miniTabsCartas.style.display = 'none';
@@ -617,7 +619,6 @@ async function carregarCartas() {
             }
 
             aplicarFiltrosCartas();
-            preloadShapesCartas();
         } else {
             throw new Error(resultado.message);
         }
@@ -638,95 +639,8 @@ async function carregarCartas() {
 let isPreloadingShapes = false;
 
 async function preloadShapesCartas() {
-    if (isPreloadingShapes) return;
-    isPreloadingShapes = true;
-
-    if (typeof carregarBibliotecasGIS === 'function') {
-        try {
-            await carregarBibliotecasGIS(true);
-        } catch (e) {
-            console.error("[Preload] Error loading GIS libraries:", e);
-            isPreloadingShapes = false;
-            return;
-        }
-    }
-
-    console.log("[Preload] Starting shapefile preloading loop in background...");
-
-    try {
-        const inProgress = dadosCartasGlobais.filter(r => {
-            const status = (r['STATUS'] || '').toUpperCase().trim();
-            const shapeUrl = r['LINK SHAPEFILE'] || r['LINK_SHAPEFILE'] || '';
-            const nup = r['NUP'];
-            const hasShape = shapeUrl && (shapeUrl.startsWith('http') || (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)));
-            return nup && status !== 'TRAMITADO' && status !== 'ARQUIVADO' && hasShape && !cacheShapesCartas[nup];
-        });
-
-        console.log(`[Preload] Found ${inProgress.length} in-progress Cartas Consulta with shapefiles to preload.`);
-
-        for (const r of inProgress) {
-            const nup = r['NUP'];
-            const shapeUrl = r['LINK SHAPEFILE'] || r['LINK_SHAPEFILE'] || '';
-            
-            // Check again in case it was loaded in the meantime
-            if (cacheShapesCartas[nup]) continue;
-
-            try {
-                let buffer = null;
-                if (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)) {
-                    console.log(`[Preload] Downloading shapefile from GCS (LGPD) for NUP: ${nup}`);
-                    const signedUrl = await GCSStorage.obterUrlTemporaria(shapeUrl, { responseDisposition: 'inline' });
-                    const resp = await fetch(signedUrl);
-                    if (!resp.ok) continue;
-                    buffer = await resp.arrayBuffer();
-                } else {
-                    const fileId = extrairIdDrive(shapeUrl);
-                    if (!fileId) continue;
-
-                    console.log(`[Preload] Downloading and parsing shapefile for NUP: ${nup}`);
-                    const payload = { acao: 'download_drive_file', fileId: fileId };
-                    const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                    const resultado = await resposta.json();
-
-                    if (resultado.status === 'success') {
-                        const binaryString = window.atob(resultado.base64);
-                        const len = binaryString.length;
-                        const bytes = new Uint8Array(len);
-                        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-                        buffer = bytes.buffer;
-                    }
-                }
-
-                if (buffer) {
-                    let geojson = await shp(buffer);
-                    if (Array.isArray(geojson)) {
-                        let allFeatures = [];
-                        geojson.forEach(fc => {
-                            if (fc && fc.features) allFeatures = allFeatures.concat(fc.features);
-                        });
-                        geojson = { type: "FeatureCollection", features: allFeatures };
-                    }
-                    
-                    // Reprojetar coordenadas UTM para WGS84 se necessário
-                    if (typeof normalizarProjecaoShapefile === 'function') {
-                        geojson = await normalizarProjecaoShapefile(buffer, geojson, r['COMARCA']);
-                    }
-                    
-                    cacheShapesCartas[nup] = geojson;
-                    console.log(`[Preload] Preloaded shapefile for NUP: ${nup}`);
-                }
-            } catch (e) {
-                console.error(`[Preload] Failed to preload shapefile for NUP ${nup}:`, e);
-            }
-            // Sequentially space the requests by 1.5 seconds to avoid overloading Google Drive / Apps Script
-            await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-    } catch (err) {
-        console.error("[Preload] General error in preloading loop:", err);
-    } finally {
-        isPreloadingShapes = false;
-        console.log("[Preload] Shapefile preloading loop finished.");
-    }
+    // Shapefiles são processados sob demanda no clique do mapa para evitar concorrência e bloqueio no Google Apps Script
+    return;
 }
 
 let subAbaCartasAtiva = 'Geral';
@@ -786,7 +700,14 @@ function popularFiltrosCartas() {
     
     // opcoesAutoTecnico está no escopo global (definido em app.js)
     if (typeof opcoesAutoTecnico !== 'undefined' && Array.isArray(opcoesAutoTecnico)) {
-        opcoesAutoTecnico.forEach(tec => {
+        let listaTecnicos = [...opcoesAutoTecnico];
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
+            listaTecnicos = listaTecnicos.filter(tec => {
+                const t = tec.trim().toUpperCase();
+                return MAPA_TECNICOS_SETORES[t] === usuarioAtivo.setor;
+            });
+        }
+        listaTecnicos.forEach(tec => {
             const opt = document.createElement('option');
             opt.value = tec.toUpperCase();
             opt.textContent = tec;
@@ -988,7 +909,7 @@ function renderTabelaView(dados) {
         const temDeclaracao   = linkDeclaracao && linkDeclaracao.startsWith('http');
         const temResposta   = temManifestacao && temDeclaracao;
 
-        const isGestor = usuarioAtivo && usuarioAtivo.perfil === 'gerencia';
+        const isGestor = usuarioAtivo && (typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo() || typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() || usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
         const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
 
         // ── BOTÕES DE AÇÃO (NUP / Shapefile) ───────────────────────────────
@@ -1017,7 +938,7 @@ function renderTabelaView(dados) {
             }
         } else {
             let btnAnexarOriginal = '';
-            if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
+            if (usuarioAtivo) {
                 btnAnexarOriginal = `<button onclick="anexarPdfOriginalCarta(event, '${nupVal}')" class="btn-drive btn-upload" style="background-color: #34495e; border-color: #2c3e50; flex:1; min-width:140px; display:flex; align-items:center; justify-content:center; gap:8px;">📁 Anexar PDF Original</button>`;
             }
             
@@ -1044,7 +965,7 @@ function renderTabelaView(dados) {
             }
         } else {
             let btnAnexarShapefile = '';
-            if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil === 'gerencia')) {
+            if (usuarioAtivo) {
                 btnAnexarShapefile = `<button onclick="anexarShapefileCarta(event, '${nupVal}')" class="btn-drive btn-upload" style="background-color: #2c3e50; border-color: #1a252f; flex:1; min-width:140px; display:flex; align-items:center; justify-content:center; gap:8px;">🗺️ Anexar Shapefile</button>`;
             }
             
@@ -1082,7 +1003,7 @@ function renderTabelaView(dados) {
                 </div>`;
         } else if (statusStr !== 'TRAMITADO') {
             if (isTecnico) {
-                htmlManifestacao = `<button onclick="anexarDocumentoRespostaCarta(event,'${nupVal}','manifestacao')" class="btn-drive btn-orange-outline" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;">📎 Anexar Manifestação</button>`;
+                htmlManifestacao = `<button onclick="anexarDocumentoRespostaCarta(event,'${nupVal}','manifestacao')" class="btn-drive btn-orange-outline" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ci ci-paperclip"></i> Anexar Manifestação</button>`;
             } else {
                 htmlManifestacao = `<div style="text-align:center;color:#666;font-size:13px;padding:10px;border:1px dashed #333;border-radius:6px;">🚫 Sem Manifestação</div>`;
             }
@@ -1112,7 +1033,7 @@ function renderTabelaView(dados) {
                 </div>`;
         } else if (statusStr !== 'TRAMITADO') {
             if (isTecnico) {
-                htmlDeclaracao = `<button onclick="anexarDocumentoRespostaCarta(event,'${nupVal}','declaracao')" class="btn-drive btn-orange-outline" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;">📎 Anexar Declaração</button>`;
+                htmlDeclaracao = `<button onclick="anexarDocumentoRespostaCarta(event,'${nupVal}','declaracao')" class="btn-drive btn-orange-outline" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ci ci-paperclip"></i> Anexar Declaração</button>`;
             } else {
                 htmlDeclaracao = `<div style="text-align:center;color:#666;font-size:13px;padding:10px;border:1px dashed #333;border-radius:6px;">🚫 Sem Declaração</div>`;
             }
@@ -1136,29 +1057,50 @@ function renderTabelaView(dados) {
 
         let htmlAnexarResposta = '';
 
-        // ── AÇÕES DA DIRETORIA (aprovar / reprovar) ─────────────────────────
+        const tecCarta = (linha['TÉCNICO/ADM'] || '').trim().toUpperCase();
+        const setorCarta = (typeof MAPA_TECNICOS_SETORES !== 'undefined' && MAPA_TECNICOS_SETORES[tecCarta]) ? MAPA_TECNICOS_SETORES[tecCarta] : 'GCAR';
+
+        // ── AÇÕES DE REVISÃO (Exclusivo Revisor) ─────────────────────────
         let htmlAcoesDiretoria = '';
-        if (isGestor && (temManifestacao || temDeclaracao) && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO') {
+        const podeAvaliarCarta = (typeof window.podeAvaliarManifestacao === 'function') 
+            ? window.podeAvaliarManifestacao(setorCarta)
+            : isGestor;
+
+        if (podeAvaliarCarta && (temManifestacao || temDeclaracao) && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO') {
             htmlAcoesDiretoria = `
                 <div style="margin-top:15px;padding:15px;background-color:rgba(255,165,0,0.07);border:1px solid rgba(255,165,0,0.3);border-radius:6px;">
-                    <strong style="color:#ffa500;font-size:13px;display:block;margin-bottom:10px;">📋 Avaliar Resposta Técnica:</strong>
+                    <strong style="color:#ffa500;font-size:13px;display:block;margin-bottom:10px;">📋 Avaliar Resposta Técnica (Revisor):</strong>
                     <div style="display:flex;gap:10px;">
-                        <button onclick="avaliarRespostaCarta(event,'${nupVal}','APROVADO')" class="btn-drive btn-green-outline" style="flex:1;margin:0;">✅ Aprovar</button>
-                        <button onclick="avaliarRespostaCarta(event,'${nupVal}','REPROVADO')" class="btn-drive btn-red-outline" style="flex:1;margin:0;">❌ Reprovar</button>
+                        <button onclick="avaliarRespostaCarta(event,'${nupVal}','APROVADO')" class="btn-drive btn-green-outline" style="flex:1;margin:0;"><i class="ci ci-check"></i> Aprovar</button>
+                        <button onclick="avaliarRespostaCarta(event,'${nupVal}','REPROVADO')" class="btn-drive btn-red-outline" style="flex:1;margin:0;"><i class="ci ci-close"></i> Reprovar</button>
                     </div>
                 </div>`;
         }
 
-        // ── NOVO: AÇÕES DE STATUS DA CARTA (DESPACHO / ASSINATURA) ────────
+        // ── AÇÕES DE STATUS DA CARTA (DESPACHO / SOBRESTADO / ASSINATURA) ────────
         let htmlAcoesStatusCarta = '';
         let htmlAtribuirTecnico = '';
-        if (isGestor) {
+        const podeAdmCarta = (typeof window.podeConfeccionarDespachoOuCI === 'function')
+            ? window.podeConfeccionarDespachoOuCI(setorCarta)
+            : isGestor;
+
+        if (podeAdmCarta) {
             const statusGeralFormatado = statusStr.replace(/\./g, '').trim().toUpperCase();
             if (statusGeralFormatado === 'FAZER DESPACHO') {
                 htmlAcoesStatusCarta = `
                     <div style="margin-top:15px;padding:15px;background-color:rgba(41,128,185,0.07);border:1px solid rgba(41,128,185,0.3);border-radius:6px;">
                         <strong style="color:#2980b9;font-size:13px;display:block;margin-bottom:10px;">📋 Ações de Fluxo (Despacho):</strong>
-                        <button onclick="atualizarStatusCarta(event, '${nupVal}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin: 0; font-size: 14px;">✅ Confirmar Realização do Despacho</button>
+                        <div style="display:flex;gap:10px;flex-direction:column;">
+                            <button onclick="atualizarStatusCarta(event, '${nupVal}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; width: 100%; margin: 0; font-size: 14px;">✅ Confirmar Realização do Despacho</button>
+                            <button onclick="if(typeof abrirModalSobrestar==='function') abrirModalSobrestar('${nupVal}', 'carta');" class="btn-drive" style="background-color: #f39c12; border-color: #d68910; color: #111; font-weight: bold; width: 100%; margin: 0; font-size: 14px;"><i class="ci ci-pause"></i> Sobrestar Processo</button>
+                        </div>
+                    </div>`;
+            } else if (statusGeralFormatado === 'SOBRESTADO') {
+                htmlAcoesStatusCarta = `
+                    <div style="margin-top:15px;padding:15px;background-color:rgba(243,156,18,0.1);border:1px solid rgba(243,156,18,0.4);border-radius:6px;">
+                        <strong style="color:#f39c12;font-size:13px;display:block;margin-bottom:8px;">⏸️ Processo Sobrestado (Encaminhado para: ${linha['SOBRESTADO_SETOR'] || 'Setor Externo'})</strong>
+                        ${linha['SOBRESTADO_MOTIVO'] ? `<div style="font-size:12px;color:#ccc;margin-bottom:12px;"><strong>Motivo:</strong> ${linha['SOBRESTADO_MOTIVO']}</div>` : ''}
+                        <button onclick="if(typeof abrirModalRetornoSobrestamento==='function') abrirModalRetornoSobrestamento('${nupVal}', 'carta');" class="btn-drive" style="background-color: #27ae60; border-color: #1e8449; color: white; width: 100%; margin: 0; font-size: 14px; font-weight: bold;">▶️ Retomar do Sobrestamento (Anexar Parecer Externo)</button>
                     </div>`;
             } else if (statusGeralFormatado === 'AGUARDANDO ASSINATURA') {
                 htmlAcoesStatusCarta = `
@@ -1176,26 +1118,28 @@ function renderTabelaView(dados) {
                                  linha['TÉCNICO/ADM'].trim() === '';
 
             if (isSemTecnico) {
-                htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;">👤 Distribuir / Atribuir Técnico</button>`;
+                htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;"><i class="ci ci-user"></i> Distribuir / Atribuir Técnico</button>`;
             } else {
-                htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;">👤 Redistribuir Técnico</button>`;
+                htmlAtribuirTecnico = `<button onclick="abrirAtribuirTecnicoCarta('${nupVal}')" class="btn-drive btn-blue" style="width:100%;margin-top:12px;font-size:14px;"><i class="ci ci-user"></i> Redistribuir Técnico</button>`;
             }
             
-            const rawStatus = (linha['STATUS'] || '').toUpperCase().trim();
-            const opcoesCartaStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "FINALIZADO", "DEVOLVIDO"];
-            let optionsHtml = opcoesCartaStatus.map(st => `<option value="${st}" ${st === rawStatus ? 'selected' : ''}>${st}</option>`).join('');
-            
-            htmlAcoesStatusCarta += `
-                <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
-                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
-                    <div style="display: flex; gap: 8px;">
-                        <select id="changeStatusSelectCarta-${nupVal}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
-                            ${optionsHtml}
-                        </select>
-                        <button onclick="salvarStatusManualCarta(event, '${nupVal}')" id="btnSalvarStatusCarta-${nupVal}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+            if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR')) {
+                const rawStatus = (linha['STATUS'] || '').toUpperCase().trim();
+                const opcoesCartaStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "REVISÃO", "FAZER DESPACHO", "SOBRESTADO", "AGUARDANDO ASSINATURA", "FINALIZADO", "DEVOLVIDO"];
+                let optionsHtml = opcoesCartaStatus.map(st => `<option value="${st}" ${st === rawStatus ? 'selected' : ''}>${st}</option>`).join('');
+                
+                htmlAcoesStatusCarta += `
+                    <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;"><i class="ci ci-settings"></i> GESTÃO DE STATUS (DIRETORIA)</div>
+                        <div style="display: flex; gap: 8px;">
+                            <select id="changeStatusSelectCarta-${nupVal}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
+                                ${optionsHtml}
+                            </select>
+                            <button onclick="salvarStatusManualCarta(event, '${nupVal}')" id="btnSalvarStatusCarta-${nupVal}" class="btn-drive btn-blue" style="width: auto; padding: 8px 15px; margin: 0; font-size: 13px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">Alterar</button>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
 
         const infoStatus = obterStatusVisual(linha);
@@ -1322,16 +1266,17 @@ function aplicarFiltrosCartas() {
 
         let matchesTecnicoLogado = true;
         if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
-            const tecLogado = String(usuarioAtivo.nomePlanilha || '').toUpperCase().trim();
-            matchesTecnicoLogado = (tecRow === tecLogado);
+            matchesTecnicoLogado = (typeof window.isMesmoTecnico === 'function') 
+                ? window.isMesmoTecnico(tecRow, usuarioAtivo) 
+                : (tecRow === String(usuarioAtivo.nomePlanilha || '').toUpperCase().trim());
         }
 
-        // Restrição de Gerência para GCAR / GEAA
-        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
-            const semTecnico = tecRow === '' || tecRow === '-' || tecRow === 'S/T' || tecRow === 'SEM TÉCNICO' || tecRow === 'NÃO ATRIBUÍDO';
+        // Restrição de Gerência para GCAR / GEAA / GEAMB
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
+            const semTecnico = tecRow === '' || tecRow === '-' || tecRow === 'S/T' || tecRow === 'SEM TÉCNICO' || tecRow === 'NÃO ATRIBUÍDO' || tecRow === 'SEM TÉCNICO/ADM';
             if (!semTecnico) {
-                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRow] || 'S/G';
-                if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+                const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tecRow] : null) || 'S/G';
+                if (setorInternoDoTecnico !== usuarioAtivo.setor && gerenciaRow !== usuarioAtivo.setor) return false;
             } else {
                 if (gerenciaRow !== usuarioAtivo.setor) return false;
             }
@@ -1452,47 +1397,127 @@ function obterPreviewLink(url) {
 /**
  * Abre o Modal de Pré-visualização Largo específico do módulo
  */
-async function abrirModalPreviewCartas(index) {
-    const linha = dadosCartasGlobais[index];
-    if (!linha) return;
+async function abrirModalPreviewCartas(arg1, arg2, arg3) {
+    const modalPequeno = document.getElementById('detalhesModal');
+    if (modalPequeno) modalPequeno.style.display = 'none';
+
+    let event = null;
+    let url = '';
+    let linha = null;
+    let nup = null;
+
+    const args = [arg1, arg2, arg3].filter(a => a !== null && a !== undefined && a !== '');
+    for (const a of args) {
+        if (typeof a === 'object') {
+            if (typeof a.preventDefault === 'function') {
+                event = a;
+            } else {
+                linha = a;
+            }
+        } else if (typeof a === 'string') {
+            const str = a.trim();
+            if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('gs://') || str.includes('drive.google.com') || str.includes('storage.googleapis.com')) {
+                if (!url) url = str;
+            } else if (!nup && !str.includes('/') && !str.includes('http')) {
+                nup = str;
+            } else if (!url) {
+                url = str;
+            }
+        } else if (typeof a === 'number' && !linha) {
+            const lista = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
+            if (a >= 0 && a < lista.length) linha = lista[a];
+        }
+    }
+
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+
+    const listaCartas = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
+    
+    if (linha && linha['NUP']) {
+        nup = linha['NUP'];
+    }
+
+    if (!linha && nup && typeof nup === 'string' && nup !== '-') {
+        const nupBusca = nup.trim().toUpperCase();
+        const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+        linha = listaCartas.find(x => {
+            const n = String(x['NUP'] || '').trim().toUpperCase();
+            return n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf;
+        });
+    }
+
+    if (!linha && url) {
+        const urlStr = String(url).trim();
+        const driveId = typeof extrairIdDrive === 'function' ? extrairIdDrive(urlStr) : null;
+        linha = listaCartas.find(x => {
+            const campos = [
+                x['LINK DO NUP'], x['LINK_NUP'], x['LINK'], x['LINK_PROCESSO'],
+                x['LINK DA MANIFESTAÇÃO'], x['LINK DA RESPOSTA'], x['LINK RESPOSTA'],
+                x['LINK DA DECLARAÇÃO'], x['MANIFESTACAO_PRELIMINAR'], x['LINK_PARECER_EXTERNO']
+            ];
+            return campos.some(c => {
+                if (!c) return false;
+                const cStr = String(c).trim();
+                if (cStr === urlStr || cStr.includes(urlStr) || urlStr.includes(cStr)) return true;
+                if (driveId && cStr.includes(driveId)) return true;
+                return false;
+            });
+        });
+        if (linha && !nup) {
+            nup = linha['NUP'];
+        }
+    }
 
     const modal = document.getElementById('previewModal');
     if (!modal) return;
 
-    const linkOriginal = linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK'] || '';
-    const linkResposta = linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '';
-    const linkManifestacao = linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linkResposta || '';
-    const linkDeclaracao = linha['LINK DA DECLARAÇÃO'] || linha['LINK_DECLARACAO'] || '';
-    const linkShapefile = linha['LINK SHAPEFILE'] || linha['LINK_SHAPEFILE'] || '';
+    let nupOriginal = (linha && linha['NUP']) ? linha['NUP'] : (nup || '-');
+    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.includes('/'))) {
+        nupOriginal = '-';
+    }
+    const nupDisplay = typeof limparNupDisplay === 'function' ? limparNupDisplay(nupOriginal) : String(nupOriginal).replace(/\.pdf$/gi, '');
+    const nupFormatado = String(nupOriginal).replace(/[^a-zA-Z0-9]/g, '_');
+    const nupEsc = typeof escaparParaAtributo === 'function' ? escaparParaAtributo(nupOriginal) : nupOriginal;
 
-    const previewOriginalUrl = obterPreviewLink(linkOriginal);
-    const previewManifestacaoUrl = obterPreviewLink(linkManifestacao);
-    const previewDeclaracaoUrl = obterPreviewLink(linkDeclaracao);
+    const linkOriginal = (linha ? (linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK'] || linha['LINK_PROCESSO']) : urlParam) || '';
+    const linkResposta = linha ? (linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '') : '';
+    const linkManifestacao = linha ? (linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linkResposta || '') : '';
+    const linkDeclaracao = linha ? (linha['LINK DA DECLARAÇÃO'] || linha['LINK_DECLARACAO'] || '') : '';
+    const linkShapefile = linha ? (linha['LINK SHAPEFILE'] || linha['LINK_SHAPEFILE'] || '') : '';
+    const linkPreliminar = linha ? (linha['MANIFESTACAO_PRELIMINAR'] && linha['MANIFESTACAO_PRELIMINAR'].trim() !== '' && linha['MANIFESTACAO_PRELIMINAR'].trim() !== '-' ? linha['MANIFESTACAO_PRELIMINAR'] : '') : '';
+    const linkParecerExterno = linha ? (linha['LINK_PARECER_EXTERNO'] && linha['LINK_PARECER_EXTERNO'].trim() !== '' && linha['LINK_PARECER_EXTERNO'].trim() !== '-' ? linha['LINK_PARECER_EXTERNO'] : '') : '';
 
-    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    const previewOriginalUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkOriginal) : linkOriginal;
+    const previewManifestacaoUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkManifestacao) : linkManifestacao;
+    const previewDeclaracaoUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkDeclaracao) : linkDeclaracao;
+    const previewPreliminarUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkPreliminar) : linkPreliminar;
+    const previewParecerUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkParecerExterno) : linkParecerExterno;
+
+    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 
     modal.className = 'preview-modal';
     modal.innerHTML = `
         <div class="preview-wrapper" id="preview-wrapper-id">
             <div class="preview-toolbar">
-                <div class="preview-toolbar-title" style="display: flex; align-items: center;">${iconeOlhoGrande} Pré-visualização de Documento (LGPD Seguro)</div>
+                <div class="preview-toolbar-title">
+                    ${iconeOlhoGrande}
+                    <span class="modal-detail-module-tag modal-detail-tag-carta" style="margin-right: 8px;"><i class="ci ci-mail"></i> Carta Consulta</span>
+                    <span>${nupDisplay}</span>
+                </div>
                 <div class="preview-toolbar-buttons">
-                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
-                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
-                    <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
-                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
+                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" title="Abrir em Nova Aba"><i class="ci ci-external"></i> Abrir em Nova Aba</a>
+                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" download title="Fazer download deste documento" onclick="feedbackDownload(this)"><i class="ci ci-download"></i> Baixar Documento</a>
+                    <button class="btn-preview-action" onclick="togglePreviewInfo()"><i class="ci ci-info"></i> Painel de Informações</button>
+                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()"><i class="ci ci-close"></i> Fechar</button>
                 </div>
             </div>
             <div class="preview-body">
                 <iframe id="previewFrame" class="preview-iframe" src=""></iframe>
-                
-                <!-- CONTAINER GIS (Oculto por defeito) -->
                 <div id="gisMapContainerModal" style="display: none; flex: 1; position: relative; background-color: #1a1a1a;">
                     <div id="gisLoadingModal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; color: #f39c12; font-weight: bold; z-index: 999; display: none;">
                         ⏳ A carregar Shapefile com segurança...
                     </div>
                 </div>
-
                 <div id="previewInfo" class="preview-info">
                     <div id="previewInfoContent"></div>
                 </div>
@@ -1500,15 +1525,26 @@ async function abrirModalPreviewCartas(index) {
         </div>
     `;
 
-    let urlPreviewRaw = previewOriginalUrl || previewManifestacaoUrl || previewDeclaracaoUrl || '';
-    const nupFormatado = linha['NUP'] ? String(linha['NUP']).replace(/[^a-zA-Z0-9]/g, '_') : 'doc';
+    const statusStr = String(linha ? (linha['STATUS'] || 'AGUARDANDO DISTRIBUIÇÃO') : '').toUpperCase();
+    const statusLimpo = statusStr.replace(/\./g, '').trim().toUpperCase();
+    const isSobrestado = statusLimpo === 'SOBRESTADO' || statusLimpo.includes('SOBRESTADO');
+
+    let urlPreviewRaw = urlParam;
+    if (!urlPreviewRaw) {
+        if (isSobrestado && previewPreliminarUrl) {
+            urlPreviewRaw = previewPreliminarUrl;
+        } else {
+            urlPreviewRaw = previewOriginalUrl || previewPreliminarUrl || previewParecerUrl || previewManifestacaoUrl || previewDeclaracaoUrl || '';
+        }
+    }
+
     let urlPreview = '';
     let urlDownload = '#';
 
     if (urlPreviewRaw) {
         try {
-            urlPreview = await obterLinkVisualizacaoSeguro(urlPreviewRaw);
-            urlDownload = await obterLinkDownloadSeguro(urlPreviewRaw, `Carta_${nupFormatado}.pdf`);
+            if (typeof obterLinkVisualizacaoSeguro === 'function') urlPreview = await obterLinkVisualizacaoSeguro(urlPreviewRaw);
+            if (typeof obterLinkDownloadSeguro === 'function') urlDownload = await obterLinkDownloadSeguro(urlPreviewRaw, `Carta_${nupFormatado}.pdf`);
         } catch (e) {
             console.warn('Erro ao resolver link seguro da Carta:', e);
             urlPreview = urlPreviewRaw;
@@ -1517,130 +1553,190 @@ async function abrirModalPreviewCartas(index) {
     }
 
     const btnDownload = document.getElementById('btn-download-preview');
-    if (btnDownload) {
-        btnDownload.href = urlDownload;
-    }
+    if (btnDownload) btnDownload.href = urlDownload;
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) btnOpenPreview.href = urlPreview || urlPreviewRaw;
+    const previewFrame = document.getElementById('previewFrame');
+    if (previewFrame) previewFrame.src = urlPreview || urlPreviewRaw;
 
-    // Status format
-    const statusStr = String(linha['STATUS'] || '').toUpperCase();
-    let statusColor = '#3498db';
-    if (statusStr === 'AGUARDANDO DISTRIBUIÇÃO') statusColor = '#f39c12';
-    else if (statusStr === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA') statusColor = '#f1c40f';
-    else if (statusStr === 'REVISÃO') statusColor = '#9b59b6';
-    else if (statusStr === 'AGUARDANDO ASSINATURA') statusColor = '#e74c3c';
-    else if (statusStr === 'TRAMITADO') statusColor = '#27ae60';
-
-    let iconeStatus = `<span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: ${statusColor}; margin-right: 8px; flex-shrink: 0;"></span>`;
-    if (statusStr === 'TRAMITADO') {
-        iconeStatus = `<span style="margin-right: 6px; font-size: 16px;">✅</span>`;
+    if (!linha) {
+        const previewInfoEl = document.getElementById('previewInfoContent');
+        if (previewInfoEl) previewInfoEl.innerHTML = `<div class="preview-info-card"><div class="preview-info-item">📄 Visualizando Carta Consulta: <strong>${nupDisplay}</strong></div></div>`;
+        modal.style.display = 'flex'; const infoPanel = document.getElementById('previewInfo'); if (infoPanel) infoPanel.scrollTop = 0;
+        return;
     }
 
     const obs = (linha['OBSERVAÇÃO'] || linha['OBSERVAÇÕES'] || '').trim();
-    const htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="preview-info-obs"><strong>Observação:</strong><br>${obs}</div>` : '';
+    const htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="preview-info-obs"><strong>📋 Observação:</strong><br>${obs}</div>` : '';
 
-    const infoStatus = obterStatusVisual(linha);
-    let corStatus = '#fff';
-    if (infoStatus.classe === 'status-red') corStatus = '#ff4b4b';
-    else if (infoStatus.classe === 'status-yellow') corStatus = '#f1c40f';
-    else if (infoStatus.classe === 'status-green') corStatus = '#2ecc71';
-    else if (infoStatus.classe === 'status-gray') corStatus = '#888';
-
-    let contentHTML = `
-        <div class="preview-info-item">📌 <strong>NUP:</strong> ${linha['NUP'] || '-'}</div>
-        <div class="preview-info-item">👤 <strong>Requerente:</strong> ${linha['REQUERENTE'] || '-'}</div>
-        <div class="preview-info-item">📅 <strong>Data de Repasse:</strong> ${linha['DATA DO REPASSE'] || linha['DATA DE REPASSE'] || linha['DATA'] || '-'}</div>
-        <div class="preview-info-item">⏳ <strong>Prazo de Resposta:</strong> ${linha['PRAZO'] ? linha['PRAZO'] + ' dias' : '-'}</div>
-        <div class="preview-info-item">⏰ <strong>Dias Restantes:</strong> <span style="color: ${corStatus}; font-weight: bold;">${infoStatus.texto}</span></div>
-        <div class="preview-info-item">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA'] || '-'}</div>
-        <div class="preview-info-item">📦 <strong>Físico/E-MS:</strong> ${linha['FÍSICO/E-MS'] || linha['FISICO/E-MS'] || '-'}</div>
-        <div class="preview-info-item">🏃 <strong>Tramitado P/:</strong> ${linha['TRAMITADO P/'] || linha['TRAMITADO_P'] || '-'}</div>
-        <div class="preview-info-item">👨‍💻 <strong>Responsável:</strong> ${linha['TÉCNICO/ADM'] || linha['TECNICO/ADM'] || 'Não atribuído'}</div>
-        <div class="preview-info-item">🚨 <strong>Prioridade:</strong> ${linha['PRIORIDADE'] || '-'}</div>
-        <div class="preview-info-item" style="display: flex; align-items: center;">🚦 <strong style="margin-right: 6px;">Situação:</strong> <span style="color: ${statusColor}; display: flex; align-items: center; font-weight: bold;">${iconeStatus}${statusStr}</span></div>
-        ${htmlObs}
-    `;
-
-    // Toggles for Original / Manifestação / Declaração / Shapefile
-    let toggleBtn = '';
+    // Toggles
     let hasOrig = !!previewOriginalUrl;
+    let hasPreliminar = !!previewPreliminarUrl;
+    let hasParecer = !!previewParecerUrl;
     let hasManifest = !!previewManifestacaoUrl;
     let hasDeclar = !!previewDeclaracaoUrl;
     let hasShape = !!(linkShapefile && linkShapefile.trim() !== '' && linkShapefile.trim() !== '-');
 
-    if (hasOrig || hasManifest || hasDeclar || hasShape) {
-        toggleBtn = `<div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">`;
-        if (hasOrig) {
-            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewOriginalUrl}', '${previewOriginalUrl}')" class="btn-drive btn-preview btn-preview-toggle-tab active" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📜 Ver NUP</button>`;
-        }
-        if (hasManifest) {
-            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewManifestacaoUrl}', '${previewManifestacaoUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${!hasOrig ? 'active' : ''}" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📄 Ver Manifestação</button>`;
-        }
-        if (hasDeclar) {
-            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${previewDeclaracaoUrl}', '${previewDeclaracaoUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${(!hasOrig && !hasManifest) ? 'active' : ''}" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">📜 Ver Declaração</button>`;
-        }
+    let docsDisponiveis = [];
+    if (hasOrig) docsDisponiveis.push({ label: '📜 Ver NUP', url: previewOriginalUrl });
+    if (hasPreliminar) docsDisponiveis.push({ label: '📄 Manifestação Preliminar (Sobrestamento)', url: previewPreliminarUrl });
+    if (hasParecer) docsDisponiveis.push({ label: '🏛️ Parecer Externo', url: previewParecerUrl });
+    if (hasManifest) docsDisponiveis.push({ label: '📄 Manifestação', url: previewManifestacaoUrl });
+    if (hasDeclar) docsDisponiveis.push({ label: '📜 Declaração', url: previewDeclaracaoUrl });
+
+    let toggleBtn = '';
+    if (docsDisponiveis.length > 1 || hasShape) {
+        toggleBtn = `<div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">`;
+        docsDisponiveis.forEach(doc => {
+            const isActive = (urlPreviewRaw === doc.url || urlPreview === doc.url);
+            toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${doc.url}', '${doc.url}')" class="btn-drive btn-preview-toggle-tab ${isActive ? 'active' : ''}" style="flex: 1; padding: 8px 10px; font-size: 11.5px; min-width: 90px;">${doc.label}</button>`;
+        });
         if (hasShape) {
-            toggleBtn += `<button onclick="alternarParaShapefileCartas(this, '${linkShapefile}', '${index}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab" style="flex: 1; padding: 10px; font-size: 12px; min-width: 100px;">🗺️ Ver Mapa</button>`;
+            toggleBtn += `<button onclick="alternarParaShapefileCartas(this, '${linkShapefile}', '${index}')" class="btn-drive btn-preview-toggle-tab" style="flex: 1; padding: 8px 10px; font-size: 11.5px; min-width: 90px;">🗺️ Ver Mapa</button>`;
         }
         toggleBtn += `</div>`;
     }
 
-    // Ações Diretoria
-    let acoesDiflorPreview = '';
+    // Ações Rápidas de Interação
+    let botoesAcoesHtml = '';
+    const isGestor = usuarioAtivo && ((typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo()) || (typeof window.podeDistribuirProcesso === 'function' && window.podeDistribuirProcesso()) || usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
+    const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
+
+    if (usuarioAtivo) {
+        if (hasManifest || hasDeclar) {
+            botoesAcoesHtml += `<button onclick="removerRespostaCarta(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-danger" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-trash"></i> Retirar Resposta/Manifestação</button>`;
+        } else if (isTecnico || isGestor) {
+            botoesAcoesHtml += `<button onclick="anexarRespostaCarta(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar Resposta</button>`;
+        }
+
+        if (!hasOrig) {
+            botoesAcoesHtml += `<button onclick="anexarPdfOriginalCarta(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar PDF Inicial</button>`;
+        }
+        if (!hasShape) {
+            botoesAcoesHtml += `<button onclick="anexarShapefileCarta(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-link" style="width: 100%; margin-bottom: 8px;">🗺️ Anexar Shapefile (.zip)</button>`;
+        }
+    }
+
+    if (isGestor) {
+        const tec = linha['TÉCNICO/ADM'] || linha['TECNICO/ADM'] || linha['TÉCNICO'] || '';
+        const isSemTecnico = !tec || tec === '-' || tec === 'S/T' || tec === 'Não atribuído';
+        const labelTec = isSemTecnico ? '<i class="ci ci-user"></i> Distribuir / Atribuir Técnico' : '<i class="ci ci-user"></i> Redistribuir Técnico';
+        botoesAcoesHtml += `<button onclick="abrirAtribuirTecnicoCarta('${nupEsc}')" class="modal-detail-btn modal-detail-btn-gestao" style="width: 100%; margin-bottom: 8px;">${labelTec}</button>`;
+    }
+
+    // Avaliação Revisor
+    let acoesRevisorHtml = '';
     const statusRespAval = (linha['STATUS DA RESPOSTA'] || '').toUpperCase();
     const tecRowCarta = String(linha['TÉCNICO/ADM'] || linha['TECNICO/ADM'] || '').toUpperCase().trim();
-    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRowCarta] || 'S/G';
-    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
+    const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tecRowCarta] : null) || 'S/G';
+    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() && (usuarioAtivo.setor === 'DIFLOR' || setorInternoDoTecnico === usuarioAtivo.setor)));
 
-    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && ((linkManifestacao && linkManifestacao.trim() !== '-' && linkManifestacao.trim() !== '') || (linkDeclaracao && linkDeclaracao.trim() !== '-' && linkDeclaracao.trim() !== ''))) {
-        acoesDiflorPreview = `
-            <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
-                <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
-                <div style="display: flex; gap: 10px; flex-direction: column;">
-                    <button onclick="avaliarRespostaCarta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive btn-green-outline">✅ Aprovar Manifestação</button>
-                    <button onclick="avaliarRespostaCarta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive btn-red-outline">❌ Reprovar Manifestação</button>
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && hasManifest) {
+        acoesRevisorHtml = `
+            <div style="padding: 14px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; margin-bottom: 8px;">
+                <div style="color: #fbbf24; font-weight: 700; font-size: 12.5px; margin-bottom: 10px;">📋 Avaliação da Manifestação (Revisor):</div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="avaliarRespostaCarta(event, '${nupEsc}', 'APROVADO')" class="btn-drive btn-green-outline" style="flex: 1; margin: 0; font-size: 12px; padding: 8px;"><i class="ci ci-check"></i> Aprovar</button>
+                    <button onclick="avaliarRespostaCarta(event, '${nupEsc}', 'REPROVADO')" class="btn-drive btn-red-outline" style="flex: 1; margin: 0; font-size: 12px; padding: 8px;"><i class="ci ci-close"></i> Reprovar</button>
                 </div>
             </div>
         `;
     }
 
-    const contentDiv = document.getElementById('previewInfoContent');
-    contentDiv.innerHTML = toggleBtn + contentHTML + acoesDiflorPreview;
-
-    const btnOpenPreview = document.getElementById('btn-open-preview');
-
-    if (!urlPreview && !hasShape) {
-        document.getElementById('previewFrame').outerHTML = `
-            <div id="cartasSemLinkDiv" style="display: flex; flex-direction: column; flex: 1; align-items: center; justify-content: center; background-color: #f0f0f0; color: #888;">
-                <div style="font-size: 50px; margin-bottom: 15px;">🚫</div>
-                <h4 style="font-size: 16px; margin: 0; color: #aaa;">Nenhum ficheiro vinculado a esta opção.</h4>
+    // Gestão Status
+    let acoesStatusDiretoria = '';
+    if (isGestor) {
+        const opcoesCartaStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER DESPACHO", "SOBRESTADO", "REVISÃO", "AGUARDANDO ASSINATURA", "FINALIZADO", "DEVOLVIDO"];
+        const optionsHtml = opcoesCartaStatus.map(st => `<option value="${st}" ${st === statusStr ? 'selected' : ''}>${st}</option>`).join('');
+        acoesStatusDiretoria = `
+            <div style="padding: 12px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;">
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px; font-weight: 700;"><i class="ci ci-settings"></i> GESTÃO DE STATUS</div>
+                <div style="display: flex; gap: 8px; width: 100%; box-sizing: border-box; align-items: center;">
+                    <select id="changeStatusSelectCarta-${nupEsc}" style="flex: 1; min-width: 0; padding: 6px 10px; background: #1e293b; color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; font-size: 12px; outline: none; height: 36px; box-sizing: border-box;">
+                        ${optionsHtml}
+                    </select>
+                    <button onclick="salvarStatusManualCarta(event, '${nupEsc}')" id="btnSalvarStatusCarta-${nupEsc}" class="btn-drive btn-blue" style="flex-shrink: 0; width: auto; min-width: 70px; padding: 6px 12px; margin: 0; font-size: 12px; height: 36px; box-sizing: border-box;">Salvar</button>
+                </div>
             </div>
         `;
-        if (btnOpenPreview) btnOpenPreview.href = '#';
-    } else if (!urlPreview && hasShape) {
-        document.getElementById('previewFrame').style.display = 'none';
-        // Auto trigger shapefile view se este for o único documento
-        setTimeout(() => {
-            const toggleTabs = document.querySelectorAll('#previewModal .btn-preview-toggle-tab');
-            for (let i = 0; i < toggleTabs.length; i++) {
-                if (toggleTabs[i].textContent.includes('Shapefile') || toggleTabs[i].textContent.includes('Mapa')) {
-                    alternarParaShapefileCartas(toggleTabs[i], linkShapefile, index);
-                    break;
-                }
-            }
-        }, 50);
-        if (btnOpenPreview) btnOpenPreview.href = '#';
-    } else {
-        const frame = document.getElementById('previewFrame');
-        if (frame) {
-            frame.style.display = 'block';
-            frame.src = urlPreview;
-        }
-        if (btnOpenPreview) {
-            btnOpenPreview.href = urlPreview;
+    }
+
+    let acoesFluxoHtml = '';
+    const podeAcaoFluxo = isGestor || (typeof window.podeConfeccionarDespachoOuCI === 'function' && window.podeConfeccionarDespachoOuCI(setorInternoDoTecnico));
+
+    if (statusLimpo === 'SOBRESTADO') {
+        acoesFluxoHtml = `
+            <div style="padding: 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; margin-bottom: 10px;">
+                <div style="color: #fbbf24; font-weight: 700; font-size: 12.5px; margin-bottom: 8px;">⏸️ Processo Sobrestado ${linha['SOBRESTADO_SETOR'] ? `(Encaminhado para: ${linha['SOBRESTADO_SETOR']})` : ''}</div>
+                ${linha['SOBRESTADO_MOTIVO'] ? `<div style="font-size: 12px; color: #cbd5e1; margin-bottom: 10px;"><strong>Motivo:</strong> ${linha['SOBRESTADO_MOTIVO']}</div>` : ''}
+                ${previewPreliminarUrl ? `<button onclick="alternarVisualizacaoPreview(this, '${previewPreliminarUrl}', '${previewPreliminarUrl}')" class="btn-drive btn-preview-toggle-tab" style="background: rgba(0, 250, 154, 0.15); border: 1px solid #00fa9a; color: #00fa9a; width: 100%; margin-bottom: 8px; font-size: 12.5px; font-weight: 600; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><i class="ci ci-eye"></i> Visualizar Manifestação Preliminar</button>` : ''}
+                ${previewParecerUrl ? `<button onclick="alternarVisualizacaoPreview(this, '${previewParecerUrl}', '${previewParecerUrl}')" class="btn-drive btn-preview-toggle-tab" style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; width: 100%; margin-bottom: 8px; font-size: 12.5px; font-weight: 600; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><i class="ci ci-court"></i> Visualizar Parecer Externo</button>` : ''}
+                ${previewOriginalUrl ? `<button onclick="alternarVisualizacaoPreview(this, '${previewOriginalUrl}', '${previewOriginalUrl}')" class="btn-drive btn-preview-toggle-tab" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; width: 100%; margin-bottom: 8px; font-size: 12px; font-weight: 600; padding: 7px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><i class="ci ci-folder"></i> Visualizar NUP Original</button>` : ''}
+                <button onclick="if(typeof abrirModalRetornoSobrestamento==='function') abrirModalRetornoSobrestamento('${nupEsc}', 'carta');" class="btn-drive" style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); border: 1px solid #22c55e; color: white; width: 100%; margin: 0; font-size: 13.5px; font-weight: 700; padding: 11px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">▶️ Retomar do Sobrestamento (Anexar Parecer Externo)</button>
+            </div>
+        `;
+    } else if (podeAcaoFluxo) {
+        if (statusLimpo === 'FAZER DESPACHO') {
+            acoesFluxoHtml = `
+                <div style="padding: 14px; background: rgba(41, 128, 185, 0.12); border: 1px solid rgba(41, 128, 185, 0.35); border-radius: 8px; margin-bottom: 10px;">
+                    <div style="color: #38bdf8; font-weight: 700; font-size: 12.5px; margin-bottom: 10px;"><i class="ci ci-megaphone"></i> Ações de Fluxo (Despacho):</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button onclick="atualizarStatusCarta(event, '${nupEsc}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: 1px solid #3b82f6; color: white; width: 100%; margin: 0; font-size: 13.5px; font-weight: 700; padding: 11px; border-radius: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="ci ci-check"></i> Confirmar Realização do Despacho</button>
+                        <button onclick="if(typeof abrirModalSobrestar==='function') abrirModalSobrestar('${nupEsc}', 'carta');" class="btn-drive" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; width: 100%; margin: 0; font-size: 13px; font-weight: 600; padding: 9px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;"><i class="ci ci-pause"></i> Sobrestar Processo</button>
+                    </div>
+                </div>
+            `;
+        } else if (statusLimpo === 'AGUARDANDO ASSINATURA') {
+            acoesFluxoHtml = `
+                <div style="padding: 14px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; margin-bottom: 10px;">
+                    <div style="color: #c084fc; font-weight: 700; font-size: 12.5px; margin-bottom: 10px;">✍️ Ações de Fluxo (Assinatura):</div>
+                    <button onclick="atualizarStatusCarta(event, '${nupEsc}', 'FINALIZADO')" class="btn-drive" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border: 1px solid #8b5cf6; color: white; width: 100%; margin: 0; font-size: 13.5px; font-weight: 700; padding: 11px; border-radius: 8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="ci ci-check"></i> Confirmar Assinatura Realizada</button>
+                </div>
+            `;
         }
     }
+
+    document.getElementById('previewInfoContent').innerHTML = `
+        <div class="preview-info-header">
+            <div class="preview-info-tag-and-status">
+                <span class="modal-detail-module-tag modal-detail-tag-carta"><i class="ci ci-mail"></i> Carta Consulta</span>
+                <span class="modal-detail-status-value modal-detail-status-carta">${statusStr}</span>
+            </div>
+            <h3 class="preview-info-nup-title">${nupDisplay}</h3>
+        </div>
+
+        ${toggleBtn}
+
+        <div class="preview-info-card">
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-user"></i></span><div><strong>Requerente:</strong> ${linha['REQUERENTE'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-calendar"></i></span><div><strong>Data Entrada:</strong> ${linha['DATA DO REPASSE'] || linha['DATA DE REPASSE'] || linha['DATA'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-map"></i></span><div><strong>Município/Local:</strong> ${linha['MUNICÍPIO'] || linha['LOCAL'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-home"></i></span><div><strong>CAR / Imóvel:</strong> ${linha['CAR'] || linha['CARMS'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-pin"></i></span><div><strong>Tipo de Carta:</strong> ${linha['TIPO'] || 'Consulta Prévia'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-clock"></i></span><div><strong>Prazo:</strong> ${linha['PRAZO'] ? linha['PRAZO'] + ' dias' : '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-user"></i></span><div><strong>Responsável:</strong> <span style="color: #c084fc; font-weight: 600;">${linha['TÉCNICO/ADM'] || linha['TECNICO/ADM'] || 'Não atribuído'}</span></div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-building"></i></span><div><strong>Gerência:</strong> ${linha['GERÊNCIA'] || 'GCAR'}</div></div>
+        </div>
+
+        ${htmlObs}
+
+        <div id="preview-cartas-timeline-container" style="margin-top: 15px;"></div>
+
+        <div class="preview-actions-section">
+            <div class="preview-actions-title">Ações e Interações</div>
+            ${acoesFluxoHtml}
+            ${botoesAcoesHtml}
+            ${acoesRevisorHtml}
+            ${acoesStatusDiretoria}
+        </div>
+    `;
+
     modal.style.display = 'flex';
+    if (linha && linha['NUP'] && typeof renderizarLinhaTempoSistema === 'function') {
+        renderizarLinhaTempoSistema(linha['NUP'], 'preview-cartas-timeline-container');
+    }
 }
+
 
 /**
  * Abre o modal de pré-visualização e ativa diretamente a aba do Shapefile
@@ -1733,8 +1829,7 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
 
                 // Baixa o ZIP em formato binário encapsulado em base64 da nossa API sem sofrer CORS block do Google Drive
                 const payload = { acao: 'download_drive_file', fileId: fileId };
-                const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                const resultado = await resposta.json();
+                const resultado = await executarAcaoGAS(payload);
 
                 if (resultado.status !== 'success') throw new Error(resultado.message || 'Erro ao baixar Shapefile.');
 
@@ -2213,8 +2308,8 @@ async function removerRespostaCarta(event, nup) {
 async function avaliarRespostaCarta(event, nup, decisao) {
     const btn = event.currentTarget;
     const conf = decisao === 'APROVADO'
-        ? { titulo: 'Aprovar', textoBotao: '✅ Aprovar', corBotao: '#27ae60' }
-        : { titulo: 'Reprovar', textoBotao: '❌ Reprovar', corBotao: '#c0392b', exigeMotivo: true };
+        ? { titulo: 'Aprovar', textoBotao: '<i class="ci ci-check"></i> Aprovar', corBotao: '#27ae60' }
+        : { titulo: 'Reprovar', textoBotao: '<i class="ci ci-close"></i> Reprovar', corBotao: '#c0392b', exigeMotivo: true };
     const result = await mostrarConfirmacao(`Deseja ${decisao === 'APROVADO' ? 'aprovar' : 'reprovar'} esta resposta?`, conf);
     if (!result.confirmou) return;
     const textoOriginal = btn.innerHTML;
@@ -2247,9 +2342,9 @@ async function salvarStatusManualCarta(event, nup) {
     const novoStatus = select ? select.value : '';
     if (!novoStatus) return;
 
-    const btn = document.getElementById(`btnSalvarStatusCarta-${nup}`);
-    const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '? ...'; btn.disabled = true;
+    const btn = document.getElementById(`btnSalvarStatusCarta-${nup}`) || (event && event.target);
+    const txtOriginal = btn ? btn.innerHTML : 'Salvar';
+    if (btn) { btn.innerHTML = '⏳ ...'; btn.disabled = true; }
 
     // Optimistic Update
     const ref = dadosCartasGlobais.find(a => (a['NUP'] || a['PROCESSO'] || a['PROCESSO/NUP']) === nup);
@@ -2263,35 +2358,38 @@ async function salvarStatusManualCarta(event, nup) {
     mostrarToast('Status alterado localmente. Sincronizando...', 'success');
     aplicarFiltrosCartas();
     atualizarCacheCartas();
+    if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+    // Atualiza badge de status no preview se aberto
+    const badgePreview = document.querySelector('#previewInfoContent .modal-detail-status-carta');
+    if (badgePreview) badgePreview.textContent = novoStatus;
 
     try {
-        const resposta = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                acao: "alterar_status_manual_generico",
-                tipoAba: "carta",
-                nup: nup,
-                novoStatus: novoStatus,
-                username: usuarioAtivo ? usuarioAtivo.username : "sistema"
-            })
+        const resultado = await executarAcaoGAS({
+            acao: "alterar_status_manual_generico",
+            tipoAba: "carta",
+            nup: nup,
+            novoStatus: novoStatus,
+            username: (usuarioAtivo && usuarioAtivo.username) ? usuarioAtivo.username : "sistema"
         });
-        const resultado = await resposta.json();
         if (resultado.status === 'success') {
             mostrarToast('Status confirmado na nuvem!', 'success');
         } else {
-            throw new Error(resultado.message);
+            throw new Error(resultado.message || 'Erro ao sincronizar status.');
         }
     } catch (e) {
-        console.error(e);
-        mostrarToast('Falha na internet ao alterar status. (Revertendo)', 'error');
+        console.error('Erro ao alterar status de Carta:', e);
+        mostrarToast('Falha na sincronização ao alterar status. (Revertendo)', 'error');
         if (ref) {
             ref['STATUS'] = statusOriginal;
             if (ref['STATUS ATUAL']) ref['STATUS ATUAL'] = statusOriginal;
         }
         aplicarFiltrosCartas();
         atualizarCacheCartas();
+        if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+        if (badgePreview) badgePreview.textContent = statusOriginal;
     } finally {
-        if(btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
+        if (btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
     }
 }
 
@@ -2318,6 +2416,7 @@ function abrirAtribuirTecnicoCarta(nup) {
         });
     }
 
+    modal.style.zIndex = '2000';
     modal.style.display = 'flex';
 }
 
@@ -2332,7 +2431,11 @@ async function salvarAtribuicaoTecnicoCarta() {
 
     // Optimistic update
     const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
+    let tecOriginal = '';
+    let statusOriginal = '';
     if (target) {
+        tecOriginal = target['TÉCNICO/ADM'] || '';
+        statusOriginal = target['STATUS'] || '';
         target['TÉCNICO/ADM'] = tecnico;
         target['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
     }
@@ -2341,25 +2444,41 @@ async function salvarAtribuicaoTecnicoCarta() {
 
     atualizarCacheCartas();
     aplicarFiltrosCartas();
+    if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+    // Atualiza campos visuais no modal de preview se estiver aberto
+    const infoContent = document.getElementById('previewInfoContent');
+    if (infoContent) {
+        infoContent.querySelectorAll('.preview-info-item').forEach(item => {
+            if (item.textContent.includes('Responsável:')) {
+                const s = item.querySelector('span:last-child');
+                if (s) s.textContent = tecnico;
+            }
+        });
+        const stBadge = infoContent.querySelector('.modal-detail-status-carta');
+        if (stBadge) stBadge.textContent = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+    }
+
     mostrarToast('Técnico atribuído localmente. Sincronizando...', 'success');
 
     try {
         const payload = { acao: 'atribuir_tecnico_carta', nup, tecnico };
-        const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS(payload);
         if (resultado.status === 'success') {
             mostrarToast('Atribuição sincronizada! ✅', 'success');
         } else {
-            mostrarToast('Erro ao sincronizar: ' + resultado.message, 'error');
-            if (target) { target['TÉCNICO/ADM'] = 'Não atribuído'; target['STATUS'] = 'AGUARDANDO DISTRIBUIÇÃO'; }
+            throw new Error(resultado.message || 'Erro ao sincronizar na nuvem.');
+        }
+    } catch (e) {
+        console.error('Erro ao atribuir técnico na carta:', e);
+        mostrarToast('Erro de sincronização na nuvem. (Revertendo)', 'error');
+        if (target) {
+            target['TÉCNICO/ADM'] = tecOriginal;
+            target['STATUS'] = statusOriginal;
             atualizarCacheCartas();
             aplicarFiltrosCartas();
+            if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
         }
-    } catch (err) {
-        mostrarToast('Falha na ligação.', 'error');
-        if (target) { target['TÉCNICO/ADM'] = 'Não atribuído'; target['STATUS'] = 'AGUARDANDO DISTRIBUIÇÃO'; }
-        atualizarCacheCartas();
-        aplicarFiltrosCartas();
     }
 }
 
@@ -2570,7 +2689,6 @@ function anexarDocumentoRespostaCarta(event, nup, tipo) {
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
-                mostrarToast(`${tipo === 'manifestacao' ? 'Manifestação' : 'Declaração'} anexada com sucesso no Google Cloud Storage (LGPD)!`, 'success');
                 const linkFinal = gcsUri || resultado.url;
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
                 if (target) {
@@ -2580,7 +2698,19 @@ function anexarDocumentoRespostaCarta(event, nup, tipo) {
                     } else {
                         target['LINK DA DECLARAÇÃO'] = linkFinal;
                     }
-                    target['STATUS'] = 'REVISÃO';
+
+                    // Regra de Negócio: Exige AMBOS os documentos para avançar para REVISÃO
+                    const temM = target['LINK DA MANIFESTAÇÃO'] && target['LINK DA MANIFESTAÇÃO'].trim() !== '' && target['LINK DA MANIFESTAÇÃO'].trim() !== '-';
+                    const temD = target['LINK DA DECLARAÇÃO'] && target['LINK DA DECLARAÇÃO'].trim() !== '' && target['LINK DA DECLARAÇÃO'].trim() !== '-';
+
+                    if (temM && temD) {
+                        target['STATUS'] = 'REVISÃO';
+                        mostrarToast('Manifestação e Declaração anexadas! O processo avançou para REVISÃO.', 'success');
+                    } else {
+                        target['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+                        mostrarToast(`${tipo === 'manifestacao' ? 'Manifestação' : 'Declaração'} anexada! O processo aguarda o outro documento para avançar para REVISÃO.`, 'info');
+                    }
+
                     // Se foi reprovada anteriormente, limpa status da resposta para entrar em nova revisão
                     if (target['STATUS DA RESPOSTA'] === 'REPROVADO') {
                         target['STATUS DA RESPOSTA'] = '';
@@ -2635,10 +2765,10 @@ async function removerDocumentoRespostaCarta(event, nup, tipo) {
                     target['LINK DA DECLARAÇÃO'] = '';
                 }
                 
-                // Se ambos foram removidos, volta o status
-                const temM = target['LINK DA MANIFESTAÇÃO'] && target['LINK DA MANIFESTAÇÃO'].startsWith('http');
-                const temD = target['LINK DA DECLARAÇÃO'] && target['LINK DA DECLARAÇÃO'].startsWith('http');
-                if (!temM && !temD) {
+                // Se qualquer um dos documentos faltar, volta o status para Aguardando Manifestação
+                const temM = target['LINK DA MANIFESTAÇÃO'] && target['LINK DA MANIFESTAÇÃO'].trim() !== '' && target['LINK DA MANIFESTAÇÃO'].trim() !== '-';
+                const temD = target['LINK DA DECLARAÇÃO'] && target['LINK DA DECLARAÇÃO'].trim() !== '' && target['LINK DA DECLARAÇÃO'].trim() !== '-';
+                if (!temM || !temD) {
                     target['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
                     target['STATUS DA RESPOSTA'] = '';
                     target['MOTIVO DA AVALIAÇÃO'] = '';
@@ -2715,15 +2845,10 @@ async function atualizarStatusCarta(event, nup, novoStatus) {
             acao: "atualizar_status_ci",
             nup: nup,
             novoStatus: novoStatus,
-            username: usuarioAtivo.username || ''
+            username: (usuarioAtivo && usuarioAtivo.username) ? usuarioAtivo.username : ''
         };
 
-        const resposta = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS(payload);
         if (resultado.status === 'success') {
             mostrarToast('Status atualizado com sucesso!', 'success');
 
@@ -2733,15 +2858,23 @@ async function atualizarStatusCarta(event, nup, novoStatus) {
             }
             atualizarCacheCartas();
             aplicarFiltrosCartas();
+            if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
 
             // Atualiza os badges globais
-            atualizarBadgesNotificacao(dadosCoringa);
+            if (typeof atualizarBadgesNotificacao === 'function') atualizarBadgesNotificacao(dadosCoringa);
             
             // Recarrega os detalhes no painel lateral
-            if (cartaSelecionada && cartaSelecionada['NUP'] === nup) {
+            if (typeof cartaSelecionada !== 'undefined' && cartaSelecionada && cartaSelecionada['NUP'] === nup) {
                 cartaSelecionada = target;
             }
-            renderTabelaView(cartasExibidas);
+            if (typeof renderTabelaView === 'function') renderTabelaView(cartasExibidas);
+
+            // Se o preview estiver aberto, recarrega com o novo status
+            const prev = document.getElementById('previewModal');
+            if (prev && prev.style.display === 'flex' && target) {
+                const linkCarta = target['LINK DO NUP'] || target['LINK_NUP'] || target['LINK'] || target['LINK_PROCESSO'] || target['LINK DA RESPOSTA'] || '';
+                abrirModalPreviewCartas(target, linkCarta, nup);
+            }
         } else {
             mostrarToast('Operação Cancelada ou Sem Permissão: ' + (resultado.message || 'Erro Desconhecido'), 'error');
             if (btn) {

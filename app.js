@@ -1,46 +1,218 @@
-const usuarioAtivo = JSON.parse(sessionStorage.getItem('corino_user'));
+let usuarioAtivo = JSON.parse(sessionStorage.getItem('corino_user'));
 
 if (!usuarioAtivo) {
     window.location.href = 'login.html';
-} else {
-    // Ocultar aba de Aguardando Distribuição para quem não for da Diretoria
-    // Ocultar aba de Aguardando Distribuição para quem não for Gerência (DIFLOR, GCAR, GEAA)
-    if (!usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'gerencia_consulta') {
-        const btnDistribuicao = document.getElementById('btn-menu-distribuicao');
-        if (btnDistribuicao) btnDistribuicao.style.display = 'none';
-
-        const btnCartasDistribuicao = document.getElementById('btn-menu-cartas-distribuicao');
-        if (btnCartasDistribuicao) btnCartasDistribuicao.style.display = 'none';
-    }
-
-    if (usuarioAtivo.perfil === 'gerencia_consulta') {
-        const btnAndamento = document.getElementById('btn-menu-andamento');
-        const btnAtrasados = document.getElementById('btn-menu-atrasados');
-        const btnRespondidos = document.getElementById('btn-menu-respondidos');
-
-        if (btnAndamento) btnAndamento.style.display = 'none';
-        if (btnAtrasados) btnAtrasados.style.display = 'none';
-        if (btnRespondidos) btnRespondidos.style.display = 'none';
-
-        const btnCartasAndamento = document.getElementById('btn-menu-cartas-andamento');
-        const btnCartasAtrasados = document.getElementById('btn-menu-cartas-atrasados');
-        const btnCartasRevisao = document.getElementById('btn-menu-cartas-revisao');
-        const btnCartasAssinatura = document.getElementById('btn-menu-cartas-assinatura');
-
-        if (btnCartasAndamento) btnCartasAndamento.style.display = 'none';
-        if (btnCartasAtrasados) btnCartasAtrasados.style.display = 'none';
-        if (btnCartasRevisao) btnCartasRevisao.style.display = 'none';
-        if (btnCartasAssinatura) btnCartasAssinatura.style.display = 'none';
-    }
-
-    // Ocultar Autos de Infração para GEAMB
-    if (usuarioAtivo.username === 'geamb' || usuarioAtivo.perfil === 'gerencia_consulta') {
-        const modAutosHeader = document.getElementById('header-mod-autos');
-        if (modAutosHeader && modAutosHeader.parentElement) {
-            modAutosHeader.parentElement.style.display = 'none';
-        }
-    }
+} else if (usuarioAtivo.username === 'rcosta' && (!usuarioAtivo.nomePlanilha || usuarioAtivo.nomePlanilha === 'Rodrigo Costa')) {
+    usuarioAtivo.nomePlanilha = 'RODRIGO';
+    sessionStorage.setItem('corino_user', JSON.stringify(usuarioAtivo));
 }
+
+// ============================================================================
+// MAPA COMPLETO DE TÉCNICOS, ADMINISTRATIVOS E REVISORES (RBAC)
+// ============================================================================
+window.MAPA_TECNICOS_SETORES = {
+    // GEAA
+    "ADRIANA": "GEAA",
+    "ALCEBIADES": "GEAA",
+    "ALEXANDRE": "GEAA",
+    "ALLAN": "GEAA",
+    "ANDERSON": "GEAA",
+    "BARBARA": "GEAA",
+    "BEATRIZ": "GEAA",
+    "CARLA": "GEAA",
+    "CORINA": "GEAA",
+    "DINA": "GEAA",
+    "ETEVALDO": "GEAA",
+    "HELLEN": "GEAA",
+    "HENRIQUE": "GEAA",
+    "HERUS": "GEAA",
+    "JEAN PIERRE": "GEAA",
+    "JOELTHON": "GEAA",
+    "JONIEL": "GEAA",
+    "JOSÉ RENATO": "GEAA",
+    "LUCIANO": "GEAA",
+    "LUIZ": "GEAA",
+    "MARIA": "GEAA",
+    "MARIANA SH": "GEAA",
+    "MARIANA OPP": "GEAA",
+    "MATEUS": "GEAA",
+    "MAX SANDER": "GEAA",
+    "RHOANDER": "GEAA",
+    "RODRIGO": "GEAA",
+    "SUZIELLY": "GEAA",
+
+    // GCAR
+    "CARLOS JULIANO": "GCAR",
+    "CRISTIANE": "GCAR",
+    "DIANESSA": "GCAR",
+    "ELERI": "GCAR",
+    "ERLISSON": "GCAR",
+    "FABIANA": "GCAR",
+    "FRANCIELLY": "GCAR",
+    "GABRIELA": "GCAR",
+    "HELEN CAROLINE": "GCAR",
+    "HILBATY": "GCAR",
+    "LARISSA": "GCAR",
+    "MICHAEL": "GCAR",
+    "MILKA": "GCAR",
+    "NATTANA": "GCAR",
+
+    // DIFLOR
+    "JHONATAN": "DIFLOR",
+    "LIVYA": "DIFLOR",
+    "OSVALDO": "DIFLOR"
+};
+
+// Aliases de compatibilidade para buscas de setor em registros legados
+const ALIASES_SETORES = {
+    "JOSE RENATO": "GEAA",
+    "GEAA": "GEAA",
+    "GCAR": "GCAR",
+    "GEAMB": "GEAMB",
+    "GERÊNCIA DE ASSUNTOS AMBIENTAIS": "GEAMB",
+    "DIFLOR": "DIFLOR",
+    "DIRETORIA FLORESTAL": "DIFLOR"
+};
+
+const MAPA_TECNICOS_SETORES = new Proxy(window.MAPA_TECNICOS_SETORES, {
+    get: function(target, prop) {
+        if (typeof prop === 'string') {
+            const pUpper = prop.trim().toUpperCase();
+            return target[pUpper] || ALIASES_SETORES[pUpper] || undefined;
+        }
+        return target[prop];
+    }
+});
+
+window.opcoesAutoTecnico = Object.keys(window.MAPA_TECNICOS_SETORES).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+const opcoesAutoTecnico = window.opcoesAutoTecnico;
+
+function normalizarTextoTecnico(str) {
+    if (!str) return '';
+    return String(str)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .trim();
+}
+
+/**
+ * Verifica se um registro de processo pertence ao técnico logado de forma resiliente e precisa.
+ * - Suporta insensibilidade a acentos (ex: "JOSÉ RENATO" === "JOSE RENATO").
+ * - Suporta primeiro nome ("RODRIGO" === "RODRIGO COSTA").
+ * - Evita colisões de substring (ex: "MARIA" NÃO colide com "MARIANA SH" ou "MARIANA OPP").
+ */
+window.isMesmoTecnico = function(tecRegistro, usuario) {
+    if (!tecRegistro || !usuario) return false;
+    const t = normalizarTextoTecnico(tecRegistro);
+    if (!t || t === '-' || t === 'S/T' || t === 'SEM TECNICO' || t === 'NAO ATRIBUIDO' || t === 'SEM TECNICO/ADM') {
+        return false;
+    }
+
+    const tecPlanilha = normalizarTextoTecnico(usuario.nomePlanilha);
+    const tecNome = normalizarTextoTecnico(usuario.nomeCompleto || usuario.nome_completo);
+    const tecUser = normalizarTextoTecnico(usuario.username);
+
+    // 1. Igualdade direta normalizada (sem acentos)
+    if (tecPlanilha && t === tecPlanilha) return true;
+    if (tecNome && t === tecNome) return true;
+    if (tecUser && t === tecUser) return true;
+
+    // 2. Quebra em palavras / tokens
+    const wordsT = t.split(/\s+/).filter(Boolean);
+    const wordsNome = tecNome.split(/\s+/).filter(Boolean);
+    const wordsPlanilha = tecPlanilha.split(/\s+/).filter(Boolean);
+
+    // 3. Se o registro tem apenas 1 palavra (ex: "RODRIGO", "MARIA", "MICHAEL")
+    if (wordsT.length === 1) {
+        const palavraT = wordsT[0];
+        if (wordsPlanilha.length > 0 && palavraT === wordsPlanilha[0]) return true;
+        if (wordsNome.length > 0 && palavraT === wordsNome[0]) return true;
+        return false;
+    }
+
+    // 4. Se o registro tem mais de uma palavra (ex: "CARLOS JULIANO", "MARIANA SH", "JOSE RENATO")
+    if (wordsPlanilha.length >= wordsT.length) {
+        const matchPlanilha = wordsT.every((w, idx) => w === wordsPlanilha[idx]);
+        if (matchPlanilha) return true;
+    }
+    if (wordsNome.length >= wordsT.length) {
+        const matchNome = wordsT.every((w, idx) => w === wordsNome[idx]);
+        if (matchNome) return true;
+    }
+
+    // 5. Inclusão de prefixo completo (ex: "CARLOS JULIANO" vs "CARLOS JULIANO FONSECA")
+    if (tecPlanilha && tecNome.startsWith(t + ' ')) return true;
+    if (tecPlanilha && t.startsWith(tecPlanilha + ' ')) return true;
+
+    return false;
+};
+
+// ============================================================================
+// MATRIZ DE PERFIS E PERMISSÕES (RBAC) - CORINO WEB
+// ============================================================================
+window.isPerfilTecnico = function() {
+    return usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.role === 'tecnico');
+};
+
+window.isPerfilRevisor = function() {
+    return usuarioAtivo && (usuarioAtivo.perfil === 'revisor');
+};
+
+window.isPerfilAdministrativo = function() {
+    return usuarioAtivo && (usuarioAtivo.perfil === 'administrativo' || usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
+};
+
+window.isPerfilAdmin = function() {
+    return usuarioAtivo && (usuarioAtivo.role === 'admin' || usuarioAtivo.perfil === 'administrativo' || usuarioAtivo.username === 'diflor' || usuarioAtivo.username === 'jcoene' || usuarioAtivo.username === 'jhonatan');
+};
+
+window.podeCadastrarProcesso = function() {
+    return window.isPerfilAdministrativo();
+};
+
+window.podeRedistribuirTecnico = function(setorItem) {
+    if (!usuarioAtivo) return false;
+    if (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR') return true;
+    if (usuarioAtivo.perfil === 'administrativo') {
+        if (!setorItem) return true;
+        return usuarioAtivo.setor === setorItem;
+    }
+    return false;
+};
+
+window.podeAvaliarManifestacao = function(setorItem) {
+    if (!usuarioAtivo) return false;
+    if (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR') return true;
+    if (usuarioAtivo.perfil === 'revisor') {
+        if (!setorItem) return true;
+        return usuarioAtivo.setor === setorItem;
+    }
+    return false;
+};
+
+window.podeConfeccionarDespachoOuCI = function(setorItem) {
+    return window.isPerfilAdministrativo();
+};
+
+window.podeSobrestarProcesso = function(setorItem) {
+    return window.isPerfilAdministrativo();
+};
+
+window.podeAssinarOuConcluir = function(setorItem) {
+    return window.isPerfilAdministrativo();
+};
+
+window.podeCadastrarReiteracao = function(setorItem) {
+    if (!usuarioAtivo) return false;
+    if (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR') return true;
+    if (usuarioAtivo.perfil === 'administrativo') {
+        if (!setorItem) return true;
+        return usuarioAtivo.setor === setorItem;
+    }
+    return false;
+};
+// ============================================================================
 
 function fazerLogout() {
     sessionStorage.removeItem('corino_user');
@@ -119,8 +291,7 @@ let incluirReiteracoes = false;
 let dadosExibidos = [];
 
 function atualizarCacheOficios() {
-    const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
-    const keyOficios = `corino_cache_dados_coringa_${username}`;
+    const keyOficios = `corino_cache_dados_coringa_v3`;
     localStorage.setItem(keyOficios, JSON.stringify(dadosCoringa));
     if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
 }
@@ -177,33 +348,70 @@ function obterInfoDinamicaStatus(linha) {
 
 async function iniciarSistema() {
     try {
+        if (typeof iniciarRelogioNavbar === 'function') iniciarRelogioNavbar();
+
         const displayDiv = document.getElementById('user-display-name');
         if (displayDiv && usuarioAtivo) {
-            let textoPerfil = usuarioAtivo.perfil.includes('gerencia') ? 'GERÊNCIA' : usuarioAtivo.perfil.toUpperCase();
-            displayDiv.innerText = `${usuarioAtivo.nomePlanilha} (${textoPerfil})`;
+            let textoPerfil = usuarioAtivo.perfil.toUpperCase();
+            displayDiv.innerText = `${usuarioAtivo.nomePlanilha} (${textoPerfil} - ${usuarioAtivo.setor || 'DIFLOR'})`;
         }
 
-        if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.perfil === 'gerencia_gcar' || usuarioAtivo.perfil === 'gerencia_geaa' || usuarioAtivo.perfil === 'tecnico')) {
-            const btnResp = document.getElementById('btn-menu-respondidos');
-            if (btnResp) btnResp.style.display = 'block';
+        const isTec = window.isPerfilTecnico();
+        const isRev = window.isPerfilRevisor();
+        const isAdm = window.isPerfilAdministrativo();
+        const isAdminMaster = window.isPerfilAdmin();
 
-            const btnCartasResp = document.getElementById('btn-menu-cartas-revisao');
-            if (btnCartasResp) btnCartasResp.style.display = 'block';
+        // Exibe botão de Administração na top navbar para administradores
+        const topAdminBtn = document.getElementById('top-btn-admin');
+        if (topAdminBtn) {
+            topAdminBtn.style.display = isAdminMaster ? 'inline-flex' : 'none';
         }
 
-        if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+        // Configuração de abas por perfil
+        const btnDistribuicao = document.getElementById('btn-menu-distribuicao');
+        const btnCartasDistribuicao = document.getElementById('btn-menu-cartas-distribuicao');
+        const btnExtDistribuicao = document.getElementById('btn-menu-externos-distribuicao');
+
+        if (btnDistribuicao) btnDistribuicao.style.display = isAdm ? 'block' : 'none';
+        if (btnCartasDistribuicao) btnCartasDistribuicao.style.display = isAdm ? 'block' : 'none';
+        if (btnExtDistribuicao) btnExtDistribuicao.style.display = isAdm ? 'block' : 'none';
+
+        const btnResp = document.getElementById('btn-menu-respondidos');
+        const btnCartasResp = document.getElementById('btn-menu-cartas-revisao');
+        const btnExtResp = document.getElementById('btn-menu-externos-revisao');
+
+        if (btnResp) btnResp.style.display = (isRev || isAdm || isTec) ? 'block' : 'none';
+        if (btnCartasResp) btnCartasResp.style.display = (isRev || isAdm || isTec) ? 'block' : 'none';
+        if (btnExtResp) btnExtResp.style.display = (isRev || isAdm || isTec) ? 'block' : 'none';
+
+        // Sub-abas de despacho e assinatura (exclusivas do administrativo)
+        const subAbasAdm = [
+            'btn-menu-comunicacao', 'btn-menu-assinatura-oficios',
+            'btn-menu-cartas-despacho', 'btn-menu-cartas-assinatura',
+            'btn-menu-externos-despacho', 'btn-menu-externos-assinatura',
+            'link-top-comunicacao', 'link-top-assinatura-oficios',
+            'link-top-cartas-despacho', 'link-top-cartas-assinatura',
+            'link-top-externos-despacho', 'link-top-externos-assinatura'
+        ];
+        subAbasAdm.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isAdm ? '' : 'none';
+        });
+
+        const linksTopRevisao = ['link-top-respondidos', 'link-top-cartas-revisao', 'link-top-externos-revisao'];
+        linksTopRevisao.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = (isRev || isAdm || isTec) ? '' : 'none';
+        });
+
+        if (isTec) {
+            document.body.classList.add('perfil-tecnico');
+            const cardDist = document.getElementById('kpi-card-distribuicao');
+            if (cardDist) cardDist.style.display = 'none';
+            const kpiGrid = document.querySelector('.kpi-row-grid');
+            if (kpiGrid) kpiGrid.classList.add('kpi-grid-5');
+
             ['btn-tab-aprovados', 'btn-tab-reprovados', 'btn-tab-todos'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-
-            // Ocultar sub-abas exclusivas de gerência para o perfil técnico
-            const subAbasGerencia = [
-                'btn-menu-comunicacao', 'btn-menu-assinatura-oficios',
-                'btn-menu-cartas-despacho', 'btn-menu-cartas-assinatura',
-                'btn-menu-externos-despacho', 'btn-menu-externos-assinatura'
-            ];
-            subAbasGerencia.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -232,7 +440,6 @@ async function iniciarSistema() {
                 if (el) el.style.display = 'none';
             });
 
-            // Ocultar filtro avançado de Gerência (CARMS) para o perfil técnico
             const filtrosGerencia = ['cgCarms', 'ms-cgGerencia', 'filtro-ext-carms'];
             filtrosGerencia.forEach(id => {
                 const el = document.getElementById(id);
@@ -242,16 +449,11 @@ async function iniciarSistema() {
                 }
             });
         } else {
-            // Garantir que estejam visíveis para gerência/diretoria
-            const subAbasGerencia = [
-                'btn-menu-comunicacao', 'btn-menu-assinatura-oficios',
-                'btn-menu-cartas-despacho', 'btn-menu-cartas-assinatura',
-                'btn-menu-externos-despacho', 'btn-menu-externos-assinatura'
-            ];
-            subAbasGerencia.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'block';
-            });
+            document.body.classList.remove('perfil-tecnico');
+            const cardDist = document.getElementById('kpi-card-distribuicao');
+            if (cardDist) cardDist.style.display = '';
+            const kpiGrid = document.querySelector('.kpi-row-grid');
+            if (kpiGrid) kpiGrid.classList.remove('kpi-grid-5');
 
             const filtrosTecnico = [
                 'ms-cgTecnico', 'ms-andTecnico', 'ms-atrTecnico',
@@ -266,16 +468,14 @@ async function iniciarSistema() {
                 }
             });
 
-            // Garantir que as mini-tabs de setores de Ofícios Internos estejam visíveis para gerência/diretoria
             const miniTabsSetoresOficios = [
                 'mini-tabs-distribuicao', 'mini-tabs-andamento', 'mini-tabs-atrasados'
             ];
             miniTabsSetoresOficios.forEach(id => {
                 const el = document.getElementById(id);
-                if (el) el.style.display = 'flex';
+                if (el) el.style.display = isAdm ? 'flex' : 'none';
             });
 
-            // Garantir que os filtros avançados de gerência estejam visíveis para gerência/diretoria
             const filtrosGerencia = ['cgCarms', 'ms-cgGerencia', 'filtro-ext-carms'];
             filtrosGerencia.forEach(id => {
                 const el = document.getElementById(id);
@@ -286,8 +486,10 @@ async function iniciarSistema() {
             });
         }
 
-        const username = usuarioAtivo ? usuarioAtivo.username : 'guest';
-        const keyOficios = `corino_cache_dados_coringa_${username}`;
+        const savedAba = localStorage.getItem('corino_aba_ativa') || 'inicio';
+        mudarAbaPrincipal(savedAba);
+
+        const keyOficios = `corino_cache_dados_coringa_v3`;
 
         // Migrar dados temporários pré-carregados se existirem
         const tempRawDados = localStorage.getItem('corino_temp_raw_dados');
@@ -295,47 +497,9 @@ async function iniciarSistema() {
             try {
                 const dadosBrutos = JSON.parse(tempRawDados);
                 const dadosProcessados = dadosBrutos.map(limparEPadronizarLinha);
-                
-                let novosDados = [];
-                if (usuarioAtivo) {
-                    novosDados = dadosProcessados.filter(linha => {
-                        const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
-                        const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
-                        const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
-                        const statusVisual = obterStatusVisual(linha);
-                        const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
-
-                        if (semTecnico && isFinalizado && !usuarioAtivo.perfil.startsWith('gerencia')) {
-                            return false;
-                        }
-
-                        if (usuarioAtivo.perfil === 'tecnico') {
-                            const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                            if (tec !== tecnicoLogado) {
-                                return false;
-                            }
-                        }
-
-                        // Gerências setoriais (GCAR / GEAA) só visualizam processos de competência direta
-                        if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
-                            if (!semTecnico) {
-                                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
-                                if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
-                            } else {
-                                const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
-                                if (gerenciaRegistro !== usuarioAtivo.setor) return false;
-                            }
-                        }
-
-                        return true;
-                    });
-                } else {
-                    novosDados = dadosProcessados;
-                }
-
-                localStorage.setItem(keyOficios, JSON.stringify(novosDados));
+                dadosCoringa = dadosProcessados;
+                localStorage.setItem(keyOficios, JSON.stringify(dadosCoringa));
                 localStorage.removeItem('corino_temp_raw_dados');
-                console.log("Ofícios pré-carregados aplicados com sucesso ao cache do usuário logado.");
             } catch (e) {
                 console.error("Erro ao processar dados pré-carregados de Ofícios:", e);
             }
@@ -346,22 +510,61 @@ async function iniciarSistema() {
 
         if (cacheSalvo) {
             try {
-                dadosCoringa = JSON.parse(cacheSalvo);
-                if (Array.isArray(dadosCoringa)) {
+                const parsed = JSON.parse(cacheSalvo);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    dadosCoringa = parsed;
                     dadosCoringa.forEach(linha => {
+                        let t = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+                        if (t === 'JOSE RENATO') linha['TÉCNICO/ADMIN'] = 'JOSÉ RENATO';
                         const diasRestantesVal = calcularDiasRestantes(linha['DATA'], linha['PRAZO']);
                         linha['DIAS RESTANTES'] = !isNaN(diasRestantesVal) ? String(diasRestantesVal) : '-';
                     });
+                    carregouDeCache = true;
+
+                    const loadingEl = document.getElementById('loading');
+                    if (loadingEl) loadingEl.style.display = 'none';
+
+                    ['cgNup', 'andNup', 'atrNup', 'respNup'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.placeholder = 'Pesquisar NUP ou Ofício...';
+                    });
+
+                    popularTodosOsSelectsNativos();
+
+                    const toggleReiteracoes = document.getElementById('toggleReiteracoes');
+                    if (toggleReiteracoes && !toggleReiteracoes.dataset.listenerAdded) {
+                        toggleReiteracoes.addEventListener('change', (event) => {
+                            incluirReiteracoes = event.target.checked;
+                            aplicarFiltros();
+                        });
+                        toggleReiteracoes.dataset.listenerAdded = 'true';
+                    }
+                    atualizarBadgesNotificacao(dadosCoringa);
+                    if (filtroAtivo === 'inicio') {
+                        atualizarDashboardInicio();
+                    } else {
+                        aplicarFiltros();
+                    }
                 }
-                carregouDeCache = true;
+            } catch (e) {
+                console.error("Erro ao processar cache de Ofícios:", e);
+            }
+        }
+
+        buscarDadosGoogleSheets().then(dadosBrutos => {
+            if (Array.isArray(dadosBrutos) && dadosBrutos.length > 0) {
+                dadosBrutos.forEach(linha => {
+                    let t = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+                    if (t === 'JOSE RENATO') linha['TÉCNICO/ADMIN'] = 'JOSÉ RENATO';
+                    const diasRestantesVal = calcularDiasRestantes(linha['DATA'], linha['PRAZO']);
+                    linha['DIAS RESTANTES'] = !isNaN(diasRestantesVal) ? String(diasRestantesVal) : '-';
+                });
+
+                dadosCoringa = dadosBrutos;
+                atualizarCacheOficios();
 
                 const loadingEl = document.getElementById('loading');
                 if (loadingEl) loadingEl.style.display = 'none';
-
-                ['cgNup', 'andNup', 'atrNup', 'respNup'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.placeholder = 'Pesquisar NUP ou Ofício...';
-                });
 
                 popularTodosOsSelectsNativos();
 
@@ -374,94 +577,27 @@ async function iniciarSistema() {
                     toggleReiteracoes.dataset.listenerAdded = 'true';
                 }
                 atualizarBadgesNotificacao(dadosCoringa);
-                mudarAbaPrincipal('todos');
-            } catch (e) {
-                console.error("Erro ao processar cache de Ofícios:", e);
-            }
-        }
 
-        buscarDadosGoogleSheets().then(dadosBrutos => {
-            if (Array.isArray(dadosBrutos)) {
-                dadosBrutos.forEach(linha => {
-                    const diasRestantesVal = calcularDiasRestantes(linha['DATA'], linha['PRAZO']);
-                    linha['DIAS RESTANTES'] = !isNaN(diasRestantesVal) ? String(diasRestantesVal) : '-';
-                });
-            }
-            let novosDados = [];
-            if (usuarioAtivo) {
-                novosDados = dadosBrutos.filter(linha => {
-                    const tec = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
-                    const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
-                    const statusGeral = (linha['STATUS'] || '').toUpperCase().trim();
-                    const statusVisual = obterStatusVisual(linha);
-                    const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
-
-                    if (semTecnico && isFinalizado && !usuarioAtivo.perfil.startsWith('gerencia')) {
-                        return false;
-                    }
-
-                    if (usuarioAtivo.perfil === 'tecnico') {
-                        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                        return tec === tecnicoLogado;
-                    }
-
-                    // Gerências setoriais (GCAR / GEAA) só visualizam processos de competência direta
-                    if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
-                        if (!semTecnico) {
-                            const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
-                            if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
-                        } else {
-                            const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
-                            if (gerenciaRegistro !== usuarioAtivo.setor) return false;
-                        }
-                    }
-
-                    return true;
-                });
-            } else {
-                novosDados = dadosBrutos;
-            }
-
-            dadosCoringa = novosDados;
-            atualizarCacheOficios();
-
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) loadingEl.style.display = 'none';
-
-            popularTodosOsSelectsNativos();
-
-            const toggleReiteracoes = document.getElementById('toggleReiteracoes');
-            if (toggleReiteracoes && !toggleReiteracoes.dataset.listenerAdded) {
-                toggleReiteracoes.addEventListener('change', (event) => {
-                    incluirReiteracoes = event.target.checked;
+                if (filtroAtivo === 'inicio') {
+                    atualizarDashboardInicio();
+                } else if (filtroAtivo !== 'autos' && !filtroAtivo.startsWith('externos') && !filtroAtivo.startsWith('cartas')) {
                     aplicarFiltros();
-                });
-                toggleReiteracoes.dataset.listenerAdded = 'true';
-            }
-            atualizarBadgesNotificacao(dadosCoringa);
-
-            if (filtroAtivo !== 'autos' && !filtroAtivo.startsWith('externos') && !filtroAtivo.startsWith('cartas')) {
-                aplicarFiltros();
+                }
             }
         }).catch(erro => {
             console.error("Erro ao sincronizar dados em background:", erro);
             if (!carregouDeCache) {
                 const loadingEl = document.getElementById('loading');
                 if (loadingEl) loadingEl.innerText = "Erro ao conectar com a base de dados central.";
-            } else {
-                mostrarToast("Conexão instável. Exibindo dados do cache offline.", "warning");
             }
         });
 
-        carregarAutos();
-        if (typeof carregarCartas === 'function') carregarCartas();
-        if (typeof carregarExternos === 'function') carregarExternos();
         carregarHistoricoGlobalBackground();
-    } catch (erro) {
-        if (!localStorage.getItem(`corino_cache_dados_coringa_${usuarioAtivo ? usuarioAtivo.username : 'guest'}`)) {
-            document.getElementById('loading').innerText = "Erro ao conectar com a base de dados central.";
-        }
-        console.error(erro);
+        if (typeof carregarAutos === 'function') carregarAutos();
+        if (typeof carregarExternos === 'function') carregarExternos();
+        if (typeof carregarCartas === 'function') carregarCartas();
+    } catch (e) {
+        console.error("Erro fatal ao iniciar sistema:", e);
     }
 }
 
@@ -469,7 +605,22 @@ function popularTodosOsSelectsNativos() {
     const gerencias = [...new Set(dadosCoringa.map(d => d['GERÊNCIA']))].filter(x => x && x !== 'S/G').sort();
     const municipios = [...new Set(dadosCoringa.map(d => d['COMARCA']))].filter(x => x && x !== '-').sort();
     const statusList = [...new Set(dadosCoringa.map(d => d['STATUS']))].filter(x => x && x !== '-').sort();
-    const tecnicos = [...new Set(dadosCoringa.map(d => d['TÉCNICO/ADMIN']))].filter(x => x && x !== 'S/T').sort();
+
+    // Normaliza os técnicos nos próprios registros para consistência total
+    dadosCoringa.forEach(d => {
+        let t = (d['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+        if (t === 'JOSE RENATO') {
+            d['TÉCNICO/ADMIN'] = 'JOSÉ RENATO';
+        }
+    });
+
+    const nomesSetoresOcultos = new Set(['GCAR', 'GEAA', 'GEAMB', 'DIFLOR', 'DIRETORIA FLORESTAL', 'GERÊNCIA DE ASSUNTOS AMBIENTAIS', 'S/T', 'S/G', '-', 'SEM TÉCNICO', 'SEM TÉCNICO/ADM', 'NÃO ATRIBUÍDO']);
+
+    const tecnicos = [...new Set(dadosCoringa.map(d => {
+        let t = (d['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+        if (t === 'JOSE RENATO') t = 'JOSÉ RENATO';
+        return t;
+    }))].filter(x => x && !nomesSetoresOcultos.has(x)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
     const inicializar = (idBase, arrayValores) => {
         const dropdown = document.getElementById(`dd-${idBase}`);
@@ -568,21 +719,65 @@ function mudarAbaPrincipal(tipo) {
     filtroAtivo = tipo;
     subAbaAtiva = (tipo === 'respondidos') ? 'Pendentes' : 'Geral';
     document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.top-nav-btn').forEach(b => b.classList.remove('active'));
 
     const btnAtivo = document.getElementById(`btn-menu-${tipo}`);
     if (btnAtivo) btnAtivo.classList.add('active');
 
-    document.getElementById('aba-todos').style.display = (tipo === 'todos') ? 'block' : 'none';
-    document.getElementById('aba-distribuicao').style.display = (tipo === 'distribuicao') ? 'block' : 'none';
-    document.getElementById('aba-andamento').style.display = (tipo === 'andamento') ? 'block' : 'none';
-    document.getElementById('aba-atrasados').style.display = (tipo === 'atrasados') ? 'block' : 'none';
-    document.getElementById('aba-respondidos').style.display = (tipo === 'respondidos') ? 'block' : 'none';
-    document.getElementById('aba-comunicacao').style.display = (tipo === 'comunicacao') ? 'block' : 'none';
-    document.getElementById('aba-assinatura-oficios').style.display = (tipo === 'assinatura-oficios') ? 'block' : 'none';
-    document.getElementById('aba-autos').style.display = (tipo === 'autos') ? 'block' : 'none';
-    document.getElementById('aba-externos').style.display = (tipo.startsWith('externos')) ? 'block' : 'none';
-    const abaCartas = document.getElementById('aba-cartas');
-    if (abaCartas) abaCartas.style.display = (tipo.startsWith('cartas')) ? 'block' : 'none';
+    // Ativa botão no Top Navbar
+    if (tipo === 'inicio') {
+        const topInicio = document.getElementById('top-btn-inicio');
+        if (topInicio) topInicio.classList.add('active');
+    } else if (tipo === 'todos' || tipo === 'distribuicao' || tipo === 'andamento' || tipo === 'atrasados' || tipo === 'respondidos' || tipo === 'comunicacao' || tipo === 'assinatura-oficios') {
+        const topOficios = document.getElementById('top-btn-oficios');
+        if (topOficios) topOficios.classList.add('active');
+    } else if (tipo.startsWith('cartas')) {
+        const topCartas = document.getElementById('top-btn-cartas');
+        if (topCartas) topCartas.classList.add('active');
+    } else if (tipo === 'autos') {
+        const topAutos = document.getElementById('top-btn-autos');
+        if (topAutos) topAutos.classList.add('active');
+    } else if (tipo.startsWith('externos')) {
+        const topExternos = document.getElementById('top-btn-externos');
+        if (topExternos) topExternos.classList.add('active');
+    } else if (tipo === 'admin') {
+        const topAdmin = document.getElementById('top-btn-admin');
+        if (topAdmin) topAdmin.classList.add('active');
+    }
+
+    // Fecha dropdowns do Top Navbar
+    document.querySelectorAll('.top-dropdown-content').forEach(d => d.style.display = 'none');
+
+    // Sincroniza classes active e display de todas as seções
+    document.querySelectorAll('.tab-section').forEach(d => {
+        d.style.display = 'none';
+        d.classList.remove('active');
+    });
+
+    const targetAbaId = (tipo === 'inicio') ? 'aba-inicio' :
+                        (tipo.startsWith('cartas')) ? 'aba-cartas' :
+                        (tipo === 'autos') ? 'aba-autos' :
+                        (tipo === 'admin') ? 'aba-admin' :
+                        (tipo.startsWith('externos')) ? 'aba-externos' : `aba-${tipo}`;
+    
+    const targetAbaEl = document.getElementById(targetAbaId);
+    if (targetAbaEl) {
+        targetAbaEl.style.display = 'block';
+        targetAbaEl.classList.add('active');
+    }
+
+    if (tipo === 'inicio') {
+        atualizarDashboardInicio();
+    } else if (tipo === 'admin') {
+        if (typeof carregarPainelAdmin === 'function') {
+            carregarPainelAdmin();
+        }
+    }
+
+    const btnCTA = document.getElementById('btn-cadastrar-processo');
+    if (btnCTA) {
+        btnCTA.style.display = (tipo === 'inicio' && window.podeCadastrarProcesso()) ? 'inline-flex' : 'none';
+    }
 
     const fabOficio = document.getElementById('fab-novo-oficio');
     const fabAuto = document.getElementById('fab-novo-auto');
@@ -594,7 +789,7 @@ function mudarAbaPrincipal(tipo) {
     if (fabExterno) fabExterno.style.display = 'none';
     if (fabCarta) fabCarta.style.display = 'none';
 
-    if (usuarioAtivo && usuarioAtivo.perfil !== 'tecnico') {
+    if (window.podeCadastrarProcesso()) {
         if (tipo === 'todos' && fabOficio) fabOficio.style.display = 'flex';
 
         if (tipo === 'autos' && fabAuto) {
@@ -605,14 +800,22 @@ function mudarAbaPrincipal(tipo) {
 
         if (tipo.startsWith('externos') && fabExterno) fabExterno.style.display = 'flex';
 
-        if (tipo.startsWith('cartas') && fabCarta && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria')) fabCarta.style.display = 'flex';
+        if (tipo.startsWith('cartas') && fabCarta) fabCarta.style.display = 'flex';
     }
 
-    if (tipo === 'autos' || tipo.startsWith('externos') || tipo.startsWith('cartas')) {
-        document.getElementById('export-section').style.display = 'none';
-        document.getElementById('cards-container').innerHTML = ''; // LIMPEZA DA ABA ANTERIOR (CORREÇÃO DE SOBREPOSIÇÃO)
+    const isOficio = (tipo === 'todos' || tipo === 'distribuicao' || tipo === 'andamento' || tipo === 'atrasados' || tipo === 'respondidos' || tipo === 'comunicacao' || tipo === 'assinatura-oficios');
+    const cc = document.getElementById('cards-container');
+    const es = document.getElementById('export-section');
+
+    if (!isOficio) {
+        if (es) es.style.display = 'none';
+        if (cc) {
+            cc.innerHTML = '';
+            cc.style.display = 'none';
+        }
     } else {
-        document.getElementById('export-section').style.display = 'block';
+        if (es) es.style.display = 'flex';
+        if (cc) cc.style.display = 'grid';
     }
 
     if (tipo === 'autos') {
@@ -655,13 +858,14 @@ function mudarAbaPrincipal(tipo) {
 
         const isRevisao = (tipo === 'externos-revisao');
         const isConsultaGeral = (tipo === 'externos');
-        const isManager = usuarioAtivo && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria' || usuarioAtivo.perfil === 'revisor' || usuarioAtivo.perfil === 'administrativo');
+        const isGlobalManager = usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
+        const isRevisorOrAdm = usuarioAtivo && (typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() || typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo() || isGlobalManager);
         
         const miniTabsExternos = document.getElementById('mini-tabs-externos');
         const miniTabsExternosRevisao = document.getElementById('mini-tabs-externos-revisao');
         
-        if (miniTabsExternos) miniTabsExternos.style.display = (isManager && !isRevisao && !isConsultaGeral) ? 'flex' : 'none';
-        if (miniTabsExternosRevisao) miniTabsExternosRevisao.style.display = (isManager && isRevisao) ? 'flex' : 'none';
+        if (miniTabsExternos) miniTabsExternos.style.display = (isGlobalManager && !isRevisao && !isConsultaGeral) ? 'flex' : 'none';
+        if (miniTabsExternosRevisao) miniTabsExternosRevisao.style.display = (isRevisorOrAdm && isRevisao) ? 'flex' : 'none';
 
         if (isConsultaGeral) {
             if (typeof subAbaExternosAtiva !== 'undefined') subAbaExternosAtiva = 'Geral';
@@ -717,13 +921,14 @@ function mudarAbaPrincipal(tipo) {
 
         const isRevisao = (tipo === 'cartas-revisao');
         const isConsultaGeral = (tipo === 'cartas');
-        const isManager = usuarioAtivo && (usuarioAtivo.perfil.startsWith('gerencia') || usuarioAtivo.perfil === 'diretoria' || usuarioAtivo.perfil === 'revisor' || usuarioAtivo.perfil === 'administrativo');
+        const isGlobalManager = usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
+        const isRevisorOrAdm = usuarioAtivo && (typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() || typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo() || isGlobalManager);
         
         const miniTabsCartas = document.getElementById('mini-tabs-cartas');
         const miniTabsCartasRevisao = document.getElementById('mini-tabs-cartas-revisao');
         
-        if (miniTabsCartas) miniTabsCartas.style.display = (isManager && !isRevisao && !isConsultaGeral) ? 'flex' : 'none';
-        if (miniTabsCartasRevisao) miniTabsCartasRevisao.style.display = (isManager && isRevisao) ? 'flex' : 'none';
+        if (miniTabsCartas) miniTabsCartas.style.display = (isGlobalManager && !isRevisao && !isConsultaGeral) ? 'flex' : 'none';
+        if (miniTabsCartasRevisao) miniTabsCartasRevisao.style.display = (isRevisorOrAdm && isRevisao) ? 'flex' : 'none';
 
         if (isConsultaGeral) {
             if (typeof subAbaCartasAtiva !== 'undefined') subAbaCartasAtiva = 'Geral';
@@ -846,14 +1051,14 @@ function checarTermoBusca(r, nupTermo, oficioTermo) {
         const nupInicial = (r['NUP_INICIAL'] || '').toLowerCase();
         if (!matchNup && nupInicial.includes(nupTermo)) {
             matchNup = true;
-            infoStr = `📌 Encontrado no NUP Inicial: <strong>${r['NUP_INICIAL']}</strong>`;
+            infoStr = `<i class="ci ci-pin"></i> Encontrado no NUP Inicial: <strong>${r['NUP_INICIAL']}</strong>`;
         }
 
         if (!matchNup && r['REITERACOES'] && r['REITERACOES'].length > 0) {
             for (let i = 0; i < r['REITERACOES'].length; i++) {
                 if (r['REITERACOES'][i].NUP && r['REITERACOES'][i].NUP.toLowerCase().includes(nupTermo)) {
                     matchNup = true;
-                    if (!infoStr) infoStr = `📌 Encontrado no NUP da ${i + 1}ª Reiteração: <strong>${r['REITERACOES'][i].NUP}</strong>`;
+                    if (!infoStr) infoStr = `<i class="ci ci-pin"></i> Encontrado no NUP da ${i + 1}ª Reiteração: <strong>${r['REITERACOES'][i].NUP}</strong>`;
                     break;
                 }
             }
@@ -869,7 +1074,7 @@ function checarTermoBusca(r, nupTermo, oficioTermo) {
         const oficioInicial = (r['OFICIO_INICIAL'] || '').toLowerCase();
         if (!matchOf && oficioInicial.includes(oficioTermo)) {
             matchOf = true;
-            if (!infoStr) infoStr = `📌 Encontrado no Ofício Inicial: <strong>${r['OFICIO_INICIAL'].replace(/\.pdf/gi, '')}</strong>`;
+            if (!infoStr) infoStr = `<i class="ci ci-pin"></i> Encontrado no Ofício Inicial: <strong>${r['OFICIO_INICIAL'].replace(/\.pdf/gi, '')}</strong>`;
         }
 
         if (!matchOf && r['REITERACOES'] && r['REITERACOES'].length > 0) {
@@ -888,9 +1093,13 @@ function checarTermoBusca(r, nupTermo, oficioTermo) {
 }
 
 function aplicarFiltros() {
-    if (filtroAtivo === 'autos' || filtroAtivo.startsWith('externos') || filtroAtivo.startsWith('cartas')) { // CORREÇÃO DE SOBREPOSIÇÃO
-        document.getElementById('cards-container').innerHTML = '';
-        document.getElementById('export-section').style.display = 'none';
+    const isOficio = (filtroAtivo === 'todos' || filtroAtivo === 'distribuicao' || filtroAtivo === 'andamento' || filtroAtivo === 'atrasados' || filtroAtivo === 'respondidos' || filtroAtivo === 'comunicacao' || filtroAtivo === 'assinatura-oficios');
+
+    if (!isOficio) {
+        const cc = document.getElementById('cards-container');
+        if (cc) { cc.innerHTML = ''; cc.style.display = 'none'; }
+        const es = document.getElementById('export-section');
+        if (es) es.style.display = 'none';
         return;
     }
 
@@ -905,24 +1114,24 @@ function aplicarFiltros() {
             const statusVisual = obterStatusVisual(linha);
             const isFinalizado = statusVisual.texto.includes('FINALIZADO') || statusGeral === 'TRAMITADO' || statusGeral === 'ARQUIVADO' || statusGeral.includes('FINALIZADO');
 
-            // 1. Ocultar processos "Sem Técnico" + "Finalizado" para não-gestores
-            if (semTecnico && isFinalizado && !usuarioAtivo.perfil.startsWith('gerencia')) {
+            // 1. Ocultar processos "Sem Técnico" + "Finalizado" para técnicos
+            if (semTecnico && isFinalizado && usuarioAtivo.perfil === 'tecnico') {
                 return false;
             }
 
             // 2. Técnicos só visualizam processos de competência direta
             if (usuarioAtivo.perfil === 'tecnico') {
-                const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-                if (tec !== tecnicoLogado) {
+                if (!window.isMesmoTecnico(tec, usuarioAtivo)) {
                     return false;
                 }
             }
 
-            // 3. Gerências setoriais (GCAR / GEAA) só visualizam processos de competência direta
-            if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+            // 3. Usuários setoriais (GCAR / GEAA / GEAMB) só visualizam processos de competência da sua gerência
+            if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
                 if (!semTecnico) {
                     const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
-                    if (setorInternoDoTecnico !== usuarioAtivo.setor) return false;
+                    const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
+                    if (setorInternoDoTecnico !== usuarioAtivo.setor && gerenciaRegistro !== usuarioAtivo.setor) return false;
                 } else {
                     const gerenciaRegistro = (linha['GERÊNCIA'] || '').trim().toUpperCase();
                     if (gerenciaRegistro !== usuarioAtivo.setor) return false;
@@ -1261,9 +1470,17 @@ function exportarCSV() {
 let oficioSelecionadoMockup = null;
 
 function desenharCards(dados, estadoInicialConsultaGeral = false) {
-    dadosExibidos = dados;
+    const isOficio = (filtroAtivo === 'todos' || filtroAtivo === 'distribuicao' || filtroAtivo === 'andamento' || filtroAtivo === 'atrasados' || filtroAtivo === 'respondidos' || filtroAtivo === 'comunicacao' || filtroAtivo === 'assinatura-oficios');
     const container = document.getElementById('cards-container');
     const exportSection = document.getElementById('export-section');
+
+    if (!isOficio) {
+        if (container) { container.innerHTML = ''; container.style.display = 'none'; }
+        if (exportSection) exportSection.style.display = 'none';
+        return;
+    }
+
+    dadosExibidos = dados;
 
     const leftPanelEl = document.getElementById('left-panel-inbox-oficios');
     const savedLeftScrollTop = leftPanelEl ? leftPanelEl.scrollTop : 0;
@@ -1432,7 +1649,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
             htmlLink = `
                 <div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;">
                     <span>🚫 Sem Link Vinculado</span>
-                    <button onclick="anexarPdfOriginalOficio(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="font-size: 12px; padding: 6px 12px; width: auto; height: auto;">📎 Anexar Ofício Inicial</button>
+                    <button onclick="anexarPdfOriginalOficio(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="font-size: 12px; padding: 6px 12px; width: auto; height: auto;"><i class="ci ci-paperclip"></i> Anexar Ofício Inicial</button>
                 </div>
             `;
         }
@@ -1440,11 +1657,11 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
         const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.trim() !== '' && linkRespostaVerificacao.trim() !== '-';
 
-        if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil.startsWith('gerencia'))) {
+        if (usuarioAtivo) {
             if (temRespostaVinculada) {
                 const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
                 const isFazerCI = (linha['STATUS'] || '').toUpperCase().trim().replace(/\./g, '') === 'FAZER CI';
-                const isGestor = usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
+                const isGestor = typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo() || typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() || (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
 
                 let blockRemoval = false;
                 if (!isGestor && (isAprovadoBackend || isFazerCI)) {
@@ -1452,12 +1669,12 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
                 }
 
                 if (blockRemoval) {
-                    btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px; width: 100%;">🔒 Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
+                    btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px; width: 100%;"><i class="ci ci-lock"></i> Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
                 } else {
-                    btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-red-outline">🗑️ Retirar Resposta</button>`;
+                    btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-red-outline"><i class="ci ci-trash"></i> Retirar Resposta</button>`;
                 }
-            } else if (usuarioAtivo.perfil === 'tecnico') {
-                btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
+            } else if (usuarioAtivo.perfil === 'tecnico' || (typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo())) {
+                btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload"><i class="ci ci-paperclip"></i> Anexar Resposta</button>`;
             }
         }
 
@@ -1485,7 +1702,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
                 } else {
                     htmlLink = `
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
+                            <a href="${linkRaw}" target="_blank" class="btn-drive"><i class="ci ci-external"></i> Abrir Link Vinculado</a>
                             ${btnAnexar}
                         </div>
                     `;
@@ -1498,22 +1715,72 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         }
 
         let htmlDiretoriaBotoes = '';
-        const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
-        const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
+        const tecUpper = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+        const setorItem = MAPA_TECNICOS_SETORES[tecUpper] || (linha['GERÊNCIA'] || '').trim().toUpperCase();
+        const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase().trim();
         const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
 
-        if (isGestorFinalidade) {
+        // 1. Ações de Distribuição e Redistribuição (Exclusivo Administrativo)
+        if (window.podeRedistribuirTecnico(setorItem)) {
             if (isSemTecnico) {
-                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;"><i class="ci ci-user"></i> Distribuir / Atribuir Técnico</button>`;
             } else {
-                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Redistribuir Técnico</button>`;
+                htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;"><i class="ci ci-user"></i> Redistribuir Técnico</button>`;
             }
-            
-            const opcoesOficioStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "REVISÃO", "FINALIZADO", "TRAMITADO", "ARQUIVADO"];
+        }
+
+        // 2. Ações de Fluxo: Fazer C.I e Sobrestar (Exclusivo Administrativo)
+        if (window.podeConfeccionarDespachoOuCI(setorItem)) {
+            if (statusGeralAtualizado === 'FAZER CI' || statusGeralAtualizado === 'FAZER C.I') {
+                htmlDiretoriaBotoes += `
+                    <div style="margin-top: 15px; padding: 15px; background-color: rgba(41, 128, 185, 0.08); border: 1px solid rgba(41, 128, 185, 0.3); border-radius: 6px;">
+                        <strong style="color: #2980b9; font-size: 13px; display: block; margin-bottom: 10px;">📋 Ações de Fluxo (Comunicação Interna - C.I):</strong>
+                        <div style="display: flex; gap: 10px; flex-direction: column;">
+                            <button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; margin: 0; font-size: 14px;">✅ Confirmar Confecção da C.I</button>
+                            <button onclick="abrirModalSobrestar('${linha['NUP']}', 'oficio')" class="btn-drive" style="background-color: #f39c12; border-color: #d68910; color: #111; font-weight: bold; margin: 0; font-size: 14px;"><i class="ci ci-pause"></i> Sobrestar Processo</button>
+                        </div>
+                    </div>
+                `;
+            } else if (statusGeralAtualizado === 'SOBRESTADO') {
+                htmlDiretoriaBotoes += `
+                    <div style="margin-top: 15px; padding: 15px; background-color: rgba(243, 156, 18, 0.1); border: 1px solid rgba(243, 156, 18, 0.4); border-radius: 6px;">
+                        <strong style="color: #f39c12; font-size: 13px; display: block; margin-bottom: 8px;">⏸️ Processo Sobrestado (Encaminhado para: ${linha['SOBRESTADO_SETOR'] || 'Setor Externo'})</strong>
+                        ${linha['SOBRESTADO_MOTIVO'] ? `<div style="font-size: 12px; color: #ccc; margin-bottom: 12px;"><strong>Motivo:</strong> ${linha['SOBRESTADO_MOTIVO']}</div>` : ''}
+                        <button onclick="abrirModalRetornoSobrestamento('${linha['NUP']}', 'oficio')" class="btn-drive" style="background-color: #27ae60; border-color: #1e8449; color: white; width: 100%; margin: 0; font-size: 14px; font-weight: bold;">▶️ Retomar do Sobrestamento (Anexar Parecer Externo)</button>
+                    </div>
+                `;
+            } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
+                htmlDiretoriaBotoes += `
+                    <div style="margin-top: 15px; padding: 15px; background-color: rgba(142, 68, 173, 0.08); border: 1px solid rgba(142, 68, 173, 0.3); border-radius: 6px;">
+                        <strong style="color: #8e44ad; font-size: 13px; display: block; margin-bottom: 10px;">📋 Ações de Fluxo (Assinatura):</strong>
+                        <button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin: 0; font-size: 14px;">✍️ Confirmar Assinatura Realizada</button>
+                    </div>
+                `;
+            }
+        }
+
+        // 3. Ações de Revisão (Exclusivo Revisor)
+        let acoesRevisorHtml = '';
+        const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
+        if (window.podeAvaliarManifestacao(setorItem) && temRespostaVinculada && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO') {
+            acoesRevisorHtml = `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(255, 165, 0, 0.08); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
+                    <strong style="color: #ffa500; font-size: 13px; display: block; margin-bottom: 10px;">📋 Avaliação de Resposta Técnica (Revisor):</strong>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="avaliarResposta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive btn-green-outline" style="flex: 1; margin: 0;"><i class="ci ci-check"></i> Aprovar</button>
+                        <button onclick="avaliarResposta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive btn-red-outline" style="flex: 1; margin: 0;"><i class="ci ci-close"></i> Reprovar</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 4. Seletor de Status Manual (Apenas Administrativo DIFLOR / Diretoria)
+        if (usuarioAtivo && (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR')) {
+            const opcoesOficioStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "REVISÃO", "FAZER CI", "SOBRESTADO", "AGUARDANDO ASSINATURA", "FINALIZADO", "TRAMITADO", "ARQUIVADO"];
             let optionsHtml = opcoesOficioStatus.map(st => `<option value="${st}" ${st === statusGeralAtualizado ? 'selected' : ''}>${st}</option>`).join('');
             htmlDiretoriaBotoes += `
                 <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
-                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;"><i class="ci ci-settings"></i> GESTÃO DE STATUS (DIRETORIA)</div>
                     <div style="display: flex; gap: 8px;">
                         <select id="changeStatusSelectOficioPainel-${linha['NUP']}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
                             ${optionsHtml}
@@ -1528,14 +1795,14 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         if (temRespostaVinculada) {
             let botaoResp = '';
             if (isLinkGCS(linkRespostaVerificacao)) {
-                botaoResp = `<button onclick="abrirPreview('${linkRespostaVerificacao}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta (LGPD)</button>`;
+                botaoResp = `<button onclick="abrirPreview('${linkRespostaVerificacao}', ${index})" class="btn-drive btn-orange-outline"><i class="ci ci-eye"></i> Pré-visualizar Resposta (LGPD)</button>`;
             } else {
                 const respId = extrairIdDrive(linkRespostaVerificacao);
                 if (respId) {
                     const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
-                    botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
+                    botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline"><i class="ci ci-eye"></i> Pré-visualizar Resposta</button>`;
                 } else {
-                    botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
+                    botaoResp = `<a href="${linkRespostaVerificacao}" target="_blank" class="btn-drive btn-orange-outline"><i class="ci ci-external"></i> Abrir Resposta no Drive</a>`;
                 }
             }
 
@@ -1560,6 +1827,14 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
         let htmlHistorico = '';
         htmlHistorico += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], index);
+        
+        if (linha['MANIFESTACAO_PRELIMINAR']) {
+            htmlHistorico += gerarHtmlDocExtra('Manifestação Preliminar Aprovada (Sobrestamento)', 'Ver Arquivo', 'CONSOLIDADA', linha['MANIFESTACAO_PRELIMINAR'], index);
+        }
+        if (linha['LINK_PARECER_EXTERNO']) {
+            htmlHistorico += gerarHtmlDocExtra('Parecer do Setor Externo', 'Ver Parecer', 'RETORNO', linha['LINK_PARECER_EXTERNO'], index);
+        }
+
         if (linha['REITERACOES'] && linha['REITERACOES'].length > 0) {
             linha['REITERACOES'].forEach((reit, i) => {
                 htmlHistorico += gerarHtmlDocExtra(`${i + 1}ª Reiteração`, reit.NUMERO, reit.NUP, reit.LINK, index);
@@ -1580,13 +1855,13 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
         }
 
         if (htmlHistorico !== '') {
-            htmlHistorico = `<div style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;">📚 Histórico de Documentos</strong>${htmlHistorico}</div>`;
+            htmlHistorico = `<div style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;"><i class="ci ci-folder"></i> Dossiê e Histórico de Documentos</strong>${htmlHistorico}</div>`;
         }
 
         let htmlTimeline = `<div id="timeline-container-oficio" style="margin-top: 25px; margin-bottom: 25px;"></div>`;
 
         let reitBtnHtml = '';
-        if (usuarioAtivo) {
+        if (window.podeCadastrarReiteracao(setorItem)) {
             reitBtnHtml = `<button onclick="abrirModalCadastroReiteracao('${linha['NUP']}')" class="btn-inline-reiteracao" title="Cadastrar Reiteração"></button>`;
         }
 
@@ -1643,6 +1918,7 @@ function desenharCards(dados, estadoInicialConsultaGeral = false) {
 
             ${htmlObs}
             ${htmlResposta}
+            ${acoesRevisorHtml}
             ${htmlHistorico}
             ${htmlTimeline}
 
@@ -1684,7 +1960,7 @@ function gerarHtmlDocExtra(titulo, num, nup, linkRaw, index) {
                 const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
                 htmlBotao = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar"></button>`;
             } else {
-                htmlBotao = `<a href="${linkRaw}" target="_blank" class="btn-inline-preview" style="background-image: none; width: auto; height: auto; padding: 3px 8px;">🔗 Abrir</a>`;
+                htmlBotao = `<a href="${linkRaw}" target="_blank" class="btn-inline-preview" style="background-image: none; width: auto; height: auto; padding: 3px 8px;"><i class="ci ci-external"></i> Abrir</a>`;
             }
         }
     }
@@ -1873,16 +2149,43 @@ function anexarPdfOriginalOficio(event, nup) {
 window.cacheHistoricoGlobal = null;
 window.historicoCarregando = false;
 
+window.registrarMovimentacaoHistorico = async function(nup, acao, detalhe = '', extra = '') {
+    const autor = (usuarioAtivo ? (usuarioAtivo.nomePlanilha || usuarioAtivo.username) : 'Sistema');
+    const novoEvento = {
+        nup: nup,
+        data: new Date().toLocaleString('pt-BR'),
+        acao: acao,
+        detalhe: detalhe,
+        extra: extra || autor
+    };
+    
+    if (window.cacheHistoricoGlobal) {
+        window.cacheHistoricoGlobal.push(novoEvento);
+    }
+    
+    try {
+        const payload = {
+            acao: "registrar_historico",
+            nup: nup,
+            eventoAcao: acao,
+            detalhe: detalhe,
+            extra: extra || autor,
+            username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
+        };
+        fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        }).catch(err => console.warn('Erro assíncrono ao registrar histórico:', err));
+    } catch(e) {
+        console.warn('Falha no registro de histórico:', e);
+    }
+};
+
 async function carregarHistoricoGlobalBackground() {
     if (window.cacheHistoricoGlobal || window.historicoCarregando) return;
     window.historicoCarregando = true;
     try {
-        const payload = { acao: "buscar_historico_processo" };
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS({ acao: "buscar_historico_processo" });
         if (resultado.status === 'success') {
             window.cacheHistoricoGlobal = resultado.dados || [];
             console.log(`Cache de Histórico Global carregado em background: ${window.cacheHistoricoGlobal.length} registros.`);
@@ -1899,10 +2202,332 @@ window.limparCacheHistoricoGlobal = function() {
     setTimeout(carregarHistoricoGlobalBackground, 1500); // 1.5s delay to allow Google Sheets write synchronization
 };
 
+// ============================================================================
+// GESTÃO DE SOBRESTAMENTO E RETORNO COM CONSOLIDAÇÃO DE DOCUMENTOS
+// ============================================================================
+window.abrirModalSobrestar = function(nup, tipo = 'oficio') {
+    const modal = document.getElementById('sobrestarModal');
+    if (!modal) return;
+    document.getElementById('sobrestarNup').value = nup;
+    document.getElementById('sobrestarTipo').value = tipo;
+    document.getElementById('sobrestarSetor').value = '';
+    document.getElementById('sobrestarOutroSetor').value = '';
+    document.getElementById('containerSobrestarOutroSetor').style.display = 'none';
+    document.getElementById('sobrestarMotivo').value = '';
+
+    const selectSetor = document.getElementById('sobrestarSetor');
+    if (selectSetor && !selectSetor.dataset.listener) {
+        selectSetor.addEventListener('change', () => {
+            const containerOutro = document.getElementById('containerSobrestarOutroSetor');
+            if (containerOutro) {
+                containerOutro.style.display = (selectSetor.value === 'OUTRO') ? 'block' : 'none';
+            }
+        });
+        selectSetor.dataset.listener = 'true';
+    }
+
+    modal.style.display = 'flex';
+};
+
+window.fecharModalSobrestar = function() {
+    const modal = document.getElementById('sobrestarModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.executarSobrestamentoProcesso = async function() {
+    const nup = document.getElementById('sobrestarNup').value;
+    const tipo = document.getElementById('sobrestarTipo').value || 'oficio';
+    let setor = document.getElementById('sobrestarSetor').value;
+    if (setor === 'OUTRO') {
+        setor = document.getElementById('sobrestarOutroSetor').value.trim();
+    }
+    const motivo = document.getElementById('sobrestarMotivo').value.trim();
+
+    if (!setor) {
+        mostrarToast('Por favor, selecione ou informe o setor de encaminhamento.', 'error');
+        return;
+    }
+    if (!motivo) {
+        mostrarToast('Por favor, preencha a justificativa do sobrestamento.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btnConfirmarSobrestamento');
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ Sobrestando...'; btn.disabled = true;
+
+    const nupBusca = String(nup || '').trim().toUpperCase();
+    const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+    const matchNup = r => {
+        const n = String(r['NUP'] || '').trim().toUpperCase();
+        return n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf;
+    };
+
+    // Optimistic Update & Consolidação de Documento no Dossiê
+    if (tipo === 'oficio') {
+        const item = dadosCoringa.find(matchNup);
+        if (item) {
+            if (item['LINK_RESPOSTA'] && item['LINK_RESPOSTA'].trim() !== '') {
+                item['MANIFESTACAO_PRELIMINAR'] = item['LINK_RESPOSTA'];
+                item['LINK_RESPOSTA'] = '';
+            }
+            item['STATUS'] = 'SOBRESTADO';
+            item['SOBRESTADO_SETOR'] = setor;
+            item['SOBRESTADO_MOTIVO'] = motivo;
+        }
+        atualizarCacheOficios();
+        aplicarFiltros();
+    } else if (tipo === 'auto') {
+        const item = dadosAutosGlobais.find(matchNup);
+        if (item) {
+            const resp = item['LINK DA RESPOSTA'] || item['LINK RESPOSTA'] || '';
+            if (resp && resp.trim() !== '') {
+                item['MANIFESTACAO_PRELIMINAR'] = resp;
+                item['LINK DA RESPOSTA'] = '';
+                item['LINK RESPOSTA'] = '';
+            }
+            item['STATUS ATUAL'] = 'SOBRESTADO';
+            item['STATUS'] = 'SOBRESTADO';
+            item['SOBRESTADO_SETOR'] = setor;
+            item['SOBRESTADO_MOTIVO'] = motivo;
+        }
+        if (typeof atualizarCacheAutos === 'function') atualizarCacheAutos();
+        if (typeof filtrarAutos === 'function') filtrarAutos();
+    } else if (tipo === 'carta') {
+        const item = dadosCartasGlobais.find(matchNup);
+        if (item) {
+            const resp = item['LINK DA MANIFESTAÇÃO'] || item['LINK DA RESPOSTA'] || '';
+            if (resp && resp.trim() !== '') {
+                item['MANIFESTACAO_PRELIMINAR'] = resp;
+                item['LINK DA MANIFESTAÇÃO'] = '';
+                item['LINK DA RESPOSTA'] = '';
+            }
+            item['STATUS'] = 'SOBRESTADO';
+            item['SOBRESTADO_SETOR'] = setor;
+            item['SOBRESTADO_MOTIVO'] = motivo;
+        }
+        if (typeof atualizarCacheCartas === 'function') atualizarCacheCartas();
+        if (typeof aplicarFiltrosCartas === 'function') aplicarFiltrosCartas();
+    } else if (tipo === 'externo') {
+        const item = dadosExternosGlobais.find(matchNup);
+        if (item) {
+            const resp = item['LINK DA RESPOSTA'] || item['LINK RESPOSTA'] || '';
+            if (resp && resp.trim() !== '') {
+                item['MANIFESTACAO_PRELIMINAR'] = resp;
+                item['LINK DA RESPOSTA'] = '';
+                item['LINK RESPOSTA'] = '';
+            }
+            item['STATUS'] = 'SOBRESTADO';
+            item['SOBRESTADO_SETOR'] = setor;
+            item['SOBRESTADO_MOTIVO'] = motivo;
+        }
+        if (typeof atualizarCacheExternos === 'function') atualizarCacheExternos();
+        if (typeof filtrarExternos === 'function') filtrarExternos();
+    }
+
+    if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+    // Se o preview estiver aberto, recarrega com o novo status SOBRESTADO
+    const prevSobrestar = document.getElementById('previewModal');
+    if (prevSobrestar && prevSobrestar.style.display === 'flex') {
+        if (tipo === 'oficio') {
+            const it = dadosCoringa.find(matchNup);
+            if (it) abrirPreview(it['LINK_OFICIO'] || it['LINK - OFÍCIO'] || it['LINK'] || '', it, nup);
+        } else if (tipo === 'auto' && typeof abrirPreviewAuto === 'function') {
+            const it = dadosAutosGlobais.find(matchNup);
+            if (it) abrirPreviewAuto(it['LINK NUP'] || it['LINK-NUP'] || it['LINK DO NUP'] || '', it, nup);
+        } else if (tipo === 'carta' && typeof abrirModalPreviewCartas === 'function') {
+            const it = dadosCartasGlobais.find(matchNup);
+            if (it) abrirModalPreviewCartas(it, it['LINK DO NUP'] || it['LINK_NUP'] || '', nup);
+        } else if (tipo === 'externo' && typeof abrirPreviewExterno === 'function') {
+            const it = dadosExternosGlobais.find(matchNup);
+            if (it) abrirPreviewExterno(it['LINK_OFICIO'] || it['LINK'] || '', it, nup);
+        }
+    }
+
+    window.registrarMovimentacaoHistorico(nup, 'PROCESSO_SOBRESTADO', motivo, `Encaminhado para: ${setor}`);
+    fecharModalSobrestar();
+    mostrarToast('Processo sobrestado com sucesso! Manifestação consolidada no dossiê.', 'success');
+
+    btn.innerHTML = txtOriginal; btn.disabled = false;
+
+    try {
+        const payload = {
+            acao: "sobrestar_processo",
+            nup: nup,
+            tipo: tipo,
+            setor: setor,
+            motivo: motivo,
+            username: usuarioAtivo ? (usuarioAtivo.nomePlanilha || usuarioAtivo.username) : 'sistema'
+        };
+        const resultado = await executarAcaoGAS(payload);
+        if (resultado.status === 'success') {
+            mostrarToast('Sobrestamento sincronizado na nuvem!', 'success');
+        }
+    } catch(e) {
+        console.warn('Falha na sincronização de sobrestamento:', e);
+    }
+};
+
+window.abrirModalRetornoSobrestamento = function(nup, tipo = 'oficio') {
+    const modal = document.getElementById('retornoSobrestamentoModal');
+    if (!modal) return;
+    document.getElementById('retornoSobrestamentoNup').value = nup;
+    document.getElementById('retornoSobrestamentoTipo').value = tipo;
+    document.getElementById('retornoParecerArquivo').value = '';
+    document.getElementById('retornoParecerArquivoNome').innerText = 'Clique para selecionar o PDF do Parecer Externo';
+    document.getElementById('retornoParecerObs').value = '';
+
+    modal.style.display = 'flex';
+};
+
+window.fecharModalRetornoSobrestamento = function() {
+    const modal = document.getElementById('retornoSobrestamentoModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.updateFileNameParecerRetorno = function(input) {
+    const label = document.getElementById('retornoParecerArquivoNome');
+    if (input.files && input.files[0]) {
+        label.innerText = `📄 ${input.files[0].name} (${(input.files[0].size / (1024 * 1024)).toFixed(2)} MB)`;
+    } else {
+        label.innerText = 'Clique para selecionar o PDF do Parecer Externo';
+    }
+};
+
+window.executarRetornoSobrestamentoProcesso = async function() {
+    const nup = document.getElementById('retornoSobrestamentoNup').value;
+    const tipo = document.getElementById('retornoSobrestamentoTipo').value || 'oficio';
+    const obs = document.getElementById('retornoParecerObs').value.trim();
+    const fileInput = document.getElementById('retornoParecerArquivo');
+    const file = fileInput.files ? fileInput.files[0] : null;
+
+    const btn = document.getElementById('btnConfirmarRetornoSobrestamento');
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '⏳ Retomando...'; btn.disabled = true;
+
+    let gcsUri = null;
+    if (file) {
+        try {
+            if (typeof GCSStorage !== 'undefined') {
+                const gcsRes = await GCSStorage.fazerUpload(file, {
+                    modulo: 'pareceres_externos',
+                    nup: nup,
+                    nomePersonalizado: `Parecer_Externo_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`,
+                    username: usuarioAtivo ? (usuarioAtivo.nomePlanilha || usuarioAtivo.username) : ''
+                });
+                if (gcsRes && (gcsRes.fullGcsUri || gcsRes.gcsPath)) {
+                    gcsUri = gcsRes.fullGcsUri || gcsRes.gcsPath;
+                }
+            }
+        } catch(e) {
+            console.warn('Fallback upload parecer:', e);
+        }
+    }
+
+    const nupBusca = String(nup || '').trim().toUpperCase();
+    const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+    const matchNup = r => {
+        const n = String(r['NUP'] || '').trim().toUpperCase();
+        return n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf;
+    };
+
+    // Optimistic Update: Volta para Aguardando Manifestação
+    if (tipo === 'oficio') {
+        const item = dadosCoringa.find(matchNup);
+        if (item) {
+            if (gcsUri) item['LINK_PARECER_EXTERNO'] = gcsUri;
+            item['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+        }
+        atualizarCacheOficios();
+        aplicarFiltros();
+    } else if (tipo === 'auto') {
+        const item = dadosAutosGlobais.find(matchNup);
+        if (item) {
+            if (gcsUri) item['LINK_PARECER_EXTERNO'] = gcsUri;
+            item['STATUS ATUAL'] = 'AGUARDANDO MANIFESTAÇÃO';
+            item['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO';
+        }
+        if (typeof atualizarCacheAutos === 'function') atualizarCacheAutos();
+        if (typeof filtrarAutos === 'function') filtrarAutos();
+    } else if (tipo === 'carta') {
+        const item = dadosCartasGlobais.find(matchNup);
+        if (item) {
+            if (gcsUri) item['LINK_PARECER_EXTERNO'] = gcsUri;
+            item['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+        }
+        if (typeof atualizarCacheCartas === 'function') atualizarCacheCartas();
+        if (typeof aplicarFiltrosCartas === 'function') aplicarFiltrosCartas();
+    } else if (tipo === 'externo') {
+        const item = dadosExternosGlobais.find(matchNup);
+        if (item) {
+            if (gcsUri) item['LINK_PARECER_EXTERNO'] = gcsUri;
+            item['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+        }
+        if (typeof atualizarCacheExternos === 'function') atualizarCacheExternos();
+        if (typeof filtrarExternos === 'function') filtrarExternos();
+    }
+
+    if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+    // Se o preview estiver aberto, recarrega com o status AGUARDANDO MANIFESTAÇÃO TÉCNICA
+    const prevRetorno = document.getElementById('previewModal');
+    if (prevRetorno && prevRetorno.style.display === 'flex') {
+        if (tipo === 'oficio') {
+            const it = dadosCoringa.find(matchNup);
+            if (it) abrirPreview(it['LINK_OFICIO'] || it['LINK - OFÍCIO'] || it['LINK'] || '', it, nup);
+        } else if (tipo === 'auto' && typeof abrirPreviewAuto === 'function') {
+            const it = dadosAutosGlobais.find(matchNup);
+            if (it) abrirPreviewAuto(it['LINK NUP'] || it['LINK-NUP'] || it['LINK DO NUP'] || '', it, nup);
+        } else if (tipo === 'carta' && typeof abrirModalPreviewCartas === 'function') {
+            const it = dadosCartasGlobais.find(matchNup);
+            if (it) abrirModalPreviewCartas(it, it['LINK DO NUP'] || it['LINK_NUP'] || '', nup);
+        } else if (tipo === 'externo' && typeof abrirPreviewExterno === 'function') {
+            const it = dadosExternosGlobais.find(matchNup);
+            if (it) abrirPreviewExterno(it['LINK_OFICIO'] || it['LINK'] || '', it, nup);
+        }
+    }
+
+    window.registrarMovimentacaoHistorico(nup, 'RETORNO_SOBRESTAMENTO', obs || 'Retornado para elaboração de manifestação final', gcsUri ? 'Parecer Externo Anexado' : 'Sem Parecer');
+    fecharModalRetornoSobrestamento();
+    mostrarToast('Processo retomado para Aguardando Manifestação com sucesso!', 'success');
+
+    btn.innerHTML = txtOriginal; btn.disabled = false;
+
+    try {
+        let base64 = null;
+        if (file && !gcsUri) {
+            base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader(); reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        const payload = {
+            acao: "retorno_sobrestamento",
+            nup: nup,
+            tipo: tipo,
+            url: gcsUri,
+            linkGcs: gcsUri,
+            base64: base64,
+            fileName: file ? file.name : '',
+            obs: obs,
+            username: usuarioAtivo ? (usuarioAtivo.nomePlanilha || usuarioAtivo.username) : 'sistema'
+        };
+        const resultado = await executarAcaoGAS(payload);
+        if (resultado.status === 'success') {
+            mostrarToast('Retorno sincronizado na nuvem!', 'success');
+        }
+    } catch(e) {
+        console.warn('Falha na sincronização de retorno:', e);
+    }
+};
+
 function exibirLinhaTempo(dados, container) {
     if (dados.length === 0) {
         container.innerHTML = `
-            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;">⏳ Histórico de Tramitação</div>
+            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;"><i class="ci ci-clock"></i> Histórico de Tramitação</div>
             <div style="text-align: center; color: #666; font-size: 13px; padding: 15px; border: 1px dashed #333; border-radius: 6px;">Nenhum evento registrado para este processo.</div>
         `;
         return;
@@ -1912,28 +2537,37 @@ function exibirLinhaTempo(dados, container) {
         const acaoUpper = acao.toUpperCase();
         const detalheUpper = String(detalhe).toUpperCase();
         
+        if (acaoUpper.includes('SOBRESTADO') || acaoUpper.includes('SOBRESTAMENTO')) {
+            return { cor: '#f39c12', icone: '<i class="ci ci-pause" style="width:10px;height:10px;"></i>' };
+        }
+        if (acaoUpper.includes('RETORNO_SOBRESTAMENTO') || acaoUpper.includes('RETORNO')) {
+            return { cor: '#27ae60', icone: '<i class="ci ci-refresh" style="width:10px;height:10px;"></i>' };
+        }
+        if (acaoUpper.includes('PARECER') || acaoUpper.includes('EXTERNO')) {
+            return { cor: '#8e44ad', icone: '<i class="ci ci-court" style="width:10px;height:10px;"></i>' };
+        }
         if (acaoUpper.includes('CADASTRADO') || acaoUpper.includes('CADASTRO') || acaoUpper.includes('INICIAL')) {
-            return { cor: '#3498db', icone: '📥' };
+            return { cor: '#3498db', icone: '<i class="ci ci-inbox" style="width:10px;height:10px;"></i>' };
         }
         if (acaoUpper.includes('ATRIBUÍDO') || acaoUpper.includes('ATRIBUIDO') || acaoUpper.includes('DISTRIBUIÇÃO') || acaoUpper.includes('DISTRIBUIDO') || acaoUpper.includes('REDISTRIBUIR') || acaoUpper.includes('TÉCNICO')) {
-            return { cor: '#9b59b6', icone: '👤' };
+            return { cor: '#9b59b6', icone: '<i class="ci ci-user" style="width:10px;height:10px;"></i>' };
         }
         if (acaoUpper.includes('UPLOAD DE RESPOSTA') || acaoUpper.includes('ANEXAR') || acaoUpper.includes('ANEXADO')) {
-            return { cor: '#e67e22', icone: '📎' };
+            return { cor: '#e67e22', icone: '<i class="ci ci-paperclip" style="width:10px;height:10px;"></i>' };
         }
         if (acaoUpper.includes('REMOVER') || acaoUpper.includes('REMOVIDA') || acaoUpper.includes('RETIRAR')) {
-            return { cor: '#7f8c8d', icone: '🗑️' };
+            return { cor: '#7f8c8d', icone: '<i class="ci ci-trash" style="width:10px;height:10px;"></i>' };
         }
         if (acaoUpper.includes('APROVADO') || acaoUpper.includes('ACEITO') || detalheUpper === 'TRAMITADO' || detalheUpper === 'FINALIZADO' || detalheUpper === 'ARQUIVADO') {
-            return { cor: '#2ecc71', icone: '✅' };
+            return { cor: '#2ecc71', icone: '<i class="ci ci-check" style="width:10px;height:10px;"></i>' };
         }
         if (acaoUpper.includes('REPROVADO') || acaoUpper.includes('RECUSADO') || acaoUpper.includes('RECUSADA')) {
-            return { cor: '#e74c3c', icone: '❌' };
+            return { cor: '#e74c3c', icone: '<i class="ci ci-close" style="width:10px;height:10px;"></i>' };
         }
         if (acaoUpper.includes('STATUS CI') || acaoUpper.includes('STATUS')) {
-            return { cor: '#f1c40f', icone: '⚙️' };
+            return { cor: '#f1c40f', icone: '<i class="ci ci-settings" style="width:10px;height:10px;"></i>' };
         }
-        return { cor: '#1abc9c', icone: '📌' };
+        return { cor: '#1abc9c', icone: '<i class="ci ci-pin" style="width:10px;height:10px;"></i>' };
     };
 
     let htmlEvents = '';
@@ -1959,7 +2593,7 @@ function exibirLinhaTempo(dados, container) {
 
     container.innerHTML = `
         <div style="margin-top: 25px; margin-bottom: 25px;">
-            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;">⏳ Histórico de Tramitação</div>
+            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;"><i class="ci ci-clock"></i> Histórico de Tramitação</div>
             <div style="position: relative; padding-left: 20px; border-left: 2px solid #444; margin-left: 17px;">
                 ${htmlEvents}
             </div>
@@ -1980,12 +2614,7 @@ async function renderizarLinhaTempoSistema(nup, containerId) {
     container.innerHTML = `<div style="text-align: center; color: #888; font-size: 13px; padding: 15px;">⏳ Carregando histórico...</div>`;
 
     try {
-        const payload = { acao: "buscar_historico_processo", nup: nup };
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS({ acao: "buscar_historico_processo", nup: nup });
 
         if (resultado.status !== 'success') {
             container.innerHTML = `<div style="color: #c0392b; font-size: 13px; padding: 10px;">❌ Erro ao carregar histórico: ${resultado.message}</div>`;
@@ -2065,7 +2694,7 @@ async function removerDocumento(event, nup) {
     const btn = event.currentTarget;
     const result = await mostrarConfirmacao('Tem certeza de que deseja desvincular a resposta deste NUP?\n\nO link será apagado e o status voltará para Aguardando Manifestação Técnica.', {
         titulo: 'Confirmar Remoção',
-        textoBotao: '🗑️ Sim, Remover',
+        textoBotao: '<i class="ci ci-trash"></i> Sim, Remover',
         corBotao: '#c0392b',
         corBorda: '#a93226',
         icone: '⚠️',
@@ -2262,15 +2891,10 @@ async function atualizarStatusCI(event, nup, novoStatus) {
             acao: "atualizar_status_ci",
             nup: nup,
             novoStatus: novoStatus,
-            username: usuarioAtivo.username || ''
+            username: (usuarioAtivo && usuarioAtivo.username) ? usuarioAtivo.username : ''
         };
 
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS(payload);
         if (resultado.status === 'success') {
             mostrarToast('Status atualizado com sucesso!', 'success');
 
@@ -2280,13 +2904,19 @@ async function atualizarStatusCI(event, nup, novoStatus) {
             }
             atualizarBadgesNotificacao(dadosCoringa);
             atualizarCacheOficios();
-            aplicarFiltros();
+            if (typeof aplicarFiltros === 'function') aplicarFiltros();
+            if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+            // Se o preview estiver aberto, recarrega com o novo status
+            const prev = document.getElementById('previewModal');
+            if (prev && prev.style.display === 'flex' && target) {
+                const linkOficio = target['LINK_OFICIO'] || target['LINK - OFÍCIO'] || target['LINK'] || target['LINK_RESPOSTA'] || '';
+                abrirPreview(linkOficio, target);
+            }
 
             const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
-            if (newIndex !== -1) {
+            if (newIndex !== -1 && document.getElementById('detalhesModal') && document.getElementById('detalhesModal').style.display === 'flex') {
                 abrirModal(newIndex);
-            } else {
-                fecharModal();
             }
         } else {
             mostrarToast('Operação Cancelada ou Sem Permissão: ' + (resultado.message || 'Erro Desconhecido'), 'error');
@@ -2324,9 +2954,9 @@ async function salvarStatusManualOficioPainel(event, nup) {
 }
 
 async function realizarAlteracaoStatusOficio(nup, novoStatus, btnId) {
-    const btn = document.getElementById(btnId);
-    const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ ...'; btn.disabled = true;
+    const btn = (btnId ? document.getElementById(btnId) : null);
+    const txtOriginal = btn ? btn.innerHTML : 'Salvar';
+    if (btn) { btn.innerHTML = '⏳ ...'; btn.disabled = true; }
 
     // Optimistic Update
     const oficioRef = dadosCoringa.find(a => a['NUP'] === nup);
@@ -2338,35 +2968,38 @@ async function realizarAlteracaoStatusOficio(nup, novoStatus, btnId) {
 
     mostrarToast('Status alterado localmente. Sincronizando...', 'success');
     atualizarCacheOficios();
-    aplicarFiltros();
+    if (typeof aplicarFiltros === 'function') aplicarFiltros();
+    if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+    // Atualiza o badge de status no modal de preview se estiver aberto
+    const badgePreview = document.querySelector('#previewInfoContent .modal-detail-status-oficio');
+    if (badgePreview) badgePreview.textContent = novoStatus;
 
     try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST',
-            body: JSON.stringify({
-                acao: "alterar_status_manual_generico",
-                tipoAba: "oficio",
-                nup: nup,
-                novoStatus: novoStatus,
-                username: usuarioAtivo.username || "sistema"
-            })
+        const resultado = await executarAcaoGAS({
+            acao: "alterar_status_manual_generico",
+            tipoAba: "oficio",
+            nup: nup,
+            novoStatus: novoStatus,
+            username: (usuarioAtivo && usuarioAtivo.username) ? usuarioAtivo.username : "sistema"
         });
-        const resultado = await resposta.json();
         if (resultado.status === 'success') {
             mostrarToast('Status confirmado na nuvem!', 'success');
         } else {
-            throw new Error(resultado.message);
+            throw new Error(resultado.message || 'Erro ao sincronizar status.');
         }
     } catch (e) {
-        console.error(e);
-        mostrarToast('Falha na internet ao alterar status. (Revertendo)', 'error');
+        console.error('Erro ao alterar status de Ofício:', e);
+        mostrarToast('Falha na sincronização ao alterar status. (Revertendo)', 'error');
         if (oficioRef) {
             oficioRef['STATUS'] = statusOriginal;
+            atualizarCacheOficios();
+            if (typeof aplicarFiltros === 'function') aplicarFiltros();
+            if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+            if (badgePreview) badgePreview.textContent = statusOriginal;
         }
-        atualizarCacheOficios();
-        aplicarFiltros();
     } finally {
-        if(btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
+        if (btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
     }
 }
 
@@ -2401,7 +3034,7 @@ function abrirModal(index) {
         htmlLink = `
             <div style="text-align:center; color:#666; font-weight:bold; padding: 12px; border: 1px dashed #333; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
                 <span>🚫 Sem Link Vinculado</span>
-                <button onclick="anexarPdfOriginalOficio(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="font-size: 12px; padding: 6px 12px; width: auto; height: auto;">📎 Anexar Ofício Inicial</button>
+                <button onclick="anexarPdfOriginalOficio(event, '${linha['NUP']}')" class="btn-drive btn-upload" style="font-size: 12px; padding: 6px 12px; width: auto; height: auto;"><i class="ci ci-paperclip"></i> Anexar Ofício Inicial</button>
             </div>
         `;
     }
@@ -2409,11 +3042,11 @@ function abrirModal(index) {
     const linkRespostaVerificacao = linha['LINK_RESPOSTA'];
     const temRespostaVinculada = linkRespostaVerificacao && linkRespostaVerificacao.trim() !== '' && linkRespostaVerificacao.trim() !== '-';
 
-    if (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.perfil.startsWith('gerencia'))) {
+    if (usuarioAtivo) {
         if (temRespostaVinculada) {
             const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
             const isFazerCI = (linha['STATUS'] || '').toUpperCase().trim().replace(/\./g, '') === 'FAZER CI';
-            const isGestor = usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
+            const isGestor = typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo() || typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() || (usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
 
             let blockRemoval = false;
             if (!isGestor && (isAprovadoBackend || isFazerCI)) {
@@ -2421,12 +3054,12 @@ function abrirModal(index) {
             }
 
             if (blockRemoval) {
-                btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px;">🔒 Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
+                btnAnexar = `<div style="padding: 10px; background-color: rgba(39, 174, 96, 0.1); border-left: 4px solid #27ae60; color: #2ecc71; font-size: 13px;"><i class="ci ci-lock"></i> Documento aprovado. Apenas a Diretoria pode removê-lo.</div>`;
             } else {
-                btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-red-outline">🗑️ Retirar Resposta</button>`;
+                btnAnexar = `<button onclick="removerDocumento(event, '${linha['NUP']}')" class="btn-drive btn-red-outline"><i class="ci ci-trash"></i> Retirar Resposta</button>`;
             }
-        } else if (usuarioAtivo.perfil === 'tecnico') {
-            btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload">📎 Anexar Resposta</button>`;
+        } else if (usuarioAtivo.perfil === 'tecnico' || (typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo())) {
+            btnAnexar = `<button onclick="anexarDocumento(event, '${linha['NUP']}')" class="btn-drive btn-upload"><i class="ci ci-paperclip"></i> Anexar Resposta</button>`;
         }
     }
 
@@ -2454,7 +3087,7 @@ function abrirModal(index) {
             } else {
                 htmlLink = `
                     <div class="modal-buttons">
-                        <a href="${linkRaw}" target="_blank" class="btn-drive">🔗 Abrir Link Vinculado</a>
+                        <a href="${linkRaw}" target="_blank" class="btn-drive"><i class="ci ci-external"></i> Abrir Link Vinculado</a>
                         ${btnAnexar}
                     </div>
                 `;
@@ -2467,22 +3100,56 @@ function abrirModal(index) {
     }
 
     let htmlDiretoriaBotoes = '';
-    const isGestorFinalidade = usuarioAtivo && usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.perfil !== 'gerencia_consulta';
+    const isGestorFinalidade = usuarioAtivo && (typeof window.podeDistribuirProcesso === 'function' && window.podeDistribuirProcesso() || usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
     const statusGeralAtualizado = (linha['STATUS'] || '').toUpperCase();
     const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
 
     if (isGestorFinalidade) {
+        if (statusGeralAtualizado === 'FAZER CI' || statusGeralAtualizado === 'FAZER C.I') {
+            htmlDiretoriaBotoes += `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(41, 128, 185, 0.08); border: 1px solid rgba(41, 128, 185, 0.3); border-radius: 6px;">
+                    <strong style="color: #2980b9; font-size: 13px; display: block; margin-bottom: 10px;">📋 Ações de Fluxo (Comunicação Interna - C.I):</strong>
+                    <div style="display: flex; gap: 10px; flex-direction: column;">
+                        <button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background-color: #2980b9; border-color: #1c5986; color: white; margin: 0; font-size: 14px;">✅ Confirmar Confecção da C.I</button>
+                        <button onclick="abrirModalSobrestar('${linha['NUP']}', 'oficio')" class="btn-drive" style="background-color: #f39c12; border-color: #d68910; color: #111; font-weight: bold; margin: 0; font-size: 14px;"><i class="ci ci-pause"></i> Sobrestar Processo</button>
+                    </div>
+                </div>
+            `;
+        } else if (statusGeralAtualizado === 'SOBRESTADO') {
+            const preliminarUrl = (linha['MANIFESTACAO_PRELIMINAR'] && linha['MANIFESTACAO_PRELIMINAR'].trim() !== '') ? linha['MANIFESTACAO_PRELIMINAR'] : '';
+            const parecerUrl = (linha['LINK_PARECER_EXTERNO'] && linha['LINK_PARECER_EXTERNO'].trim() !== '') ? linha['LINK_PARECER_EXTERNO'] : '';
+            const oficioUrl = linha['LINK_OFICIO'] || linha['LINK - OFÍCIO'] || linha['LINK'] || '';
+
+            htmlDiretoriaBotoes += `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(243, 156, 18, 0.1); border: 1px solid rgba(243, 156, 18, 0.4); border-radius: 6px;">
+                    <strong style="color: #f39c12; font-size: 13px; display: block; margin-bottom: 8px;">⏸️ Processo Sobrestado (Encaminhado para: ${linha['SOBRESTADO_SETOR'] || 'Setor Externo'})</strong>
+                    ${linha['SOBRESTADO_MOTIVO'] ? `<div style="font-size: 12px; color: #ccc; margin-bottom: 12px;"><strong>Motivo:</strong> ${linha['SOBRESTADO_MOTIVO']}</div>` : ''}
+                    ${preliminarUrl ? `<button onclick="abrirPreview('${preliminarUrl}', dadosCoringa.find(r => r['NUP']==='${linha['NUP']}'))" class="btn-drive" style="background-color: rgba(0, 250, 154, 0.15); border: 1px solid #00fa9a; color: #00fa9a; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: bold; padding: 8px; cursor: pointer;"><i class="ci ci-eye"></i> Visualizar Manifestação Preliminar</button>` : ''}
+                    ${parecerUrl ? `<button onclick="abrirPreview('${parecerUrl}', dadosCoringa.find(r => r['NUP']==='${linha['NUP']}'))" class="btn-drive" style="background-color: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; width: 100%; margin-bottom: 8px; font-size: 13px; font-weight: bold; padding: 8px; cursor: pointer;"><i class="ci ci-court"></i> Visualizar Parecer Externo</button>` : ''}
+                    ${oficioUrl ? `<button onclick="abrirPreview('${oficioUrl}', dadosCoringa.find(r => r['NUP']==='${linha['NUP']}'))" class="btn-drive" style="background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; width: 100%; margin-bottom: 8px; font-size: 12px; padding: 7px; cursor: pointer;"><i class="ci ci-folder"></i> Visualizar Ofício Original</button>` : ''}
+                    <button onclick="abrirModalRetornoSobrestamento('${linha['NUP']}', 'oficio')" class="btn-drive" style="background-color: #27ae60; border-color: #1e8449; color: white; width: 100%; margin: 0; font-size: 14px; font-weight: bold;">▶️ Retomar do Sobrestamento (Anexar Parecer Externo)</button>
+                </div>
+            `;
+        } else if (statusGeralAtualizado === 'AGUARDANDO ASSINATURA') {
+            htmlDiretoriaBotoes += `
+                <div style="margin-top: 15px; padding: 15px; background-color: rgba(142, 68, 173, 0.08); border: 1px solid rgba(142, 68, 173, 0.3); border-radius: 6px;">
+                    <strong style="color: #8e44ad; font-size: 13px; display: block; margin-bottom: 10px;">📋 Ações de Fluxo (Assinatura):</strong>
+                    <button onclick="atualizarStatusCI(event, '${linha['NUP']}', 'FINALIZADO')" class="btn-drive" style="background-color: #8e44ad; border-color: #6c3483; color: white; width: 100%; margin: 0; font-size: 14px;">✍️ Confirmar Assinatura Realizada</button>
+                </div>
+            `;
+        }
+
         if (isSemTecnico) {
-            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Distribuir / Atribuir Técnico</button>`;
+            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;"><i class="ci ci-user"></i> Distribuir / Atribuir Técnico</button>`;
         } else {
-            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;">👤 Redistribuir Técnico</button>`;
+            htmlDiretoriaBotoes += `<button onclick="abrirModalAtribuirTecnicoOficio('${linha['NUP']}')" class="btn-drive btn-blue" style="width: 100%; margin-top: 15px; font-size: 15px;"><i class="ci ci-user"></i> Redistribuir Técnico</button>`;
         }
         
         const opcoesOficioStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "REVISÃO", "FINALIZADO", "TRAMITADO", "ARQUIVADO"];
         let optionsHtml = opcoesOficioStatus.map(st => `<option value="${st}" ${st === statusGeralAtualizado ? 'selected' : ''}>${st}</option>`).join('');
         htmlDiretoriaBotoes += `
             <div style="margin-top: 15px; padding: 15px; background-color: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 6px;">
-                <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">⚙️ GESTÃO DE STATUS (DIRETORIA)</div>
+                <div style="font-size: 11px; color: #888; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;"><i class="ci ci-settings"></i> GESTÃO DE STATUS (DIRETORIA)</div>
                 <div style="display: flex; gap: 8px;">
                     <select id="changeStatusSelectOficio-${linha['NUP']}" style="flex: 1; padding: 8px; background-color: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 13px; outline: none; height: 38px;">
                         ${optionsHtml}
@@ -2498,14 +3165,14 @@ function abrirModal(index) {
     if (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
         let botaoResp = '';
         if (isLinkGCS(linkResposta)) {
-            botaoResp = `<button onclick="abrirPreview('${linkResposta}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta (LGPD)</button>`;
+            botaoResp = `<button onclick="abrirPreview('${linkResposta}', ${index})" class="btn-drive btn-orange-outline"><i class="ci ci-eye"></i> Pré-visualizar Resposta (LGPD)</button>`;
         } else {
             const respId = extrairIdDrive(linkResposta);
             if (respId) {
                 const respPreview = `https://drive.google.com/file/d/${respId}/preview`;
-                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline">👁️ Pré-visualizar Resposta</button>`;
+                botaoResp = `<button onclick="abrirPreview('${respPreview}', ${index})" class="btn-drive btn-orange-outline"><i class="ci ci-eye"></i> Pré-visualizar Resposta</button>`;
             } else {
-                botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline">🔗 Abrir Resposta no Drive</a>`;
+                botaoResp = `<a href="${linkResposta}" target="_blank" class="btn-drive btn-orange-outline"><i class="ci ci-external"></i> Abrir Resposta no Drive</a>`;
             }
         }
 
@@ -2526,7 +3193,7 @@ function abrirModal(index) {
     }
 
     if (htmlHistorico !== '') {
-        htmlHistorico = `<div style="margin: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;">📚 Histórico de Documentos</strong>${htmlHistorico}</div>`;
+        htmlHistorico = `<div style="margin: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;"><i class="ci ci-folder"></i> Histórico de Documentos</strong>${htmlHistorico}</div>`;
     }
 
     modalBody.innerHTML = `
@@ -2561,23 +3228,104 @@ function abrirModal(index) {
 
 function fecharModal() { document.getElementById('detalhesModal').style.display = 'none'; }
 
-async function abrirPreview(url, index) {
+async function abrirPreview(arg1, arg2, arg3) {
     const modal = document.getElementById('previewModal');
-    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cccccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    const modalPequeno = document.getElementById('detalhesModal');
+    if (modalPequeno) modalPequeno.style.display = 'none';
+    if (!modal) return;
+    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+
+    let event = null;
+    let url = '';
+    let linha = null;
+    let nup = null;
+
+    const args = [arg1, arg2, arg3].filter(a => a !== null && a !== undefined && a !== '');
+    for (const a of args) {
+        if (typeof a === 'object') {
+            if (typeof a.preventDefault === 'function') {
+                event = a;
+            } else {
+                linha = a;
+            }
+        } else if (typeof a === 'string') {
+            const str = a.trim();
+            if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('gs://') || str.includes('drive.google.com') || str.includes('storage.googleapis.com')) {
+                if (!url) url = str;
+            } else if (!nup && !str.includes('/') && !str.includes('http')) {
+                nup = str;
+            } else if (!url) {
+                url = str;
+            }
+        } else if (typeof a === 'number' && !linha) {
+            if (a >= 0 && typeof dadosExibidos !== 'undefined' && a < dadosExibidos.length) {
+                linha = dadosExibidos[a];
+            }
+        }
+    }
+
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+
+    if (linha && linha['NUP']) {
+        nup = linha['NUP'];
+    }
+
+    if (!linha && nup && typeof nup === 'string' && nup !== '-') {
+        const nupBusca = nup.trim().toUpperCase();
+        const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+        linha = (dadosCoringa || []).find(r => {
+            const n = String(r['NUP'] || '').trim().toUpperCase();
+            return n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf;
+        });
+    }
+
+    if (!linha && typeof oficioSelecionadoMockup !== 'undefined' && oficioSelecionadoMockup) {
+        linha = oficioSelecionadoMockup;
+    }
+
+    if (!linha && url && typeof dadosCoringa !== 'undefined') {
+        const urlStr = String(url).trim();
+        const driveId = typeof extrairIdDrive === 'function' ? extrairIdDrive(urlStr) : null;
+        linha = (dadosCoringa || []).find(r => {
+            const campos = [
+                r['LINK_OFICIO'], r['LINK - OFÍCIO'], r['LINK'],
+                r['LINK_RESPOSTA'], r['MANIFESTACAO_PRELIMINAR'], r['LINK_PARECER_EXTERNO']
+            ];
+            return campos.some(c => {
+                if (!c) return false;
+                const cStr = String(c).trim();
+                if (cStr === urlStr || cStr.includes(urlStr) || urlStr.includes(cStr)) return true;
+                if (driveId && cStr.includes(driveId)) return true;
+                return false;
+            });
+        });
+        if (linha && !nup) {
+            nup = linha['NUP'];
+        }
+    }
+
+    let nupOriginal = (linha && linha['NUP']) ? linha['NUP'] : (nup || '-');
+    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.includes('/'))) {
+        nupOriginal = '-';
+    }
+    const nupDisplay = typeof limparNupDisplay === 'function' ? limparNupDisplay(nupOriginal) : String(nupOriginal).replace(/\.pdf$/gi, '');
+    const nupFormatado = String(nupOriginal).replace(/[^a-zA-Z0-9]/g, '_');
+    const nupEsc = typeof escaparParaAtributo === 'function' ? escaparParaAtributo(nupOriginal) : nupOriginal;
 
     modal.className = 'preview-modal';
     modal.innerHTML = `
         <div class="preview-wrapper" id="preview-wrapper-id">
             <div class="preview-toolbar">
-                <div class="preview-toolbar-title" style="display: flex; align-items: center;">
-                    ${iconeOlhoGrande} Pré-visualização de Documento (LGPD Seguro)
+                <div class="preview-toolbar-title">
+                    ${iconeOlhoGrande}
+                    <span class="modal-detail-module-tag modal-detail-tag-oficio" style="margin-right: 8px;"><i class="ci ci-folder"></i> Ofício</span>
+                    <span>${nupDisplay}</span>
                 </div>
                 <div class="preview-toolbar-buttons">
-                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" title="Abrir em Nova Aba">🔗 Abrir em Nova Aba</a>
-                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;" download title="Fazer download deste documento" onclick="feedbackDownload(this)">⬇️ Baixar Documento</a>
-                    
-                    <button class="btn-preview-action" onclick="togglePreviewInfo()">ℹ️ Mostrar/Ocultar Info</button>
-                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()">✖ Fechar</button>
+                    <a id="btn-open-preview" href="#" target="_blank" class="btn-preview-action" title="Abrir em Nova Aba"><i class="ci ci-external"></i> Abrir em Nova Aba</a>
+                    <a id="btn-download-preview" href="#" class="btn-preview-action btn-download-preview-action" download title="Fazer download deste documento" onclick="feedbackDownload(this)"><i class="ci ci-download"></i> Baixar Documento</a>
+                    <button class="btn-preview-action" onclick="togglePreviewInfo()"><i class="ci ci-info"></i> Painel de Informações</button>
+                    <button class="btn-preview-action btn-close-preview" onclick="fecharPreview()"><i class="ci ci-close"></i> Fechar</button>
                 </div>
             </div>
             <div class="preview-body">
@@ -2589,25 +3337,36 @@ async function abrirPreview(url, index) {
         </div>
     `;
 
-    // Failsafe: Obtém o registro de forma robusta e segura
-    let linha = (index >= 0 && index < dadosExibidos.length) ? dadosExibidos[index] : null;
-    if (!linha) {
-        const targetNup = oficioSelecionadoMockup ? oficioSelecionadoMockup['NUP'] : '';
-        linha = dadosCoringa.find(r => r['NUP'] === targetNup) || dadosExibidos.find(r => r['NUP'] === targetNup) || oficioSelecionadoMockup;
-    }
-    
-    if (!linha) {
-        mostrarToast("Erro ao carregar detalhes do documento.", "error");
-        return;
+    const statusOperacional = (linha ? (linha['STATUS'] || 'AGUARDANDO DISTRIBUIÇÃO') : '').toUpperCase();
+    const statusLimpoCI = statusOperacional.replace(/\./g, '').trim().toUpperCase();
+    const isSobrestado = statusLimpoCI === 'SOBRESTADO' || statusLimpoCI.includes('SOBRESTADO');
+
+    const linkResposta = linha ? (linha['LINK_RESPOSTA'] || '') : '';
+    let respPreviewUrl = (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') ? linkResposta : '';
+    const linkOficio = linha ? (linha['LINK_OFICIO'] || linha['LINK - OFÍCIO'] || linha['LINK'] || '') : '';
+    let oficioPreviewUrl = (linkOficio && linkOficio.trim() !== '' && linkOficio.trim() !== '-') ? linkOficio : '';
+    let preliminarPreviewUrl = (linha && linha['MANIFESTACAO_PRELIMINAR'] && linha['MANIFESTACAO_PRELIMINAR'].trim() !== '') ? linha['MANIFESTACAO_PRELIMINAR'] : '';
+    let parecerPreviewUrl = (linha && linha['LINK_PARECER_EXTERNO'] && linha['LINK_PARECER_EXTERNO'].trim() !== '') ? linha['LINK_PARECER_EXTERNO'] : '';
+
+    let urlAtual = url;
+    if (!urlAtual) {
+        if (isSobrestado && preliminarPreviewUrl) {
+            urlAtual = preliminarPreviewUrl;
+        } else {
+            urlAtual = oficioPreviewUrl || preliminarPreviewUrl || parecerPreviewUrl || respPreviewUrl || '';
+        }
     }
 
-    const nupFormatado = linha['NUP'] ? String(linha['NUP']).replace(/[^a-zA-Z0-9]/g, '_') : 'documento';
-    let resolvedUrl = url;
-    let resolvedDownloadUrl = url;
+    let resolvedUrl = urlAtual;
+    let resolvedDownloadUrl = urlAtual;
 
     try {
-        resolvedUrl = await obterLinkVisualizacaoSeguro(url);
-        resolvedDownloadUrl = await obterLinkDownloadSeguro(url, `Doc_${nupFormatado}.pdf`);
+        if (typeof obterLinkVisualizacaoSeguro === 'function' && urlAtual) {
+            resolvedUrl = await obterLinkVisualizacaoSeguro(urlAtual);
+        }
+        if (typeof obterLinkDownloadSeguro === 'function' && urlAtual) {
+            resolvedDownloadUrl = await obterLinkDownloadSeguro(urlAtual, `Oficio_${nupFormatado}.pdf`);
+        }
     } catch (e) {
         console.warn('Erro ao resolver URL segura:', e);
     }
@@ -2616,88 +3375,6 @@ async function abrirPreview(url, index) {
     if (btnDownload) {
         btnDownload.href = resolvedDownloadUrl;
     }
-
-    const infoStatus = obterInfoDinamicaStatus(linha);
-    const obs = (linha['OBSERVAÇÃO'] || '').trim();
-    const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
-    const htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="preview-info-obs"><strong>Observação:</strong><br>${obs}</div>` : '';
-
-    let htmlHistoricoPreview = '';
-    htmlHistoricoPreview += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], index);
-    if (linha['REITERACOES'] && linha['REITERACOES'].length > 0) {
-        linha['REITERACOES'].forEach((reit, i) => {
-            htmlHistoricoPreview += gerarHtmlDocExtra(`${i + 1}ª Reiteração`, reit.NUMERO, reit.NUP, reit.LINK, index);
-        });
-    }
-
-    if (htmlHistoricoPreview !== '') {
-        htmlHistoricoPreview = `<div style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 15px;"><strong style="color: white; font-size: 14px;">📚 Histórico de Documentos</strong>${htmlHistoricoPreview}</div>`;
-    }
-
-    document.getElementById('previewInfoContent').innerHTML = `
-        <div class="preview-info-item">📌 <strong>NUP:</strong> ${linha['NUP']}</div>
-        <div class="preview-info-item">📜 <strong>Ofício N.:</strong> ${oficioRaw}</div>
-        <div class="preview-info-item">📅 <strong>Data:</strong> ${linha['DATA']}</div>
-        <div class="preview-info-item">📄 <strong>Tipo:</strong> ${linha['TIPO']}</div>
-        <div class="preview-info-item">📍 <strong>Município:</strong> ${linha['COMARCA']}</div>
-        <div class="preview-info-item">📝 <strong>Referência:</strong> ${linha['REFERÊNCIA']}</div>
-        <div class="preview-info-item">⏳ <strong>Prazo:</strong> ${linha['PRAZO'] || '-'}</div>
-        <div class="preview-info-item">👤 <strong>Responsável:</strong> ${linha['TÉCNICO/ADMIN']}</div>
-        <div class="preview-info-item">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA']}</div>
-        <div class="preview-info-item">🆔 <strong>CAR:</strong> ${linha['CARMS']}</div>
-        <div class="preview-info-item" style="display: flex; align-items: center;">🚦 <strong style="margin-right: 6px;">Situação:</strong> <span style="color: ${infoStatus.corTexto}; display: flex; align-items: center; font-weight: bold;">${infoStatus.iconeStatus}${infoStatus.textoStatusLimpo}</span></div>
-        ${htmlObs}
-        ${htmlHistoricoPreview}
-    `;
-
-    const linkResposta = linha['LINK_RESPOSTA'];
-    let respPreviewUrl = '';
-    if (linkResposta && linkResposta.trim() !== '' && linkResposta.trim() !== '-') {
-        respPreviewUrl = linkResposta;
-    }
-
-    const linkOficio = linha['LINK_OFICIO'];
-    let oficioPreviewUrl = '';
-    if (linkOficio && linkOficio.trim() !== '' && linkOficio.trim() !== '-') {
-        oficioPreviewUrl = linkOficio;
-    }
-
-    let toggleBtn = '';
-    if (respPreviewUrl && oficioPreviewUrl) {
-        const isOficioActive = (url === oficioPreviewUrl || url === linkOficio || url === resolvedUrl);
-        const activeOficioClass = isOficioActive ? 'active' : '';
-        const activeRespClass = !isOficioActive ? 'active' : '';
-
-        toggleBtn = `
-             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                 <button onclick="alternarVisualizacaoPreview(this, '${oficioPreviewUrl}', '${oficioPreviewUrl}')" class="btn-drive btn-preview btn-preview-toggle-tab ${activeOficioClass}" style="flex: 1; padding: 10px; font-size: 12px;">📜 Ver Ofício</button>
-                 <button onclick="alternarVisualizacaoPreview(this, '${respPreviewUrl}', '${respPreviewUrl}')" class="btn-drive btn-orange-outline btn-preview-toggle-tab ${activeRespClass}" style="flex: 1; padding: 10px; font-size: 12px;">📁 Ver Resposta</button>
-             </div>
-         `;
-    }
-
-    let acoesDiflorPreview = '';
-    const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
-    const isLinkRespostaValido = linha['LINK_RESPOSTA'] && linha['LINK_RESPOSTA'].trim() !== '' && linha['LINK_RESPOSTA'].trim() !== '-';
-    const tecRegistro = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
-    const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tecRegistro] || 'S/G';
-    const podeAvaliar = usuarioAtivo && (usuarioAtivo.username === 'diflor' || (usuarioAtivo.perfil.startsWith('gerencia') && setorInternoDoTecnico === usuarioAtivo.setor));
-    
-    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && isLinkRespostaValido) {
-        acoesDiflorPreview = `
-            <div style="margin-top: 20px; padding: 15px; background-color: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px;">
-                <strong style="color: #ffa500; font-size: 14px; display: block; margin-bottom: 10px;">📋 Avaliar Resposta:</strong>
-                <div style="display: flex; gap: 10px; flex-direction: column;">
-                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive btn-green-outline">✅ Aprovar Manifestação</button>
-                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive btn-red-outline">❌ Reprovar Manifestação</button>
-                </div>
-            </div>
-        `;
-    }
-
-    const contentDiv = document.getElementById('previewInfoContent');
-    contentDiv.innerHTML = toggleBtn + contentDiv.innerHTML + acoesDiflorPreview;
-
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
         btnOpenPreview.href = resolvedUrl;
@@ -2706,50 +3383,265 @@ async function abrirPreview(url, index) {
     if (frame) {
         frame.src = resolvedUrl;
     }
+
+    if (!linha) {
+        const infoContent = document.getElementById('previewInfoContent');
+        if (infoContent) {
+            infoContent.innerHTML = `<div class="preview-info-card"><div class="preview-info-item">📄 Visualizando Documento: <strong>${nupDisplay}</strong></div></div>`;
+        }
+        modal.style.display = 'flex';
+        return;
+    }
+
+    const obs = (linha['OBSERVAÇÃO'] || '').trim();
+    const oficioRaw = (linha['OFÍCIO N.'] || linha['OFÍCIO'] || '-').replace(/\.pdf/gi, '').trim();
+    const htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="preview-info-obs"><strong>📋 Observação:</strong><br>${obs}</div>` : '';
+
+    let docsDisponiveis = [];
+    if (oficioPreviewUrl) docsDisponiveis.push({ label: '📜 Processo Original', url: oficioPreviewUrl });
+    if (preliminarPreviewUrl) docsDisponiveis.push({ label: '📄 Manifestação Preliminar (Sobrestamento)', url: preliminarPreviewUrl });
+    if (parecerPreviewUrl) docsDisponiveis.push({ label: '🏛️ Parecer Externo', url: parecerPreviewUrl });
+    if (respPreviewUrl) docsDisponiveis.push({ label: '📁 Resposta Conclusiva', url: respPreviewUrl });
+
+    let toggleBtn = '';
+    if (docsDisponiveis.length > 1) {
+        const botoesHtml = docsDisponiveis.map(doc => {
+            const isActive = (urlAtual === doc.url || resolvedUrl === doc.url || (typeof url === 'string' && url === doc.url));
+            const activeClass = isActive ? 'active' : '';
+            return `<button onclick="alternarVisualizacaoPreview(this, '${doc.url}', '${doc.url}')" class="btn-drive btn-preview-toggle-tab ${activeClass}" style="flex: 1; min-width: 120px; padding: 8px 12px; font-size: 11.5px;">${doc.label}</button>`;
+        }).join('');
+
+        toggleBtn = `
+             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                 ${botoesHtml}
+             </div>
+         `;
+    }
+
+    let htmlHistoricoPreview = '';
+    if (typeof gerarHtmlDocExtra === 'function') {
+        htmlHistoricoPreview += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], index);
+        if (linha['REITERACOES'] && linha['REITERACOES'].length > 0) {
+            linha['REITERACOES'].forEach((reit, i) => {
+                htmlHistoricoPreview += gerarHtmlDocExtra(`${i + 1}ª Reiteração`, reit.NUMERO, reit.NUP, reit.LINK, index);
+            });
+        }
+    }
+    if (htmlHistoricoPreview !== '') {
+        htmlHistoricoPreview = `<div style="margin-top: 15px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 12px;"><strong style="color: #f1f5f9; font-size: 13px;"><i class="ci ci-folder"></i> Histórico de Documentos</strong>${htmlHistoricoPreview}</div>`;
+    }
+
+    let botoesAcoesHtml = '';
+    const isGestor = usuarioAtivo && ((typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo()) || (typeof window.podeDistribuirProcesso === 'function' && window.podeDistribuirProcesso()) || usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
+    const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
+    const temResposta = respPreviewUrl !== '';
+
+    if (usuarioAtivo) {
+        if (temResposta) {
+            const isAprovadoBackend = (linha['STATUS_RESPOSTA'] || '').toUpperCase() === 'APROVADO';
+            const isFazerCI = statusOperacional.replace(/\./g, '') === 'FAZER CI';
+            if (!isGestor && (isAprovadoBackend || isFazerCI)) {
+                botoesAcoesHtml += `<div class="modal-detail-approved" style="margin-bottom: 8px;"><i class="ci ci-lock"></i> Resposta aprovada pela Diretoria.</div>`;
+            } else {
+                botoesAcoesHtml += `<button onclick="removerDocumento(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-danger" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-trash"></i> Retirar Resposta</button>`;
+            }
+        } else if (isTecnico || isGestor) {
+            botoesAcoesHtml += `<button onclick="anexarDocumento(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar Resposta</button>`;
+        }
+
+        if (!oficioPreviewUrl) {
+            botoesAcoesHtml += `<button onclick="anexarPdfOriginalOficio(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar Ofício Inicial</button>`;
+        }
+    }
+
+    if (isGestor) {
+        const isSemTecnico = !linha['TÉCNICO/ADMIN'] || linha['TÉCNICO/ADMIN'] === '-' || linha['TÉCNICO/ADMIN'] === 'S/T';
+        const labelTec = isSemTecnico ? '<i class="ci ci-user"></i> Distribuir / Atribuir Técnico' : '<i class="ci ci-user"></i> Redistribuir Técnico';
+        botoesAcoesHtml += `<button onclick="abrirModalAtribuirTecnicoOficio('${nupEsc}')" class="modal-detail-btn modal-detail-btn-gestao" style="width: 100%; margin-bottom: 8px;">${labelTec}</button>`;
+    }
+
+    let acoesFluxoHtml = '';
+    const tecRegistro = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+    const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tecRegistro] : null) || (linha['GERÊNCIA'] || '').trim().toUpperCase();
+    const podeAcaoFluxo = isGestor || (typeof window.podeConfeccionarDespachoOuCI === 'function' && window.podeConfeccionarDespachoOuCI(setorInternoDoTecnico));
+
+    if (statusLimpoCI === 'SOBRESTADO') {
+        acoesFluxoHtml = `
+            <div style="padding: 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; margin-bottom: 10px;">
+                <div style="color: #fbbf24; font-weight: 700; font-size: 12.5px; margin-bottom: 8px;">⏸️ Processo Sobrestado ${linha['SOBRESTADO_SETOR'] ? `(Encaminhado para: ${linha['SOBRESTADO_SETOR']})` : ''}</div>
+                ${linha['SOBRESTADO_MOTIVO'] ? `<div style="font-size: 12px; color: #cbd5e1; margin-bottom: 10px;"><strong>Motivo:</strong> ${linha['SOBRESTADO_MOTIVO']}</div>` : ''}
+                ${preliminarPreviewUrl ? `<button onclick="alternarVisualizacaoPreview(this, '${preliminarPreviewUrl}', '${preliminarPreviewUrl}')" class="btn-drive btn-preview-toggle-tab" style="background: rgba(0, 250, 154, 0.15); border: 1px solid #00fa9a; color: #00fa9a; width: 100%; margin-bottom: 8px; font-size: 12.5px; font-weight: 600; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><i class="ci ci-eye"></i> Visualizar Manifestação Preliminar</button>` : ''}
+                ${parecerPreviewUrl ? `<button onclick="alternarVisualizacaoPreview(this, '${parecerPreviewUrl}', '${parecerPreviewUrl}')" class="btn-drive btn-preview-toggle-tab" style="background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; width: 100%; margin-bottom: 8px; font-size: 12.5px; font-weight: 600; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><i class="ci ci-court"></i> Visualizar Parecer Externo</button>` : ''}
+                ${oficioPreviewUrl ? `<button onclick="alternarVisualizacaoPreview(this, '${oficioPreviewUrl}', '${oficioPreviewUrl}')" class="btn-drive btn-preview-toggle-tab" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1; width: 100%; margin-bottom: 8px; font-size: 12px; font-weight: 600; padding: 7px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><i class="ci ci-folder"></i> Visualizar Ofício Original</button>` : ''}
+                <button onclick="abrirModalRetornoSobrestamento('${nupEsc}', 'oficio')" class="btn-drive" style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); border: 1px solid #22c55e; color: white; width: 100%; margin: 0; font-size: 13.5px; font-weight: 700; padding: 11px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">▶️ Retomar do Sobrestamento (Anexar Parecer Externo)</button>
+            </div>
+        `;
+    } else if (podeAcaoFluxo) {
+        if (statusLimpoCI === 'FAZER CI') {
+            acoesFluxoHtml = `
+                <div style="padding: 14px; background: rgba(41, 128, 185, 0.12); border: 1px solid rgba(41, 128, 185, 0.35); border-radius: 8px; margin-bottom: 10px;">
+                    <div style="color: #38bdf8; font-weight: 700; font-size: 12.5px; margin-bottom: 10px;"><i class="ci ci-megaphone"></i> Ações de Fluxo (Comunicação Interna - C.I):</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button onclick="atualizarStatusCI(event, '${nupEsc}', 'AGUARDANDO ASSINATURA')" class="btn-drive" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: 1px solid #3b82f6; color: white; width: 100%; margin: 0; font-size: 13.5px; font-weight: 700; padding: 11px; border-radius: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="ci ci-check"></i> Confirmar Confecção da C.I</button>
+                        <button onclick="abrirModalSobrestar('${nupEsc}', 'oficio')" class="btn-drive" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; width: 100%; margin: 0; font-size: 13px; font-weight: 600; padding: 9px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;"><i class="ci ci-pause"></i> Sobrestar Processo</button>
+                    </div>
+                </div>
+            `;
+        } else if (statusLimpoCI === 'AGUARDANDO ASSINATURA') {
+            acoesFluxoHtml = `
+                <div style="padding: 14px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 8px; margin-bottom: 10px;">
+                    <div style="color: #c084fc; font-weight: 700; font-size: 12.5px; margin-bottom: 10px;">✍️ Ações de Fluxo (Assinatura):</div>
+                    <button onclick="atualizarStatusCI(event, '${nupEsc}', 'FINALIZADO')" class="btn-drive" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border: 1px solid #8b5cf6; color: white; width: 100%; margin: 0; font-size: 13.5px; font-weight: 700; padding: 11px; border-radius: 8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="ci ci-check"></i> Confirmar Assinatura Realizada</button>
+                </div>
+            `;
+        }
+    }
+
+    let acoesRevisorHtml = '';
+    const statusRespAval = (linha['STATUS_RESPOSTA'] || '').toUpperCase();
+    const podeAvaliar = (typeof window.podeAvaliarManifestacao === 'function') && window.podeAvaliarManifestacao(setorInternoDoTecnico);
+
+    if (podeAvaliar && statusRespAval !== 'APROVADO' && statusRespAval !== 'REPROVADO' && temResposta) {
+        acoesRevisorHtml = `
+            <div style="padding: 14px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; margin-bottom: 8px;">
+                <div style="color: #fbbf24; font-weight: 700; font-size: 12.5px; margin-bottom: 10px;">📋 Avaliação da Resposta Técnica:</div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'APROVADO')" class="btn-drive btn-green-outline" style="flex: 1; margin: 0; font-size: 12px; padding: 8px;"><i class="ci ci-check"></i> Aprovar</button>
+                    <button onclick="avaliarResposta(event, '${linha['NUP']}', 'REPROVADO')" class="btn-drive btn-red-outline" style="flex: 1; margin: 0; font-size: 12px; padding: 8px;"><i class="ci ci-close"></i> Reprovar</button>
+                </div>
+            </div>
+        `;
+    }
+
+    let acoesStatusDiretoria = '';
+    if (isGestor) {
+        const opcoesOficioStatus = ["AGUARDANDO DISTRIBUIÇÃO", "AGUARDANDO MANIFESTAÇÃO TÉCNICA", "FAZER CI", "AGUARDANDO ASSINATURA", "REVISÃO", "FINALIZADO", "TRAMITADO", "ARQUIVADO"];
+        const optionsHtml = opcoesOficioStatus.map(st => `<option value="${st}" ${st === statusOperacional ? 'selected' : ''}>${st}</option>`).join('');
+        acoesStatusDiretoria = `
+            <div style="padding: 12px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; width: 100%; box-sizing: border-box;">
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; font-weight: 700;"><i class="ci ci-settings"></i> GESTÃO DE STATUS</div>
+                <div style="display: flex; gap: 8px; width: 100%; box-sizing: border-box; align-items: center;">
+                    <select id="changeStatusSelectOficio-${nupEsc}" style="flex: 1; min-width: 0; padding: 6px 10px; background: #1e293b; color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; font-size: 12px; outline: none; height: 36px; box-sizing: border-box;">
+                        ${optionsHtml}
+                    </select>
+                    <button onclick="salvarStatusManualOficio(event, '${nupEsc}')" id="btnSalvarStatusOficio-${nupEsc}" class="btn-drive btn-blue" style="flex-shrink: 0; width: auto; min-width: 70px; padding: 6px 12px; margin: 0; font-size: 12px; height: 36px; box-sizing: border-box;">Salvar</button>
+                </div>
+            </div>
+        `;
+    }
+
+    document.getElementById('previewInfoContent').innerHTML = `
+        <div class="preview-info-header">
+            <div class="preview-info-tag-and-status">
+                <span class="modal-detail-module-tag modal-detail-tag-oficio"><i class="ci ci-folder"></i> Ofício</span>
+                <span class="modal-detail-status-value modal-detail-status-oficio">${statusOperacional}</span>
+            </div>
+            <h3 class="preview-info-nup-title">${nupDisplay}</h3>
+        </div>
+
+        ${toggleBtn}
+
+        <div class="preview-info-card">
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-calendar"></i></span><div><strong>Data:</strong> ${linha['DATA'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-folder"></i></span><div><strong>Ofício N.:</strong> ${oficioRaw}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-doc"></i></span><div><strong>Tipo:</strong> ${linha['TIPO'] || 'Ofício'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-map"></i></span><div><strong>Comarca/Município:</strong> ${linha['COMARCA'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-doc"></i></span><div><strong>Referência:</strong> ${linha['REFERÊNCIA'] || '-'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-clock"></i></span><div><strong>Prazo:</strong> ${(function(p){ let s = String(p || '-').trim(); return (s !== '-' && s !== '') ? (s.toLowerCase().includes('dia') ? s : s + ' dias') : '-'; })(linha['PRAZO'])}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-user"></i></span><div><strong>Responsável:</strong> <span style="color: #38bdf8; font-weight: 600;">${linha['TÉCNICO/ADMIN'] || 'Não atribuído'}</span></div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-building"></i></span><div><strong>Gerência:</strong> ${linha['GERÊNCIA'] || 'GEAA'}</div></div>
+            <div class="preview-info-item"><span class="preview-icon"><i class="ci ci-doc"></i></span><div><strong>CAR:</strong> ${linha['CARMS'] || '-'}</div></div>
+        </div>
+
+        ${htmlObs}
+        ${htmlHistoricoPreview}
+
+        <div id="preview-timeline-container" style="margin-top: 15px;"></div>
+
+        <div class="preview-actions-section">
+            <div class="preview-actions-title">Ações e Interações</div>
+            ${acoesFluxoHtml}
+            ${botoesAcoesHtml}
+            ${acoesRevisorHtml}
+            ${acoesStatusDiretoria}
+        </div>
+    `;
+
     modal.style.display = 'flex';
+    const infoPanel = document.getElementById('previewInfo');
+    if (infoPanel) infoPanel.scrollTop = 0;
+
+    if (linha && linha['NUP'] && typeof renderizarLinhaTempoSistema === 'function') {
+        renderizarLinhaTempoSistema(linha['NUP'], 'preview-timeline-container');
+    }
 }
 
 function togglePreviewInfo() {
     const infoPanel = document.getElementById('previewInfo');
     if (infoPanel) {
         infoPanel.classList.toggle('hidden');
+        const iframe = document.getElementById('previewFrame');
+        if (iframe && iframe.src) {
+            setTimeout(() => {
+                try { iframe.src = iframe.src; } catch (e) {}
+            }, 50);
+        }
     }
 }
 
-function alternarVisualizacaoPreview(btn, urlPreview, urlDownload) {
-    const botoes = btn.parentElement.querySelectorAll('.btn-preview-toggle-tab');
-    botoes.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+async function alternarVisualizacaoPreview(btn, urlPreview, urlDownload) {
+    if (btn && btn.parentElement) {
+        const botoes = btn.parentElement.querySelectorAll('.btn-preview-toggle-tab');
+        botoes.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    let resolvedUrl = urlPreview || '';
+    let resolvedDownloadUrl = urlDownload || urlPreview || '';
+
+    try {
+        if (typeof obterLinkVisualizacaoSeguro === 'function') {
+            resolvedUrl = await obterLinkVisualizacaoSeguro(urlPreview);
+        }
+        if (typeof obterLinkDownloadSeguro === 'function') {
+            resolvedDownloadUrl = await obterLinkDownloadSeguro(urlDownload || urlPreview);
+        }
+    } catch (e) {
+        console.error('Erro ao alternar preview:', e);
+    }
 
     const iframe = document.getElementById('previewFrame');
     if (iframe) {
         iframe.style.display = 'block';
-        iframe.src = urlPreview;
+        iframe.src = resolvedUrl;
     }
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
-        btnOpenPreview.href = urlPreview.replace('/preview', '/view');
+        btnOpenPreview.href = resolvedUrl.replace('/preview', '/view');
     }
 
     const gisContainer = document.getElementById('gisMapContainerModal');
     if (gisContainer) gisContainer.style.display = 'none';
 
     const btnDownload = document.getElementById('btn-download-preview');
-    if (btnDownload) btnDownload.href = urlDownload;
+    if (btnDownload) btnDownload.href = resolvedDownloadUrl;
 }
 
 function fecharPreview() {
     const modal = document.getElementById('previewModal');
-    if (!modal) return;
-    
+    if (modal) {
+        modal.style.display = 'none';
+        modal.innerHTML = '';
+    }
+    const modalPequeno = document.getElementById('detalhesModal');
+    if (modalPequeno) {
+        modalPequeno.style.display = 'none';
+    }
     if (window.mapaGisModal) {
         window.mapaGisModal.remove();
         window.mapaGisModal = null;
         window.camadaGeoJsonModal = null;
     }
-    
-    modal.style.display = 'none';
-    modal.innerHTML = '';
 }
 
 function abrirModalAtribuirTecnicoOficio(nup) {
@@ -2765,7 +3657,11 @@ function abrirModalAtribuirTecnicoOficio(nup) {
         const el = document.createElement('option'); el.value = opt; el.textContent = opt; select.appendChild(el);
     });
 
-    document.getElementById('atribuirTecnicoOficioModal').style.display = 'flex';
+    const m = document.getElementById('atribuirTecnicoOficioModal');
+    if (m) {
+        m.style.zIndex = '2000';
+        m.style.display = 'flex';
+    }
 }
 
 function fecharModalAtribuirTecnicoOficio() {
@@ -2779,8 +3675,8 @@ async function salvarAtribuicaoTecnicoOficio() {
     if (!tecnico) { mostrarToast('Selecione um técnico para atribuir.', 'error'); return; }
 
     const btn = document.getElementById('btnSalvarAtribuicaoOficio');
-    const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ Preparando...'; btn.disabled = true;
+    const txtOriginal = btn ? btn.innerHTML : 'Salvar Distribuição';
+    if (btn) { btn.innerHTML = '⏳ Preparando...'; btn.disabled = true; }
 
     const procRef = dadosCoringa.find(a => a['NUP'] === nup);
     let statusOriginal = '';
@@ -2803,22 +3699,32 @@ async function salvarAtribuicaoTecnicoOficio() {
     atualizarBadgesNotificacao(dadosCoringa);
     atualizarCacheOficios();
     fecharModalAtribuirTecnicoOficio();
-    aplicarFiltros();
+    if (typeof aplicarFiltros === 'function') aplicarFiltros();
+    if (typeof atualizarDashboardInicio === 'function') atualizarDashboardInicio();
+
+    // Atualiza campos visuais no modal de preview se estiver aberto
+    const infoContent = document.getElementById('previewInfoContent');
+    if (infoContent) {
+        infoContent.querySelectorAll('.preview-info-item').forEach(item => {
+            if (item.textContent.includes('Responsável:')) {
+                const s = item.querySelector('span:last-child');
+                if (s) s.textContent = tecnico;
+            }
+        });
+        const stBadge = infoContent.querySelector('.modal-detail-status-oficio');
+        if (stBadge) stBadge.textContent = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
+    }
 
     const newIndex = dadosExibidos.findIndex(r => r['NUP'] === nup);
     if (newIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
         abrirModal(newIndex);
     }
 
-    btn.innerHTML = txtOriginal;
-    btn.disabled = false;
+    if (btn) { btn.innerHTML = txtOriginal; btn.disabled = false; }
 
     try {
         const payload = { acao: "atribuir_tecnico_oficio", nup: nup, tecnico: tecnico };
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
-            method: 'POST', body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS(payload);
 
         if (resultado.status === 'success') {
             mostrarToast('Distribuição confirmada na nuvem com sucesso!', 'success');
@@ -2862,9 +3768,8 @@ function atualizarBadgesNotificacao(dados) {
 
     let dadosFiltradosBadge = dados;
     if (usuarioAtivo.perfil === 'tecnico') {
-        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-        dadosFiltradosBadge = dados.filter(r => (r['TÉCNICO/ADMIN'] || '').toUpperCase().trim() === tecnicoLogado);
-    } else if (usuarioAtivo.perfil.startsWith('gerencia') && usuarioAtivo.username !== 'diflor') {
+        dadosFiltradosBadge = dados.filter(r => window.isMesmoTecnico(r['TÉCNICO/ADMIN'], usuarioAtivo));
+    } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
         dadosFiltradosBadge = dados.filter(r => {
             const tec = (r['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
             const semTecnico = tec === '' || tec === '-' || tec === 'S/T';
@@ -2964,15 +3869,14 @@ function atualizarBadgesNotificacao(dados) {
     // BADGES CARTAS CONSULTA
     let cartasFiltradas = typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : [];
     if (usuarioAtivo.perfil === 'tecnico') {
-        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-        cartasFiltradas = cartasFiltradas.filter(r => (r['TÉCNICO/ADM'] || r['TECNICO/ADM'] || '').toUpperCase().trim() === tecnicoLogado);
-    } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+        cartasFiltradas = cartasFiltradas.filter(r => window.isMesmoTecnico(r['TÉCNICO/ADM'] || r['TECNICO/ADM'], usuarioAtivo));
+    } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
         cartasFiltradas = cartasFiltradas.filter(r => {
             const tec = String(r['TÉCNICO/ADM'] || r['TECNICO/ADM'] || '').toUpperCase().trim();
-            const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO';
+            const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
             const gerenciaRow = String(r['GERÊNCIA'] || '').toUpperCase().trim();
             if (!semTecnico) {
-                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tec] : null) || 'S/G';
                 return (setorInternoDoTecnico === usuarioAtivo.setor);
             } else {
                 return (gerenciaRow === usuarioAtivo.setor);
@@ -3011,17 +3915,18 @@ function atualizarBadgesNotificacao(dados) {
     }
     let externosFiltrados = typeof dadosExternosGlobais !== 'undefined' ? dadosExternosGlobais : [];
     if (usuarioAtivo.perfil === 'tecnico') {
-        const tecnicoLogado = usuarioAtivo.nomePlanilha.toUpperCase().trim();
-        externosFiltrados = externosFiltrados.filter(r => (r['TÉCNICO/ADMIN'] || '').toUpperCase().trim() === tecnicoLogado);
-    } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.perfil.startsWith('gerencia')) {
+        externosFiltrados = externosFiltrados.filter(r => window.isMesmoTecnico(r['TÉCNICO/ADMIN'], usuarioAtivo));
+    } else if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
         externosFiltrados = externosFiltrados.filter(r => {
             const tec = String(r['TÉCNICO/ADMIN'] || '').toUpperCase().trim();
             const semTecnico = tec === '' || tec === '-' || tec === 'S/T' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
+            const gerenciaRow = String(r['GERÊNCIA'] || '').toUpperCase().trim();
             if (!semTecnico) {
-                const setorInternoDoTecnico = MAPA_TECNICOS_SETORES[tec] || 'S/G';
+                const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tec] : null) || 'S/G';
                 return (setorInternoDoTecnico === usuarioAtivo.setor);
+            } else {
+                return (gerenciaRow === usuarioAtivo.setor);
             }
-            return true;
         });
     }
 
@@ -3087,6 +3992,31 @@ function atualizarBadgesNotificacao(dados) {
     atualizarBadgeDOM('badge-menu-externos-revisao', totalExtRevisao);
     atualizarBadgeDOM('badge-menu-externos-despacho', totalExtDespacho);
     atualizarBadgeDOM('badge-menu-externos-assinatura', totalExtAssinatura);
+
+    // TOP NAVBAR BADGES
+    atualizarBadgeDOM('badge-top-distribuicao', totalDistribuicao);
+    atualizarBadgeDOM('badge-top-andamento', totalAndamento);
+    atualizarBadgeDOM('badge-top-atrasados', totalAtrasados);
+    atualizarBadgeDOM('badge-top-respondidos', totalRespPendentes);
+    atualizarBadgeDOM('badge-top-comunicacao', totalComunicacao);
+    atualizarBadgeDOM('badge-top-assinatura-oficios', totalAssinaturaOficios);
+
+    atualizarBadgeDOM('badge-top-cartas-distribuicao', totalCartasDistribuicao);
+    atualizarBadgeDOM('badge-top-cartas-andamento', totalCartasAndamento);
+    atualizarBadgeDOM('badge-top-cartas-atrasados', totalCartasAtrasados);
+    atualizarBadgeDOM('badge-top-cartas-revisao', totalCartasRevisao);
+    atualizarBadgeDOM('badge-top-cartas-despacho', totalCartasDespacho);
+    atualizarBadgeDOM('badge-top-cartas-assinatura', totalCartasAssinatura);
+
+    atualizarBadgeDOM('badge-top-externos-distribuicao', totalExtDist);
+    atualizarBadgeDOM('badge-top-externos-andamento', totalExtAndamento);
+    atualizarBadgeDOM('badge-top-externos-revisao', totalExtRevisao);
+    atualizarBadgeDOM('badge-top-externos-despacho', totalExtDespacho);
+    atualizarBadgeDOM('badge-top-externos-assinatura', totalExtAssinatura);
+
+    if (filtroAtivo === 'inicio' && typeof atualizarDashboardInicio === 'function') {
+        atualizarDashboardInicio();
+    }
 }
 
 function atualizarBadgeDOM(id, count) {
@@ -3134,63 +4064,11 @@ const opcoesTipoAba1 = [
     "CARTA CONSULTA"
 ];
 
-// MAPA INTERNO DE TÉCNICOS E SEUS RESPECTIVOS SETORES (SUB-ABAS)
-const MAPA_TECNICOS_SETORES = {
-    "ADRIANA": "GEAA",
-    "ALCEBIADES": "GEAA",
-    "ALEXANDRE": "GEAA",
-    "ALLAN": "GEAA",
-    "ANDERSON": "GEAA",
-    "BARBARA": "GEAA",
-    "BEATRIZ": "GEAA",
-    "CARLA": "GEAA",
-    "CARLOS JULIANO": "GCAR",
-    "CORINA": "GEAA",
-    "CRISTIANE": "GCAR",
-    "DIANESSA": "GCAR",
-    "DINA": "GEAA",
-    "ELERI": "GCAR",
-    "ERLISSON": "GCAR",
-    "ETEVALDO": "GEAA",
-    "FABIANA": "GCAR",
-    "FRANCIELLY": "GCAR",
-    "GABRIELA": "GCAR",
-    "HELEN CAROLINE": "GCAR",
-    "HELLEN": "GEAA",
-    "HENRIQUE": "GEAA",
-    "HERUS": "GEAA",
-    "HILBATY": "GCAR",
-    "JEAN PIERRE": "GEAA",
-    "JHONATAN": "DIFLOR",
-    "JOELTHON": "GEAA",
-    "JONIEL": "GEAA",
-    "JOSÉ RENATO": "GEAA",
-    "JOSE RENATO": "GEAA",
-    "LARISSA": "GCAR",
-    "LIVYA": "DIFLOR",
-    "LUCIANO": "GEAA",
-    "LUIZ": "GEAA",
-    "MARIA": "GEAA",
-    "MARIANA SH": "GEAA",
-    "MARIANA OPP": "GEAA",
-    "MATEUS": "GEAA",
-    "MAX SANDER": "GEAA",
-    "MICHAEL": "GCAR",
-    "MILKA": "GCAR",
-    "NATTANA": "GCAR",
-    "OSVALDO": "DIFLOR",
-    "RHOANDER": "GEAA",
-    "RODRIGO": "GEAA",
-    "SUZIELLY": "GEAA"
-};
-
-// Mantém o array simples apenas para popular os seletores (<select>) da interface
-const opcoesAutoTecnico = Object.keys(MAPA_TECNICOS_SETORES).sort();
-
 const opcoesGerencia = [
     "DIFLOR",
     "GCAR",
-    "GEAA"
+    "GEAA",
+    "GEAMB"
 ];
 
 function atualizarOpcoesTipo() {
@@ -3251,6 +4129,7 @@ function abrirModalCadastro() {
 
 function fecharModalCadastro() {
     document.getElementById('cadastroModal').style.display = 'none';
+    if (typeof fecharModalCadastroUnificado === 'function') fecharModalCadastroUnificado();
     ['cadNup', 'cadOficioN', 'cadData', 'cadPrazo', 'cadComarca', 'cadTecnico', 'cadGerencia', 'cadCarms', 'cadReferencia', 'cadObservacao', 'cadOficioArquivo'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -3712,5 +4591,997 @@ async function salvarReiteracaoOficio() {
     }
 }
 
+/* ==========================================================================
+   DASHBOARD INÍCIO: PROCESSOS EM ANDAMENTO, KPIS, GRÁFICOS E TABELA UNIFICADA
+   ========================================================================== */
+
+let processosInicioFiltrados = [];
+let filtroModuloInicioAtivo = 'todos';
+let filtrosKpiInicioAtivos = new Set();
+let chartTecnicosInstancia = null;
+
+function iniciarRelogioNavbar() {
+    function atualizar() {
+        const agora = new Date();
+        const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        
+        const diaSemana = diasSemana[agora.getDay()];
+        const dia = agora.getDate();
+        const mes = meses[agora.getMonth()];
+        const ano = agora.getFullYear();
+        const horas = String(agora.getHours()).padStart(2, '0');
+        const minutos = String(agora.getMinutes()).padStart(2, '0');
+        const segundos = String(agora.getSeconds()).padStart(2, '0');
+        
+        const horaStr = `${horas}:${minutos}:${segundos}`;
+        const dataCompleta = `${diaSemana}, ${dia} de ${mes} de ${ano} | ${horaStr}`;
+        
+        const clockTop = document.getElementById('topLiveClock');
+        if (clockTop) clockTop.innerText = horaStr;
+        
+        const clockHero = document.getElementById('dashHeroClock');
+        if (clockHero) clockHero.innerText = dataCompleta;
+    }
+    atualizar();
+    setInterval(atualizar, 1000);
+}
+
+function toggleTopDropdown(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const content = el.querySelector('.top-dropdown-content');
+    if (!content) return;
+    
+    const isVisible = content.style.display === 'block';
+    document.querySelectorAll('.top-dropdown-content').forEach(d => d.style.display = 'none');
+    
+    if (!isVisible) {
+        content.style.display = 'block';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.top-nav-dropdown')) {
+        document.querySelectorAll('.top-dropdown-content').forEach(d => d.style.display = 'none');
+    }
+});
+
+function isProcessoFinalizado(status, statusVisual) {
+    const s = String(status || '').toUpperCase().trim();
+    const sv = String(statusVisual || '').toUpperCase().trim();
+    return s === 'FINALIZADO' || s === 'TRAMITADO' || s === 'ARQUIVADO' || s === 'CONCLUIDO' || s === 'CONCLUÍDO' || s === 'RESPONDIDO'
+        || sv.includes('FINALIZADO') || sv.includes('TRAMITADO') || sv.includes('ARQUIVADO') || sv.includes('CONCLUÍDO');
+}
+
+function obterProcessosEmAndamentoUnificados() {
+    const lista = [];
+
+    // 1. Ofícios Internos
+    if (Array.isArray(dadosCoringa)) {
+        dadosCoringa.forEach(row => {
+            const statusVisual = (typeof obterStatusVisual === 'function') ? obterStatusVisual(row).texto : (row['STATUS'] || '');
+            if (!isProcessoFinalizado(row['STATUS'], statusVisual)) {
+                let dias = parseInt(row['DIAS RESTANTES']);
+                if (isNaN(dias)) dias = calcularDiasRestantes(row['DATA'], row['PRAZO']);
+                lista.push({
+                    modulo: 'Ofícios',
+                    moduloKey: 'oficios',
+                    nup: row['NUP'] || '-',
+                    interessado: row['OFÍCIO N.'] || row['OFÍCIO'] || row['ASSUNTO'] || row['COMARCA'] || '-',
+                    tecnico: (row['TÉCNICO/ADMIN'] || 'S/T').trim().toUpperCase(),
+                    gerencia: (row['OFÍCIO'] && row['GERÊNCIA'] ? row['GERÊNCIA'] : (row['GERÊNCIA'] || '')).trim().toUpperCase(),
+                    status: row['STATUS'] || 'EM ANDAMENTO',
+                    statusVisual: statusVisual,
+                    diasRestantes: isNaN(dias) ? '-' : dias,
+                    dataEntrada: row['DATA'] || '-',
+                    raw: row
+                });
+            }
+        });
+    }
+
+    // 2. Cartas Consulta
+    if (typeof dadosCartasGlobais !== 'undefined' && Array.isArray(dadosCartasGlobais)) {
+        dadosCartasGlobais.forEach(row => {
+            const statusVisual = row['STATUS'] || '';
+            if (!isProcessoFinalizado(row['STATUS'], statusVisual)) {
+                let dias = parseInt(row['DIAS RESTANTES'] || row['DIAS_RESTANTES']);
+                if (isNaN(dias) && typeof calcularDiasRestantes === 'function') dias = calcularDiasRestantes(row['DATA DE ENTRADA'] || row['DATA'], row['PRAZO']);
+                lista.push({
+                    modulo: 'Cartas Consulta',
+                    moduloKey: 'cartas',
+                    nup: row['NUP'] || '-',
+                    interessado: row['REQUERENTE'] || row['MUNICÍPIO'] || row['ASSUNTO'] || row['CARMS'] || '-',
+                    tecnico: (row['TÉCNICO/ADM'] || row['TÉCNICO'] || 'S/T').trim().toUpperCase(),
+                    gerencia: (row['GERÊNCIA'] || '').trim().toUpperCase(),
+                    status: row['STATUS'] || 'EM ANDAMENTO',
+                    statusVisual: statusVisual,
+                    diasRestantes: isNaN(dias) ? '-' : dias,
+                    dataEntrada: row['DATA DE ENTRADA'] || row['DATA'] || '-',
+                    raw: row
+                });
+            }
+        });
+    }
+
+    // 3. Autos de Infração
+    if (typeof dadosAutosGlobais !== 'undefined' && Array.isArray(dadosAutosGlobais)) {
+        dadosAutosGlobais.forEach(row => {
+            const statusVisual = row['STATUS ATUAL'] || row['STATUS'] || '';
+            if (!isProcessoFinalizado(statusVisual, statusVisual)) {
+                let dias = parseInt(row['DIAS RESTANTES']);
+                if (isNaN(dias) && typeof calcularDiasRestantes === 'function') dias = calcularDiasRestantes(row['DATA AUTUAÇÃO'] || row['DATA'], row['PRAZO']);
+                lista.push({
+                    modulo: 'Autos de Infração',
+                    moduloKey: 'autos',
+                    nup: row['NUP'] || '-',
+                    interessado: row['AUTUADO'] || row['ASSUNTO'] || row['MUNICÍPIO'] || row['TIPO'] || '-',
+                    tecnico: (row['TÉCNICO'] || 'S/T').trim().toUpperCase(),
+                    gerencia: (row['SETOR'] || row['GERÊNCIA'] || '').trim().toUpperCase(),
+                    status: statusVisual,
+                    statusVisual: statusVisual,
+                    diasRestantes: isNaN(dias) ? '-' : dias,
+                    dataEntrada: row['DATA AUTUAÇÃO'] || row['DATA'] || '-',
+                    raw: row
+                });
+            }
+        });
+    }
+
+    // 4. Ofícios Externos
+    if (typeof dadosExternosGlobais !== 'undefined' && Array.isArray(dadosExternosGlobais)) {
+        dadosExternosGlobais.forEach(row => {
+            const statusVisual = row['STATUS'] || '';
+            if (!isProcessoFinalizado(row['STATUS'], statusVisual)) {
+                let dias = parseInt(row['DIAS RESTANTES']);
+                if (isNaN(dias) && typeof calcularDiasRestantes === 'function') dias = calcularDiasRestantes(row['DATA DE RECEBIMENTO'] || row['DATA'], row['PRAZO']);
+                lista.push({
+                    modulo: 'Ofícios Externos',
+                    moduloKey: 'externos',
+                    nup: row['NUP'] || '-',
+                    interessado: row['REMETENTE'] || row['ASSUNTO'] || row['CARMS'] || '-',
+                    tecnico: (row['TÉCNICO/ADMIN'] || row['TÉCNICO'] || 'S/T').trim().toUpperCase(),
+                    gerencia: (row['GERÊNCIA'] || '').trim().toUpperCase(),
+                    status: row['STATUS'] || 'EM ANDAMENTO',
+                    statusVisual: statusVisual,
+                    diasRestantes: isNaN(dias) ? '-' : dias,
+                    dataEntrada: row['DATA DE RECEBIMENTO'] || row['DATA'] || '-',
+                    raw: row
+                });
+            }
+        });
+    }
+
+    // Filtragem de Permissões RBAC e Setorial
+    if (usuarioAtivo) {
+        if (usuarioAtivo.perfil === 'tecnico') {
+            return lista.filter(p => window.isMesmoTecnico(p.tecnico, usuarioAtivo));
+        }
+        
+        if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
+            return lista.filter(p => {
+                const semTec = !p.tecnico || p.tecnico === 'S/T' || p.tecnico === '-' || p.tecnico === 'SEM TÉCNICO' || p.tecnico === 'NÃO ATRIBUÍDO' || p.tecnico === 'SEM TÉCNICO/ADM';
+                if (!semTec) {
+                    const setorDoTecnico = ((typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[p.tecnico] : null) || 'S/G');
+                    return setorDoTecnico === usuarioAtivo.setor;
+                } else {
+                    const gerenciaItem = (p.gerencia || '').trim().toUpperCase();
+                    return gerenciaItem === usuarioAtivo.setor;
+                }
+            });
+        }
+    }
+
+    return lista;
+}
+
+function atualizarDashboardInicio() {
+    const todosEmAndamento = obterProcessosEmAndamentoUnificados();
+    
+    // Filtra pelo módulo ativo na barra superior se não for 'todos'
+    let processosParaKpis = todosEmAndamento;
+    if (filtroModuloInicioAtivo !== 'todos') {
+        processosParaKpis = todosEmAndamento.filter(p => p.moduloKey === filtroModuloInicioAtivo);
+    }
+    const totalGeral = processosParaKpis.length;
+
+    let countDistribuicao = 0;
+    let countManifestacao = 0;
+    let countRevisao = 0;
+    let countAssinatura = 0;
+    let countAtrasados = 0;
+    let countSobrestados = 0;
+
+    processosParaKpis.forEach(p => {
+        const s = String(p.status || '').toUpperCase();
+        const tec = p.tecnico;
+        const semTecnico = !tec || tec === 'S/T' || tec === '-' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
+
+        // KPI 1: Aguard. Distribuição
+        if (semTecnico || s.includes('DISTRIBUIÇÃO') || s.includes('DISTRIBUICAO')) {
+            countDistribuicao++;
+        }
+        // KPI 6: Sobrestados
+        else if (s.includes('SOBRESTADO')) {
+            countSobrestados++;
+        }
+        // KPI 3: Aguard. Revisão
+        else if (s.includes('REVISÃO') || s.includes('REVISAO')) {
+            countRevisao++;
+        }
+        // KPI 4: Aguard. Assinatura
+        else if (s.includes('ASSINATURA') || s === 'FAZER CI' || s === 'FAZER DESPACHO') {
+            countAssinatura++;
+        }
+        // KPI 2: Aguard. Manifestação
+        else {
+            countManifestacao++;
+        }
+
+        // KPI 5: Atrasados
+        if (!isNaN(p.diasRestantes) && p.diasRestantes < 0) {
+            countAtrasados++;
+        }
+    });
+
+    const calcPct = (c) => totalGeral > 0 ? `${Math.round((c / totalGeral) * 100)}%` : '0%';
+
+    const isTec = typeof window.isPerfilTecnico === 'function' ? window.isPerfilTecnico() : (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.role === 'tecnico'));
+    const elCardDist = document.getElementById('kpi-card-distribuicao');
+    if (elCardDist) {
+        elCardDist.style.display = isTec ? 'none' : '';
+    }
+    const kpiGrid = document.querySelector('.kpi-row-grid');
+    if (kpiGrid) {
+        if (isTec) kpiGrid.classList.add('kpi-grid-5');
+        else kpiGrid.classList.remove('kpi-grid-5');
+    }
+
+    const elDist = document.getElementById('kpi-num-distribuicao');
+    if (elDist) {
+        elDist.innerText = countDistribuicao;
+        const b = document.getElementById('kpi-badge-distribuicao');
+        if (b) b.innerText = calcPct(countDistribuicao);
+    }
+    const elManif = document.getElementById('kpi-num-manifestacao');
+    if (elManif) {
+        elManif.innerText = countManifestacao;
+        const b = document.getElementById('kpi-badge-manifestacao');
+        if (b) b.innerText = calcPct(countManifestacao);
+    }
+    const elRev = document.getElementById('kpi-num-revisao');
+    if (elRev) {
+        elRev.innerText = countRevisao;
+        const b = document.getElementById('kpi-badge-revisao');
+        if (b) b.innerText = calcPct(countRevisao);
+    }
+    const elAss = document.getElementById('kpi-num-assinatura');
+    if (elAss) {
+        elAss.innerText = countAssinatura;
+        const b = document.getElementById('kpi-badge-assinatura');
+        if (b) b.innerText = calcPct(countAssinatura);
+    }
+    const elAtr = document.getElementById('kpi-num-atrasados');
+    if (elAtr) {
+        elAtr.innerText = countAtrasados;
+        const b = document.getElementById('kpi-badge-atrasados');
+        if (b) b.innerText = calcPct(countAtrasados);
+    }
+    const elSob = document.getElementById('kpi-num-sobrestados');
+    if (elSob) {
+        elSob.innerText = countSobrestados;
+        const b = document.getElementById('kpi-badge-sobrestados');
+        if (b) b.innerText = calcPct(countSobrestados);
+    }
+
+    // Popular Select de Técnicos do filtro de Início
+    popularSelectTecnicosInicio();
+
+    // Filtrar e Renderizar Gráfico e Tabela Unificada Dinamicamente
+    filtrarDashboardInicio();
+}
+
+function renderizarGraficoTecnicos(contagem) {
+    const canvas = document.getElementById('chartTecnicosProcessos');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const entries = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
+    const labels = entries.map(e => e[0]);
+    const data = entries.map(e => e[1]);
+    const bgColors = labels.map(l => l === '(Sem Técnico)' ? '#e67e22' : '#3b82f6');
+
+    // Se já existir instância ativa no mesmo canvas, atualiza in-place para manter hitboxes e interações sincronizadas
+    if (chartTecnicosInstancia && chartTecnicosInstancia.ctx) {
+        chartTecnicosInstancia.data.labels = labels;
+        chartTecnicosInstancia.data.datasets[0].data = data;
+        chartTecnicosInstancia.data.datasets[0].backgroundColor = bgColors;
+        chartTecnicosInstancia.update();
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    chartTecnicosInstancia = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Processos em Andamento',
+                data: data,
+                backgroundColor: bgColors,
+                borderRadius: 6,
+                borderSkipped: false,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            // Sincronização estrita de coordenadas por coluna/eixo X (elimina divergência de tooltip)
+            interaction: {
+                mode: 'index',
+                axis: 'x',
+                intersect: false
+            },
+            hover: {
+                mode: 'index',
+                axis: 'x',
+                intersect: false
+            },
+            onHover: (event, chartElement) => {
+                const target = event.native && event.native.target;
+                if (target) target.style.cursor = (chartElement && chartElement.length > 0) ? 'pointer' : 'default';
+            },
+            onClick: (event, elements) => {
+                if (elements && elements.length > 0) {
+                    const idx = elements[0].index;
+                    const tec = labels[idx];
+                    const sel = document.getElementById('filtroInicioTecnico');
+                    if (sel && tec) {
+                        sel.value = tec === '(Sem Técnico)' ? '' : tec;
+                        filtrarDashboardInicio();
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true,
+                    mode: 'index',
+                    axis: 'x',
+                    intersect: false,
+                    position: 'nearest',
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255,255,255,0.15)',
+                    borderWidth: 1,
+                    padding: 10,
+                    titleFont: {
+                        family: 'Inter',
+                        size: 12,
+                        weight: '700'
+                    },
+                    bodyFont: {
+                        family: 'Inter',
+                        size: 11
+                    },
+                    callbacks: {
+                        title: function(context) {
+                            return (context && context[0]) ? context[0].label : '';
+                        },
+                        label: function(context) {
+                            const val = context.parsed.y !== undefined ? context.parsed.y : context.raw;
+                            return ` ${val} processos em andamento`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: {
+                            size: 11,
+                            family: 'Inter',
+                            weight: '600'
+                        },
+                        maxRotation: 45,
+                        minRotation: 0
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: {
+                            size: 11,
+                            family: 'Inter'
+                        },
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+function popularSelectTecnicosInicio() {
+    const sel = document.getElementById('filtroInicioTecnico');
+    if (!sel || sel.dataset.populated) return;
+
+    if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+        const nomeTec = (usuarioAtivo.nomePlanilha || usuarioAtivo.nomeCompleto || '').toUpperCase().trim();
+        sel.innerHTML = `<option value="${nomeTec}">${nomeTec}</option>`;
+        sel.value = nomeTec;
+        sel.disabled = true;
+        sel.style.opacity = '0.85';
+        sel.dataset.populated = 'true';
+        return;
+    }
+
+    sel.innerHTML = '<option value="">-- Todos os Técnicos --</option>';
+    if (typeof window.opcoesAutoTecnico !== 'undefined' && Array.isArray(window.opcoesAutoTecnico)) {
+        let listaTecnicos = [...window.opcoesAutoTecnico];
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
+            listaTecnicos = listaTecnicos.filter(tec => {
+                const t = tec.trim().toUpperCase();
+                return MAPA_TECNICOS_SETORES[t] === usuarioAtivo.setor;
+            });
+        }
+        listaTecnicos.forEach(tec => {
+            const opt = document.createElement('option');
+            opt.value = tec.toUpperCase();
+            opt.textContent = tec;
+            sel.appendChild(opt);
+        });
+    }
+    sel.dataset.populated = 'true';
+}
+
+function selecionarModuloInicio(modulo, btn) {
+    filtroModuloInicioAtivo = modulo || 'todos';
+
+    // Se estiver em outra aba principal, navega para o Início
+    if (typeof mudarAbaPrincipal === 'function') {
+        const abaAtual = document.querySelector('.tab-section.active');
+        if (!abaAtual || abaAtual.id !== 'aba-inicio') {
+            mudarAbaPrincipal('inicio');
+        }
+    }
+
+    // Sincroniza estado ativo nos botões da barra superior
+    const mapaTopBtns = {
+        'todos': 'top-btn-inicio',
+        'oficios': 'top-btn-oficios',
+        'cartas': 'top-btn-cartas',
+        'autos': 'top-btn-autos',
+        'externos': 'top-btn-externos'
+    };
+    document.querySelectorAll('.top-nav-menu .top-nav-btn').forEach(b => b.classList.remove('active'));
+    const targetTopBtnId = mapaTopBtns[filtroModuloInicioAtivo] || 'top-btn-inicio';
+    const targetTopBtn = document.getElementById(targetTopBtnId);
+    if (targetTopBtn) targetTopBtn.classList.add('active');
+
+    // Atualiza os indicadores de KPIs, Gráfico e Tabela para o módulo selecionado
+    atualizarDashboardInicio();
+}
+
+function filtrarKpiInicio(kpiTipo) {
+    if (!kpiTipo) return;
+
+    const isTec = typeof window.isPerfilTecnico === 'function' ? window.isPerfilTecnico() : (usuarioAtivo && (usuarioAtivo.perfil === 'tecnico' || usuarioAtivo.role === 'tecnico'));
+    if (isTec && kpiTipo === 'distribuicao') return;
+
+    // Toggle multi-seleção no Set
+    if (filtrosKpiInicioAtivos.has(kpiTipo)) {
+        filtrosKpiInicioAtivos.delete(kpiTipo);
+    } else {
+        filtrosKpiInicioAtivos.add(kpiTipo);
+    }
+
+    // Atualiza classes visuais nos 6 cards de KPI
+    const todosKpis = ['distribuicao', 'manifestacao', 'revisao', 'assinatura', 'atrasados', 'sobrestados'];
+    todosKpis.forEach(tipo => {
+        const cardEl = document.getElementById(`kpi-card-${tipo}`);
+        if (cardEl) {
+            if (filtrosKpiInicioAtivos.has(tipo)) {
+                cardEl.classList.add('active');
+            } else {
+                cardEl.classList.remove('active');
+            }
+        }
+    });
+
+    filtrarDashboardInicio();
+}
+
+function limparFiltrosInicio() {
+    const buscaInput = document.getElementById('filtroInicioBusca');
+    if (buscaInput) buscaInput.value = '';
+    
+    const tecSelect = document.getElementById('filtroInicioTecnico');
+    if (tecSelect) {
+        if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
+            tecSelect.value = (usuarioAtivo.nomePlanilha || usuarioAtivo.nomeCompleto || '').toUpperCase().trim();
+        } else {
+            tecSelect.value = '';
+        }
+    }
+    
+    const statusSelect = document.getElementById('filtroInicioStatus');
+    if (statusSelect) statusSelect.value = '';
+    
+    // Limpa filtros de KPI e remove estado ativo dos cards
+    filtrosKpiInicioAtivos.clear();
+    const todosKpis = ['distribuicao', 'manifestacao', 'revisao', 'assinatura', 'atrasados', 'sobrestados'];
+    todosKpis.forEach(tipo => {
+        const cardEl = document.getElementById(`kpi-card-${tipo}`);
+        if (cardEl) cardEl.classList.remove('active');
+    });
+
+    // Restaura módulo para todos
+    selecionarModuloInicio('todos');
+}
+
+function filtrarDashboardInicio() {
+    const todosEmAndamento = obterProcessosEmAndamentoUnificados();
+    const buscaVal = (document.getElementById('filtroInicioBusca') ? document.getElementById('filtroInicioBusca').value : '').toLowerCase().trim();
+    const tecVal = (document.getElementById('filtroInicioTecnico') ? document.getElementById('filtroInicioTecnico').value : '').toUpperCase().trim();
+    const statusVal = (document.getElementById('filtroInicioStatus') ? document.getElementById('filtroInicioStatus').value : '').toUpperCase().trim();
+
+    const filtrados = todosEmAndamento.filter(p => {
+        // 1. Filtro por Módulo
+        if (filtroModuloInicioAtivo !== 'todos' && p.moduloKey !== filtroModuloInicioAtivo) {
+            return false;
+        }
+
+        // 2. Filtro Multi-Seleção de Blocos de Status (KPIs)
+        if (filtrosKpiInicioAtivos.size > 0) {
+            const s = String(p.status || '').toUpperCase();
+            const tec = p.tecnico;
+            const semTecnico = !tec || tec === 'S/T' || tec === '-' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
+            
+            let matchesAnyKpi = false;
+
+            if (filtrosKpiInicioAtivos.has('distribuicao')) {
+                if (semTecnico || s.includes('DISTRIBUIÇÃO') || s.includes('DISTRIBUICAO')) matchesAnyKpi = true;
+            }
+            if (filtrosKpiInicioAtivos.has('manifestacao')) {
+                if (!semTecnico && (s.includes('MANIFESTAÇÃO') || s.includes('MANIFESTACAO') || s.includes('ANDAMENTO')) && !s.includes('REVISÃO') && !s.includes('REVISAO') && !s.includes('ASSINATURA') && !s.includes('SOBRESTADO') && s !== 'FAZER CI' && s !== 'FAZER DESPACHO') {
+                    matchesAnyKpi = true;
+                }
+            }
+            if (filtrosKpiInicioAtivos.has('revisao')) {
+                if (s.includes('REVISÃO') || s.includes('REVISAO')) matchesAnyKpi = true;
+            }
+            if (filtrosKpiInicioAtivos.has('assinatura')) {
+                if (s.includes('ASSINATURA') || s === 'FAZER CI' || s === 'FAZER DESPACHO') matchesAnyKpi = true;
+            }
+            if (filtrosKpiInicioAtivos.has('atrasados')) {
+                if (!isNaN(p.diasRestantes) && p.diasRestantes < 0) matchesAnyKpi = true;
+            }
+            if (filtrosKpiInicioAtivos.has('sobrestados')) {
+                if (s.includes('SOBRESTADO')) matchesAnyKpi = true;
+            }
+
+            if (!matchesAnyKpi) return false;
+        }
+
+        // 3. Busca Textual
+        if (buscaVal) {
+            const matchNup = p.nup.toLowerCase().includes(buscaVal);
+            const matchInteressado = p.interessado.toLowerCase().includes(buscaVal);
+            if (!matchNup && !matchInteressado) return false;
+        }
+
+        // 4. Select de Técnico
+        if (tecVal) {
+            if (typeof window.isMesmoTecnico === 'function') {
+                if (!window.isMesmoTecnico(p.tecnico, { nomePlanilha: tecVal, nomeCompleto: tecVal, username: tecVal })) return false;
+            } else {
+                if (p.tecnico !== tecVal) return false;
+            }
+        }
+
+        // 5. Select de Status Dropdown
+        if (statusVal) {
+            if (statusVal === 'ATRASADOS') {
+                if (isNaN(p.diasRestantes) || p.diasRestantes >= 0) return false;
+            } else if (statusVal === 'AGUARDANDO DISTRIBUIÇÃO') {
+                const s = String(p.status).toUpperCase();
+                const semTec = !p.tecnico || p.tecnico === 'S/T' || p.tecnico === '-';
+                if (!semTec && !s.includes('DISTRIBUIÇÃO') && !s.includes('DISTRIBUICAO')) return false;
+            } else if (statusVal === 'AGUARDANDO MANIFESTAÇÃO') {
+                const s = String(p.status).toUpperCase();
+                if (!s.includes('MANIFESTAÇÃO') && !s.includes('MANIFESTACAO') && !s.includes('ANDAMENTO')) return false;
+            } else if (statusVal === 'REVISÃO') {
+                const s = String(p.status).toUpperCase();
+                if (!s.includes('REVISÃO') && !s.includes('REVISAO')) return false;
+            } else if (statusVal === 'AGUARDANDO ASSINATURA') {
+                const s = String(p.status).toUpperCase();
+                if (!s.includes('ASSINATURA')) return false;
+            } else if (statusVal === 'SOBRESTADO') {
+                const s = String(p.status).toUpperCase();
+                if (!s.includes('SOBRESTADO')) return false;
+            } else {
+                if (!String(p.status).toUpperCase().includes(statusVal)) return false;
+            }
+        }
+
+        return true;
+    });
+
+    // Renderiza a Tabela Unificada
+    renderTabelaInicio(filtrados);
+
+    // Recalcula e Atualiza o Gráfico de Técnicos com o subconjunto filtrado
+    const contagemPorTecnico = {};
+    filtrados.forEach(p => {
+        const tec = p.tecnico;
+        const semTecnico = !tec || tec === 'S/T' || tec === '-' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
+        if (!semTecnico) {
+            contagemPorTecnico[tec] = (contagemPorTecnico[tec] || 0) + 1;
+        } else {
+            contagemPorTecnico['(Sem Técnico)'] = (contagemPorTecnico['(Sem Técnico)'] || 0) + 1;
+        }
+    });
+    renderizarGraficoTecnicos(contagemPorTecnico);
+
+    const totalEl = document.getElementById('dashChartTotal');
+    if (totalEl) totalEl.innerText = `Total em Andamento: ${filtrados.length}`;
+}
+
+const filtrarTabelaInicio = filtrarDashboardInicio;
+
+function obterStatusOperacionalFormatado(p) {
+    const s = String(p.status || '').toUpperCase().trim();
+    const tec = p.tecnico;
+    const semTecnico = !tec || tec === 'S/T' || tec === '-' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
+
+    if (semTecnico || s.includes('DISTRIBUIÇÃO') || s.includes('DISTRIBUICAO')) {
+        return { texto: 'AGUARD. DISTRIBUIÇÃO', classe: 'badge-status-distribuicao', icon: '<i class="ci ci-inbox"></i>' };
+    }
+    if (s.includes('SOBRESTADO')) {
+        return { texto: 'SOBRESTADO', classe: 'badge-status-sobrestado', icon: '<i class="ci ci-pause"></i>' };
+    }
+    if (s.includes('REVISÃO') || s.includes('REVISAO')) {
+        return { texto: 'AGUARD. REVISÃO', classe: 'badge-status-revisao', icon: '<i class="ci ci-folder-check"></i>' };
+    }
+    if (s.includes('ASSINATURA')) {
+        return { texto: 'AGUARD. ASSINATURA', classe: 'badge-status-assinatura', icon: '<i class="ci ci-pen"></i>' };
+    }
+    if (s === 'FAZER CI' || s === 'FAZER C.I.') {
+        return { texto: 'FAZER C.I.', classe: 'badge-status-assinatura', icon: '<i class="ci ci-megaphone"></i>' };
+    }
+    if (s === 'FAZER DESPACHO') {
+        return { texto: 'FAZER DESPACHO', classe: 'badge-status-assinatura', icon: '<i class="ci ci-megaphone"></i>' };
+    }
+    if (s.includes('MANIFESTAÇÃO') || s.includes('MANIFESTACAO') || s.includes('ANDAMENTO')) {
+        return { texto: 'AGUARD. MANIFESTAÇÃO', classe: 'badge-status-manifestacao', icon: '<i class="ci ci-clock"></i>' };
+    }
+    if (!s || s === '-' || s === 'NAN') {
+        return { texto: 'AGUARD. MANIFESTAÇÃO', classe: 'badge-status-manifestacao', icon: '<i class="ci ci-clock"></i>' };
+    }
+    return { texto: s, classe: 'badge-status-default', icon: '<i class="ci ci-doc"></i>' };
+}
+
+function limparNupDisplay(nup) {
+    return String(nup || '-').replace(/\.pdf$/gi, '').trim();
+}
+
+function escaparParaAtributo(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function abrirModalVisualizacaoUnificado(moduloKey, nup) {
+    if (!moduloKey || !nup) return;
+
+    // Fecha qualquer modal de detalhes pequeno
+    const modalPequeno = document.getElementById('detalhesModal');
+    if (modalPequeno) modalPequeno.style.display = 'none';
+
+    const nupLimpo = String(nup).trim().toUpperCase();
+    const nupSemPdf = nupLimpo.replace(/\.PDF$/i, '');
+
+    try {
+        if (moduloKey === 'oficios') {
+            const item = (dadosCoringa || []).find(d => {
+                const n = String(d['NUP'] || '').trim().toUpperCase();
+                return n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf;
+            });
+            if (item) {
+                const isSob = String(item['STATUS'] || '').toUpperCase().includes('SOBRESTADO');
+                const linkOficio = (isSob && item['MANIFESTACAO_PRELIMINAR']) ? item['MANIFESTACAO_PRELIMINAR'] : (item['LINK_OFICIO'] || item['LINK - OFÍCIO'] || item['LINK'] || item['MANIFESTACAO_PRELIMINAR'] || item['LINK_PARECER_EXTERNO'] || item['LINK_RESPOSTA'] || '');
+                abrirPreview(linkOficio, item);
+                return;
+            }
+        } else if (moduloKey === 'cartas') {
+            const listaCartas = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
+            const item = listaCartas.find(d => {
+                const n = String(d['NUP'] || '').trim().toUpperCase();
+                return n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf;
+            });
+            if (item) {
+                const isSob = String(item['STATUS'] || '').toUpperCase().includes('SOBRESTADO');
+                const linkCarta = (isSob && item['MANIFESTACAO_PRELIMINAR']) ? item['MANIFESTACAO_PRELIMINAR'] : (item['LINK DO NUP'] || item['LINK_NUP'] || item['LINK'] || item['LINK_PROCESSO'] || item['MANIFESTACAO_PRELIMINAR'] || item['LINK_PARECER_EXTERNO'] || item['LINK DA RESPOSTA'] || '');
+                if (typeof abrirModalPreviewCartas === 'function') {
+                    abrirModalPreviewCartas(item, linkCarta, nup);
+                    return;
+                }
+            }
+        } else if (moduloKey === 'autos') {
+            const listaAutos = (typeof dadosAutosGlobais !== 'undefined' ? dadosAutosGlobais : (typeof dadosAutos !== 'undefined' ? dadosAutos : []));
+            const item = listaAutos.find(d => {
+                const n = String(d['NUP'] || '').trim().toUpperCase();
+                return n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf;
+            });
+            if (item) {
+                const isSob = String(item['STATUS ATUAL'] || item['STATUS'] || '').toUpperCase().includes('SOBRESTADO');
+                const linkAuto = (isSob && item['MANIFESTACAO_PRELIMINAR']) ? item['MANIFESTACAO_PRELIMINAR'] : (item['LINK NUP'] || item['LINK-NUP'] || item['LINK DO NUP'] || item['LINK_NUP'] || item['LINK'] || item['MANIFESTACAO_PRELIMINAR'] || item['LINK_PARECER_EXTERNO'] || item['LINK DA RESPOSTA'] || '');
+                if (typeof abrirPreviewAuto === 'function') {
+                    abrirPreviewAuto(linkAuto, item, nup);
+                    return;
+                }
+            }
+        } else if (moduloKey === 'externos') {
+            const listaExt = (typeof dadosExternosGlobais !== 'undefined' ? dadosExternosGlobais : (typeof dadosExternos !== 'undefined' ? dadosExternos : []));
+            const item = listaExt.find(d => {
+                const n = String(d['NUP'] || '').trim().toUpperCase();
+                return n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf;
+            });
+            if (item) {
+                const isSob = String(item['STATUS'] || '').toUpperCase().includes('SOBRESTADO');
+                const linkExt = (isSob && item['MANIFESTACAO_PRELIMINAR']) ? item['MANIFESTACAO_PRELIMINAR'] : (item['LINK_OFICIO'] || item['LINK DO NUP'] || item['LINK-NUP'] || item['LINK'] || item['MANIFESTACAO_PRELIMINAR'] || item['LINK_PARECER_EXTERNO'] || item['LINK DA RESPOSTA'] || '');
+                if (typeof abrirPreviewExterno === 'function') {
+                    abrirPreviewExterno(linkExt, item, nup);
+                    return;
+                }
+            }
+        }
+
+        mostrarToast('Processo não encontrado para visualização.', 'warning');
+    } catch (err) {
+        console.error('Erro ao abrir visualização do processo:', err);
+        mostrarToast('Erro ao carregar visualização do documento.', 'error');
+    }
+}
+
+function renderTabelaInicio(processos) {
+    const tbody = document.getElementById('tabela-inicio-body');
+    const footer = document.getElementById('tabela-inicio-footer');
+    if (!tbody) return;
+
+    if (processos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #8899a6;">Nenhum processo em andamento encontrado com os filtros selecionados.</td></tr>';
+        if (footer) footer.innerText = 'Exibindo 0 processos em andamento.';
+        return;
+    }
+
+    if (footer) footer.innerText = 'Exibindo ' + processos.length + ' processos em andamento.';
+
+    const svgEye = '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+
+    let html = '';
+    processos.forEach(p => {
+        let badgeModClass = 'badge-mod-oficio';
+        let badgeModIcon = '<i class="ci ci-folder"></i>';
+        if (p.moduloKey === 'cartas') { badgeModClass = 'badge-mod-carta'; badgeModIcon = '<i class="ci ci-mail"></i>'; }
+        else if (p.moduloKey === 'autos') { badgeModClass = 'badge-mod-auto'; badgeModIcon = '<i class="ci ci-scale"></i>'; }
+        else if (p.moduloKey === 'externos') { badgeModClass = 'badge-mod-externo'; badgeModIcon = '<i class="ci ci-building"></i>'; }
+
+        const stOperacional = obterStatusOperacionalFormatado(p);
+
+        let badgeDias = '';
+        if (!isNaN(p.diasRestantes)) {
+            if (p.diasRestantes < 0) {
+                badgeDias = '<span class="badge-prazo-dias badge-prazo-atrasado"><i class="ci ci-alert"></i> ' + Math.abs(p.diasRestantes) + 'd atrasado</span>';
+            } else if (p.diasRestantes === 0) {
+                badgeDias = '<span class="badge-prazo-dias badge-prazo-hoje"><i class="ci ci-alert"></i> Vence hoje</span>';
+            } else {
+                badgeDias = '<span class="badge-prazo-dias badge-prazo-emdia"><i class="ci ci-clock"></i> ' + p.diasRestantes + 'd restantes</span>';
+            }
+        } else {
+            badgeDias = '<span class="badge-prazo-dias badge-prazo-semprazo">Sem Prazo</span>';
+        }
+
+        const nupDisplay = limparNupDisplay(p.nup);
+
+        const acaoBtn = '<button class="btn-table-action-ver" data-modulo="' + escaparParaAtributo(p.moduloKey) + '" data-nup="' + escaparParaAtributo(p.nup) + '">' + svgEye + '<span>Ver</span></button>';
+
+        html += '<tr>' +
+            '<td style="text-align: center;"><span class="badge-modulo ' + badgeModClass + '"><span class="badge-icon">' + badgeModIcon + '</span> <span>' + p.modulo + '</span></span></td>' +
+            '<td><strong style="color: #f8fafc; font-family: monospace; font-size: 13px; letter-spacing: 0.3px;">' + nupDisplay + '</strong></td>' +
+            '<td><div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="' + escaparParaAtributo(p.interessado) + '">' + p.interessado + '</div></td>' +
+            '<td><span style="font-weight: 600; color: #e2e8f0;">' + (p.tecnico || 'S/T') + '</span></td>' +
+            '<td style="text-align: center;"><span class="badge-status-operacional ' + stOperacional.classe + '">' + stOperacional.icon + ' ' + stOperacional.texto + '</span></td>' +
+            '<td style="text-align: center;">' + badgeDias + '</td>' +
+            '<td style="text-align: center;">' + acaoBtn + '</td>' +
+            '</tr>';
+    });
+
+    tbody.innerHTML = html;
+
+    // Delegação de evento: clique no botão Ver
+    tbody.querySelectorAll('.btn-table-action-ver').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const moduloKey = this.getAttribute('data-modulo');
+            const nup = this.getAttribute('data-nup');
+            abrirModalVisualizacaoUnificado(moduloKey, nup);
+        });
+    });
+}
+
 configurarDragAndDrop('cadOficioArquivo', 'cadOficioArquivoLabel', updateFileNameOficio);
 document.addEventListener('DOMContentLoaded', iniciarSistema);
+
+// ============================================================================
+// MODAL UNIFICADO DE CADASTRO DE PROCESSOS (STEPPER)
+// ============================================================================
+
+let tipoDocumentoSelecionado = null;
+let _origemMontada = null;
+
+// Registry modular — facilita adição de novos tipos de documento no futuro
+const TIPOS_DOCUMENTO_REGISTRO = {
+    oficio: {
+        titulo: 'Cadastrar Novo Ofício',
+        icone: 'ci-folder',
+        modalOrigemId: 'cadastroModal',
+        abrirFn: function() { if (typeof abrirModalCadastro === 'function') abrirModalCadastro(); },
+        fecharFn: function() { if (typeof fecharModalCadastro === 'function') fecharModalCadastro(); }
+    },
+    externo: {
+        titulo: 'Cadastrar Ofício Externo',
+        icone: 'ci-inbox',
+        modalOrigemId: 'cadastroExternoModal',
+        abrirFn: function() { if (typeof abrirModalCadastroExterno === 'function') abrirModalCadastroExterno(); },
+        fecharFn: function() { if (typeof fecharModalCadastroExterno === 'function') fecharModalCadastroExterno(); }
+    },
+    auto: {
+        titulo: 'Cadastrar Auto de Infração',
+        icone: 'ci-scale',
+        modalOrigemId: 'cadastroAutoModal',
+        abrirFn: function() { if (typeof abrirModalCadastroAuto === 'function') abrirModalCadastroAuto(); },
+        fecharFn: function() { if (typeof fecharModalCadastroAuto === 'function') fecharModalCadastroAuto(); }
+    },
+    carta: {
+        titulo: 'Cadastrar Carta Consulta',
+        icone: 'ci-pen',
+        modalOrigemId: 'cadastroCartaModal',
+        abrirFn: function() { if (typeof abrirModalCadastroCarta === 'function') abrirModalCadastroCarta(); },
+        fecharFn: function() { if (typeof fecharModalCadastroCarta === 'function') fecharModalCadastroCarta(); }
+    }
+};
+
+function abrirModalCadastroUnificado(tipoPreSelecionado) {
+    desmontarFormularioAtual();
+    const modal = document.getElementById('cadastroUnificadoModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    if (tipoPreSelecionado && TIPOS_DOCUMENTO_REGISTRO[tipoPreSelecionado]) {
+        selecionarTipoDocumento(tipoPreSelecionado);
+    } else {
+        tipoDocumentoSelecionado = null;
+        const stepSel = document.getElementById('step-selecao-tipo');
+        const stepForm = document.getElementById('step-formulario');
+        if (stepSel) stepSel.style.display = 'block';
+        if (stepForm) stepForm.style.display = 'none';
+        const container = document.getElementById('formulario-dinamico-container');
+        if (container) container.innerHTML = '';
+    }
+}
+
+function fecharModalCadastroUnificado() {
+    const modal = document.getElementById('cadastroUnificadoModal');
+    if (modal) modal.style.display = 'none';
+    desmontarFormularioAtual();
+    tipoDocumentoSelecionado = null;
+    const stepSel = document.getElementById('step-selecao-tipo');
+    const stepForm = document.getElementById('step-formulario');
+    if (stepSel) stepSel.style.display = 'block';
+    if (stepForm) stepForm.style.display = 'none';
+}
+
+function desmontarFormularioAtual() {
+    if (_origemMontada) {
+        const { modalContent, grid, footer, modalOrigem } = _origemMontada;
+        if (modalContent) {
+            if (grid) modalContent.appendChild(grid);
+            if (footer) modalContent.appendChild(footer);
+        }
+        if (modalOrigem) {
+            modalOrigem.style.display = 'none';
+        }
+        _origemMontada = null;
+    }
+    const container = document.getElementById('formulario-dinamico-container');
+    if (container) container.innerHTML = '';
+}
+
+function selecionarTipoDocumento(tipo) {
+    const config = TIPOS_DOCUMENTO_REGISTRO[tipo];
+    if (!config) return;
+
+    // Desmonta qualquer formulário ativo anteriormente
+    desmontarFormularioAtual();
+    tipoDocumentoSelecionado = tipo;
+
+    const modalOrigem = document.getElementById(config.modalOrigemId);
+    if (!modalOrigem) {
+        mostrarToast('Módulo de formulário não encontrado.', 'error');
+        return;
+    }
+
+    const modalContent = modalOrigem.querySelector('.modal-content');
+    const grid = modalContent ? modalContent.querySelector('.modal-grid') : null;
+    const footer = modalContent ? modalContent.querySelector('.modal-footer') : null;
+
+    if (!grid || !footer) {
+        mostrarToast('Estrutura de campos não encontrada.', 'error');
+        return;
+    }
+
+    // Guarda referências para retorno
+    _origemMontada = {
+        tipo: tipo,
+        modalOrigem: modalOrigem,
+        modalContent: modalContent,
+        grid: grid,
+        footer: footer,
+        fecharFn: config.fecharFn
+    };
+
+    // Monta o grid e footer dentro de Step 2
+    const container = document.getElementById('formulario-dinamico-container');
+    container.innerHTML = '';
+    container.appendChild(grid);
+    container.appendChild(footer);
+
+    // Transição visual limpa
+    const stepSel = document.getElementById('step-selecao-tipo');
+    const stepForm = document.getElementById('step-formulario');
+    if (stepSel) stepSel.style.display = 'none';
+    if (stepForm) stepForm.style.display = 'block';
+    
+    const tituloEl = document.getElementById('titulo-formulario-dinamico');
+    if (tituloEl) tituloEl.innerHTML = `<i class="ci ${config.icone}"></i> ${config.titulo}`;
+
+    // Executa a inicialização padrão (popula selects, flatpickr, etc.)
+    if (typeof config.abrirFn === 'function') {
+        config.abrirFn();
+        modalOrigem.style.display = 'none'; // Garante que o modal de origem não sobreponha
+    }
+}
+
+function voltarParaSelecao() {
+    if (_origemMontada && typeof _origemMontada.fecharFn === 'function') {
+        _origemMontada.fecharFn();
+    }
+    desmontarFormularioAtual();
+    tipoDocumentoSelecionado = null;
+    const stepSel = document.getElementById('step-selecao-tipo');
+    const stepForm = document.getElementById('step-formulario');
+    if (stepSel) stepSel.style.display = 'block';
+    if (stepForm) stepForm.style.display = 'none';
+}
+
+// Fechamento ao clicar no backdrop escuro do modal unificado
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('cadastroUnificadoModal');
+    if (event.target === modal) {
+        fecharModalCadastroUnificado();
+    }
+});
