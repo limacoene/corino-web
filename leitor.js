@@ -5,7 +5,10 @@ function limparEPadronizarLinha(linha) {
     let tipo = (linha['TIPO'] || '').toUpperCase();
     tipo = tipo.replace('CARTÃO DE CONSULTA', 'CARTA CONSULTA').replace('OFICIAL', 'OFÍCIO');
 
-    let tecnico = (linha['TÉCNICO/ADMIN'] || linha['TECNICO/ADMIN'] || linha['TÉCNICO'] || linha['TECNICO'] || '').trim();
+    let tecnico = (linha['TÉCNICO/ADMIN'] || linha['TECNICO/ADMIN'] || linha['TÉCNICO'] || linha['TECNICO'] || '').trim().toUpperCase();
+    if (tecnico === 'JOSE RENATO') {
+        tecnico = 'JOSÉ RENATO';
+    }
     if (tecnico === '') {
         tecnico = 'S/T';
     }
@@ -53,13 +56,17 @@ function limparEPadronizarLinha(linha) {
         LINK_INICIAL: linha['OG LINK'] || linha['OG_LINK'] || linha['LINK_INICIAL'] || linha['LINK INICIAL'] || linha['LINK DO OFÍCIO INICIAL'] || (chaves.length > 17 ? linha[chaves[17]] : '') || '',
         
         // Coluna S: LINK DA RESPOSTA
-        LINK_RESPOSTA: linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || '',
+        LINK_RESPOSTA: (String(linha['NUP'] || '').includes('83.031.608') || String(linha['NUP'] || '').includes('83031608')) 
+            ? 'gs://corino-documentos-ms/respostas/83_031_608_2026/Resposta_83_031_608_2026.pdf'
+            : (linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || ''),
         // Coluna T: STATUS DA RESPOSTA (APROVADA/REPROVADA)
         STATUS_RESPOSTA: (linha['STATUS DA RESPOSTA (APROVADA/REPROVADA)'] || linha['STATUS DA RESPOSTA'] || linha['STATUS-RESPOSTA'] || linha['STATUS RESPOSTA'] || '').toUpperCase().trim(),
         // Coluna U: MOTIVO DA AVALIAÇÃO
         MOTIVO_AVALIACAO: (linha['MOTIVO DA AVALIAÇÃO'] || linha['MOTIVO AVALIAÇÃO'] || linha['MOTIVO_AVALIACAO'] || '').trim(),
         // Coluna V: LINK - OFÍCIO / LINK DO NUP
-        LINK_OFICIO: linha['LINK - OFÍCIO / LINK DO NUP'] || linha['LINK - OFÍCIO'] || linha['LINK DO OFÍCIO'] || linha['LINK OFÍCIO'] || linha['LINK_OFICIO'] || linha['LINK DO NUP'] || linha['LINK NUP'] || '',
+        LINK_OFICIO: (String(linha['NUP'] || '').includes('83.031.608') || String(linha['NUP'] || '').includes('83031608'))
+            ? 'gs://corino-documentos-ms/oficios/83_031_608_2026/Oficio_83_031_608_2026.pdf'
+            : (linha['LINK - OFÍCIO / LINK DO NUP'] || linha['LINK - OFÍCIO'] || linha['LINK DO OFÍCIO'] || linha['LINK OFÍCIO'] || linha['LINK_OFICIO'] || linha['LINK DO NUP'] || linha['LINK NUP'] || ''),
         
         // Dados adicionais
         DATA_DISTRIBUICAO: linha['DATA DE DISTRIBUIÇÃO'] || linha['DATA DISTRIBUIÇÃO'] || linha['DATA DISTRIBUICAO'] || '',
@@ -88,17 +95,11 @@ function limparEPadronizarLinha(linha) {
 
 async function buscarDadosGoogleSheets() {
     try {
-        const resposta = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ acao: "buscar_dados" })
-        });
-        
-        const resultado = await resposta.json();
-        
-        if (resultado.status === 'success') {
+        const resultado = await executarAcaoGAS({ acao: "buscar_dados" });
+        if (resultado.status === 'success' && Array.isArray(resultado.dados)) {
             return resultado.dados.map(limparEPadronizarLinha);
         } else {
-            throw new Error(resultado.message);
+            throw new Error(resultado.message || 'Falha ao buscar dados');
         }
     } catch (erro) {
         console.error("Erro na leitura da API segura:", erro);

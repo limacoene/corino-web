@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | C.O.R.I.N.O.</title>
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=22">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body class="login-body">
@@ -130,21 +130,53 @@
             btnLogin.style.opacity = '0.7';
             errorMsg.style.display = 'none';
 
-            // 1. Verificação instantânea com a base de usuários do sistema
+            // 1. Autenticação primária via API backend (com auditoria e emissão de token)
+            try {
+                const apiRes = await fetchComTimeout('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                }, 8000);
+
+                const apiData = await apiRes.json();
+
+                if (apiRes.ok && apiData.status === 'success') {
+                    // Garante que nomePlanilha esteja devidamente associado
+                    if ((!apiData.user.nomePlanilha || apiData.user.nomePlanilha === apiData.user.nomeCompleto) && USUARIOS_CORINO[user]?.nomePlanilha) {
+                        apiData.user.nomePlanilha = USUARIOS_CORINO[user].nomePlanilha;
+                    }
+                    // Armazena token de autorização e perfil do usuário
+                    sessionStorage.setItem('corino_auth_token', apiData.token);
+                    sessionStorage.setItem('corino_user', JSON.stringify(apiData.user));
+                    localStorage.setItem('corino_auth_token', apiData.token);
+                    window.location.href = 'index.html';
+                    return;
+                } else if (apiRes.status === 401 || apiRes.status === 403) {
+                    errorMsg.innerText = apiData.message || "Utilizador ou palavra-passe incorretos.";
+                    errorMsg.style.display = 'block';
+                    restaurarBotaoLogin(btnLogin);
+                    return;
+                }
+            } catch (errApi) {
+                console.warn('⚠️ [Auth API] Backend indisponível ou offline. Executando fallback local...', errApi);
+            }
+
+            // 2. Fallback local para compatibilidade caso o backend não esteja respondendo
             if (USUARIOS_CORINO[user] && USUARIOS_CORINO[user].senha === pass) {
                 const uInfo = USUARIOS_CORINO[user];
                 const dadosUsuario = {
                     username: user,
                     perfil: uInfo.perfil,
                     nomePlanilha: uInfo.nomePlanilha,
-                    setor: uInfo.setor
+                    setor: uInfo.setor,
+                    role: (uInfo.perfil === 'administrativo' || user === 'diflor') ? 'admin' : uInfo.perfil
                 };
                 sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
                 window.location.href = 'index.html';
                 return;
             }
 
-            // 2. Fallback remoto com a API do Google Apps Script
+            // 3. Fallback remoto com a API do Google Apps Script
             try {
                 const resposta = await fetchComTimeout(APPS_SCRIPT_URL, {
                     method: 'POST',
@@ -162,7 +194,8 @@
                         username: user,
                         perfil: resultado.perfil,
                         nomePlanilha: resultado.nomePlanilha,
-                        setor: resultado.setor
+                        setor: resultado.setor,
+                        role: (resultado.perfil === 'administrativo' || user === 'diflor') ? 'admin' : resultado.perfil
                     };
                     sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
                     window.location.href = 'index.html'; 

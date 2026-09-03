@@ -65,12 +65,19 @@ async function obterLinkVisualizacaoSeguro(urlOuCaminho) {
     const raw = urlOuCaminho.trim();
     if (isLinkGCS(raw)) {
         if (typeof GCSStorage !== 'undefined' && GCSStorage.obterUrlTemporaria) {
-            return await GCSStorage.obterUrlTemporaria(raw, false);
+            const signed = await GCSStorage.obterUrlTemporaria(raw, false);
+            if (signed && !signed.includes('#')) {
+                return signed + '#toolbar=1&navpanes=0&page=1&zoom=page-width';
+            }
+            return signed;
         }
     }
     const fileId = extrairIdDrive(raw);
     if (fileId) {
         return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+    if ((raw.endsWith('.pdf') || raw.includes('.pdf?')) && !raw.includes('#')) {
+        return raw + '#toolbar=1&navpanes=0&page=1&zoom=page-width';
     }
     return raw;
 }
@@ -252,4 +259,49 @@ function calcularDiasRestantes(dataInicioStr, prazoStr) {
     }
 
     return diasRestantes;
+}
+
+/**
+ * Executa chamadas à API central com prioridade para o Proxy Local (sem CORS/bloqueios do Google)
+ * e com fallback seguro para Google Apps Script direto.
+ */
+async function executarAcaoGAS(payload) {
+    if (!payload || typeof payload !== 'object') payload = {};
+
+    // 1. Prioridade: Proxy local Node.js (mesma origem, zero CORS, cache em RAM)
+    try {
+        const resposta = await fetch('/api/dados-central', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (resposta.ok) {
+            const texto = await resposta.text();
+            if (!texto.trim().startsWith('<')) {
+                const json = JSON.parse(texto);
+                if (json && (json.status === 'success' || json.dados)) {
+                    return json;
+                }
+            }
+        }
+    } catch (eLocal) {
+        // Prossegue para o fallback
+    }
+
+    // 2. Fallback direto para Google Apps Script
+    const appsScriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') ? APPS_SCRIPT_URL : 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
+    try {
+        const resposta = await fetch(appsScriptUrl, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const texto = await resposta.text();
+        if (texto.trim().startsWith('<')) {
+            throw new Error('Google Apps Script retornou uma página HTML em vez de dados JSON.');
+        }
+        return JSON.parse(texto);
+    } catch (erro) {
+        console.error('Erro na comunicação com a API Central:', erro);
+        throw erro;
+    }
 }
