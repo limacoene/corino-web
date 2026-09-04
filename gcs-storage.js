@@ -90,6 +90,8 @@ const GCSStorage = (function () {
             } else {
                 cacheUrls.delete(cacheKey);
             }
+        }
+
         // Em ambiente estático sem backend Node.js (ex: GitHub Pages), retorna URL direta do storage
         if (window.location.hostname.includes('github.io') || window.location.protocol === 'file:') {
             return raw.startsWith('http') ? raw : `https://storage.googleapis.com/corino-documentos-ms/${cleanPath}`;

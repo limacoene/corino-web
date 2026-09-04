@@ -1479,7 +1479,7 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
     const nupFormatado = String(nupOriginal).replace(/[^a-zA-Z0-9]/g, '_');
     const nupEsc = typeof escaparParaAtributo === 'function' ? escaparParaAtributo(nupOriginal) : nupOriginal;
 
-    const linkOriginal = (linha ? (linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK'] || linha['LINK_PROCESSO']) : urlParam) || '';
+    const linkOriginal = (linha ? (linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK'] || linha['LINK_PROCESSO']) : (url || '')) || '';
     const linkResposta = linha ? (linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '') : '';
     const linkManifestacao = linha ? (linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linkResposta || '') : '';
     const linkDeclaracao = linha ? (linha['LINK DA DECLARAÇÃO'] || linha['LINK_DECLARACAO'] || '') : '';
@@ -1529,7 +1529,7 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
     const statusLimpo = statusStr.replace(/\./g, '').trim().toUpperCase();
     const isSobrestado = statusLimpo === 'SOBRESTADO' || statusLimpo.includes('SOBRESTADO');
 
-    let urlPreviewRaw = urlParam;
+    let urlPreviewRaw = url;
     if (!urlPreviewRaw) {
         if (isSobrestado && previewPreliminarUrl) {
             urlPreviewRaw = previewPreliminarUrl;
