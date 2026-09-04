@@ -847,7 +847,7 @@ async function abrirPreviewExterno(arg1, arg2, arg3) {
     if (!modal) return;
 
     let nupOriginal = (linha && linha['NUP']) ? linha['NUP'] : (nup || '-');
-    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.includes('/'))) {
+    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.startsWith('/') || nupOriginal.includes('://'))) {
         nupOriginal = '-';
     }
     const nupDisplay = typeof limparNupDisplay === 'function' ? limparNupDisplay(nupOriginal) : String(nupOriginal).replace(/\.pdf$/gi, '');

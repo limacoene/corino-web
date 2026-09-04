@@ -4676,6 +4676,39 @@ function isProcessoFinalizado(status, statusVisual) {
         || sv.includes('FINALIZADO') || sv.includes('TRAMITADO') || sv.includes('ARQUIVADO') || sv.includes('CONCLUÍDO');
 }
 
+function obterSetorDesignadoProcesso(p) {
+    if (!p) return 'GEAA';
+
+    // 1. Técnico designado
+    const tec = (p.tecnico || '').trim().toUpperCase();
+    const semTecnico = !tec || tec === 'S/T' || tec === '-' || tec === 'SEM TÉCNICO' || tec === 'NÃO ATRIBUÍDO' || tec === 'SEM TÉCNICO/ADM';
+
+    if (!semTecnico && typeof MAPA_TECNICOS_SETORES !== 'undefined') {
+        const setorTec = MAPA_TECNICOS_SETORES[tec];
+        if (setorTec) {
+            if (setorTec === 'GEAMB') return 'GEAA';
+            return setorTec;
+        }
+    }
+
+    // 2. Campo explícito de gerência ou setor registrado na linha
+    const raw = p.raw || {};
+    const gerenciaRaw = (p.gerencia || raw['GERÊNCIA'] || raw['GERENCIA'] || raw['SETOR'] || '').trim().toUpperCase();
+    if (gerenciaRaw) {
+        if (gerenciaRaw.includes('GEAA') || gerenciaRaw.includes('GEAMB') || gerenciaRaw.includes('ASSUNTOS AMBIENTAIS')) return 'GEAA';
+        if (gerenciaRaw.includes('GCAR') || gerenciaRaw.includes('CAR')) return 'GCAR';
+        if (gerenciaRaw.includes('DIFLOR') || gerenciaRaw.includes('FLORESTAL')) return 'DIFLOR';
+    }
+
+    // 3. Fallback de acordo com o módulo operacional
+    if (p.moduloKey === 'cartas' || p.moduloKey === 'autos') {
+        return 'GCAR';
+    }
+
+    return 'GEAA';
+}
+window.obterSetorDesignadoProcesso = obterSetorDesignadoProcesso;
+
 function obterProcessosEmAndamentoUnificados() {
     const lista = [];
 
@@ -4713,7 +4746,7 @@ function obterProcessosEmAndamentoUnificados() {
                 lista.push({
                     modulo: 'Cartas Consulta',
                     moduloKey: 'cartas',
-                    nup: row['NUP'] || '-',
+                    nup: row['NUP'] || row['PROCESSO'] || row['PROCESSO/NUP'] || '-',
                     interessado: row['REQUERENTE'] || row['MUNICÍPIO'] || row['ASSUNTO'] || row['CARMS'] || '-',
                     tecnico: (row['TÉCNICO/ADM'] || row['TÉCNICO'] || 'S/T').trim().toUpperCase(),
                     gerencia: (row['GERÊNCIA'] || '').trim().toUpperCase(),
@@ -4775,6 +4808,11 @@ function obterProcessosEmAndamentoUnificados() {
         });
     }
 
+    // Atribuição de Setor em cada processo
+    lista.forEach(p => {
+        p.setor = obterSetorDesignadoProcesso(p);
+    });
+
     // Filtragem de Permissões RBAC e Setorial
     if (usuarioAtivo) {
         if (usuarioAtivo.perfil === 'tecnico') {
@@ -4782,16 +4820,7 @@ function obterProcessosEmAndamentoUnificados() {
         }
         
         if (usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
-            return lista.filter(p => {
-                const semTec = !p.tecnico || p.tecnico === 'S/T' || p.tecnico === '-' || p.tecnico === 'SEM TÉCNICO' || p.tecnico === 'NÃO ATRIBUÍDO' || p.tecnico === 'SEM TÉCNICO/ADM';
-                if (!semTec) {
-                    const setorDoTecnico = ((typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[p.tecnico] : null) || 'S/G');
-                    return setorDoTecnico === usuarioAtivo.setor;
-                } else {
-                    const gerenciaItem = (p.gerencia || '').trim().toUpperCase();
-                    return gerenciaItem === usuarioAtivo.setor;
-                }
-            });
+            return lista.filter(p => p.setor === usuarioAtivo.setor);
         }
     }
 
@@ -4897,7 +4926,8 @@ function atualizarDashboardInicio() {
         if (b) b.innerText = calcPct(countSobrestados);
     }
 
-    // Popular Select de Técnicos do filtro de Início
+    // Popular Selects de Setores e Técnicos do filtro de Início
+    popularSelectSetoresInicio();
     popularSelectTecnicosInicio();
 
     // Filtrar e Renderizar Gráfico e Tabela Unificada Dinamicamente
@@ -5039,9 +5069,24 @@ function renderizarGraficoTecnicos(contagem) {
     });
 }
 
-function popularSelectTecnicosInicio() {
+function popularSelectSetoresInicio() {
+    const sel = document.getElementById('filtroInicioSetor');
+    if (!sel) return;
+
+    if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
+        sel.value = usuarioAtivo.setor;
+        sel.disabled = true;
+        sel.style.opacity = '0.85';
+    } else {
+        sel.disabled = false;
+        sel.style.opacity = '1';
+    }
+}
+window.popularSelectSetoresInicio = popularSelectSetoresInicio;
+
+function popularSelectTecnicosInicio(setorFiltro) {
     const sel = document.getElementById('filtroInicioTecnico');
-    if (!sel || sel.dataset.populated) return;
+    if (!sel) return;
 
     if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
         const nomeTec = (usuarioAtivo.nomePlanilha || usuarioAtivo.nomeCompleto || '').toUpperCase().trim();
@@ -5049,28 +5094,56 @@ function popularSelectTecnicosInicio() {
         sel.value = nomeTec;
         sel.disabled = true;
         sel.style.opacity = '0.85';
-        sel.dataset.populated = 'true';
         return;
     }
 
+    const valorAnterior = sel.value;
     sel.innerHTML = '<option value="">-- Todos os Técnicos --</option>';
+
     if (typeof window.opcoesAutoTecnico !== 'undefined' && Array.isArray(window.opcoesAutoTecnico)) {
         let listaTecnicos = [...window.opcoesAutoTecnico];
+        
+        // Restrição de usuário não-DIFLOR
         if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
             listaTecnicos = listaTecnicos.filter(tec => {
                 const t = tec.trim().toUpperCase();
                 return MAPA_TECNICOS_SETORES[t] === usuarioAtivo.setor;
             });
         }
+
+        // Restrição pelo setor selecionado no filtro (GEAA, GCAR, DIFLOR)
+        const setorAtivo = setorFiltro !== undefined ? setorFiltro : (document.getElementById('filtroInicioSetor') ? document.getElementById('filtroInicioSetor').value : '');
+        if (setorAtivo) {
+            listaTecnicos = listaTecnicos.filter(tec => {
+                const t = tec.trim().toUpperCase();
+                return MAPA_TECNICOS_SETORES[t] === setorAtivo;
+            });
+        }
+
+        let encontrou = false;
         listaTecnicos.forEach(tec => {
             const opt = document.createElement('option');
             opt.value = tec.toUpperCase();
             opt.textContent = tec;
+            if (opt.value === valorAnterior) encontrou = true;
             sel.appendChild(opt);
         });
+
+        if (encontrou) {
+            sel.value = valorAnterior;
+        } else {
+            sel.value = '';
+        }
     }
-    sel.dataset.populated = 'true';
 }
+window.popularSelectTecnicosInicio = popularSelectTecnicosInicio;
+
+function aoMudarFiltroInicioSetor() {
+    const setorVal = (document.getElementById('filtroInicioSetor') ? document.getElementById('filtroInicioSetor').value : '').toUpperCase().trim();
+    popularSelectTecnicosInicio(setorVal);
+    filtrarDashboardInicio();
+}
+window.aoMudarFiltroInicioSetor = aoMudarFiltroInicioSetor;
 
 function selecionarModuloInicio(modulo, btn) {
     filtroModuloInicioAtivo = modulo || 'todos';
@@ -5133,6 +5206,17 @@ function limparFiltrosInicio() {
     const buscaInput = document.getElementById('filtroInicioBusca');
     if (buscaInput) buscaInput.value = '';
     
+    const setorSelect = document.getElementById('filtroInicioSetor');
+    if (setorSelect) {
+        if (usuarioAtivo && usuarioAtivo.username !== 'diflor' && usuarioAtivo.setor !== 'DIFLOR') {
+            setorSelect.value = usuarioAtivo.setor;
+        } else {
+            setorSelect.value = '';
+        }
+    }
+
+    popularSelectTecnicosInicio(setorSelect ? setorSelect.value : '');
+
     const tecSelect = document.getElementById('filtroInicioTecnico');
     if (tecSelect) {
         if (usuarioAtivo && usuarioAtivo.perfil === 'tecnico') {
@@ -5160,6 +5244,7 @@ function limparFiltrosInicio() {
 function filtrarDashboardInicio() {
     const todosEmAndamento = obterProcessosEmAndamentoUnificados();
     const buscaVal = (document.getElementById('filtroInicioBusca') ? document.getElementById('filtroInicioBusca').value : '').toLowerCase().trim();
+    const setorVal = (document.getElementById('filtroInicioSetor') ? document.getElementById('filtroInicioSetor').value : '').toUpperCase().trim();
     const tecVal = (document.getElementById('filtroInicioTecnico') ? document.getElementById('filtroInicioTecnico').value : '').toUpperCase().trim();
     const statusVal = (document.getElementById('filtroInicioStatus') ? document.getElementById('filtroInicioStatus').value : '').toUpperCase().trim();
 
@@ -5169,7 +5254,13 @@ function filtrarDashboardInicio() {
             return false;
         }
 
-        // 2. Filtro Multi-Seleção de Blocos de Status (KPIs)
+        // 2. Filtro por Setor (GEAA, GCAR, DIFLOR)
+        if (setorVal) {
+            const setorP = p.setor || obterSetorDesignadoProcesso(p);
+            if (setorP !== setorVal) return false;
+        }
+
+        // 3. Filtro Multi-Seleção de Blocos de Status (KPIs)
         if (filtrosKpiInicioAtivos.size > 0) {
             const s = String(p.status || '').toUpperCase();
             const tec = p.tecnico;
@@ -5331,9 +5422,13 @@ function abrirModalVisualizacaoUnificado(moduloKey, nup) {
             }
         } else if (moduloKey === 'cartas') {
             const listaCartas = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
+            const nupDigitos = nupLimpo.replace(/[^A-Z0-9]/g, '');
             const item = listaCartas.find(d => {
-                const n = String(d['NUP'] || '').trim().toUpperCase();
-                return n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf;
+                const n = String(d['NUP'] || d['PROCESSO'] || d['PROCESSO/NUP'] || '').trim().toUpperCase();
+                if (n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf) return true;
+                const dDigitos = n.replace(/[^A-Z0-9]/g, '');
+                if (nupDigitos && dDigitos && (dDigitos === nupDigitos || dDigitos.includes(nupDigitos) || nupDigitos.includes(dDigitos))) return true;
+                return false;
             });
             if (item) {
                 const isSob = String(item['STATUS'] || '').toUpperCase().includes('SOBRESTADO');
@@ -5419,6 +5514,7 @@ function renderTabelaInicio(processos) {
         }
 
         const nupDisplay = limparNupDisplay(p.nup);
+        const setorBadge = p.setor ? '<span style="display: inline-block; margin-top: 3px; padding: 1px 6px; font-size: 10px; font-weight: 700; border-radius: 4px; background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); letter-spacing: 0.5px;">' + p.setor + '</span>' : '';
 
         const acaoBtn = '<button class="btn-table-action-ver" data-modulo="' + escaparParaAtributo(p.moduloKey) + '" data-nup="' + escaparParaAtributo(p.nup) + '">' + svgEye + '<span>Ver</span></button>';
 
@@ -5426,7 +5522,7 @@ function renderTabelaInicio(processos) {
             '<td style="text-align: center;"><span class="badge-modulo ' + badgeModClass + '"><span class="badge-icon">' + badgeModIcon + '</span> <span>' + p.modulo + '</span></span></td>' +
             '<td><strong style="color: #f8fafc; font-family: monospace; font-size: 13px; letter-spacing: 0.3px;">' + nupDisplay + '</strong></td>' +
             '<td><div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="' + escaparParaAtributo(p.interessado) + '">' + p.interessado + '</div></td>' +
-            '<td><span style="font-weight: 600; color: #e2e8f0;">' + (p.tecnico || 'S/T') + '</span></td>' +
+            '<td><div><span style="font-weight: 600; color: #e2e8f0;">' + (p.tecnico || 'S/T') + '</span></div>' + (setorBadge ? '<div>' + setorBadge + '</div>' : '') + '</td>' +
             '<td style="text-align: center;"><span class="badge-status-operacional ' + stOperacional.classe + '">' + stOperacional.icon + ' ' + stOperacional.texto + '</span></td>' +
             '<td style="text-align: center;">' + badgeDias + '</td>' +
             '<td style="text-align: center;">' + acaoBtn + '</td>' +
