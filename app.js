@@ -1952,13 +1952,22 @@ function gerarHtmlDocExtra(titulo, num, nup, linkRaw, index) {
     let htmlBotao = `<span style="font-size:12px; color:#888;">Sem Link</span>`;
 
     if (linkRaw && linkRaw.trim() !== '' && linkRaw.trim() !== '-') {
+        let indexArg = "''";
+        if (typeof index === 'number' && index >= 0) {
+            indexArg = index;
+        } else if (typeof index === 'string' && index.trim() !== '') {
+            indexArg = (index.startsWith("'") || index.startsWith('"')) ? index : `'${index.replace(/'/g, "\\'")}'`;
+        } else if (nup && String(nup).trim() !== '' && String(nup).trim() !== '-') {
+            indexArg = `'${String(nup).replace(/'/g, "\\'")}'`;
+        }
+
         if (isLinkGCS(linkRaw)) {
-            htmlBotao = `<button onclick="abrirPreview('${linkRaw}', ${index})" class="btn-inline-preview" title="Pré-visualizar (LGPD Seguro)"></button>`;
+            htmlBotao = `<button onclick="abrirPreview('${linkRaw}', ${indexArg})" class="btn-inline-preview" title="Pré-visualizar (LGPD Seguro)"></button>`;
         } else {
             const fileId = extrairIdDrive(linkRaw);
             if (fileId) {
                 const linkPreview = `https://drive.google.com/file/d/${fileId}/preview`;
-                htmlBotao = `<button onclick="abrirPreview('${linkPreview}', ${index})" class="btn-inline-preview" title="Pré-visualizar"></button>`;
+                htmlBotao = `<button onclick="abrirPreview('${linkPreview}', ${indexArg})" class="btn-inline-preview" title="Pré-visualizar"></button>`;
             } else {
                 htmlBotao = `<a href="${linkRaw}" target="_blank" class="btn-inline-preview" style="background-image: none; width: auto; height: auto; padding: 3px 8px;"><i class="ci ci-external"></i> Abrir</a>`;
             }
@@ -3239,6 +3248,7 @@ async function abrirPreview(arg1, arg2, arg3) {
     let url = '';
     let linha = null;
     let nup = null;
+    let index = -1;
 
     const args = [arg1, arg2, arg3].filter(a => a !== null && a !== undefined && a !== '');
     for (const a of args) {
@@ -3250,15 +3260,17 @@ async function abrirPreview(arg1, arg2, arg3) {
             }
         } else if (typeof a === 'string') {
             const str = a.trim();
-            if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('gs://') || str.includes('drive.google.com') || str.includes('storage.googleapis.com')) {
+            const isWebUrl = str.startsWith('http://') || str.startsWith('https://') || str.startsWith('gs://') || str.includes('drive.google.com') || str.includes('storage.googleapis.com') || (typeof GCSStorage !== 'undefined' && GCSStorage.isGCS(str));
+            if (isWebUrl) {
                 if (!url) url = str;
-            } else if (!nup && !str.includes('/') && !str.includes('http')) {
+            } else if (!nup && !str.startsWith('http')) {
                 nup = str;
             } else if (!url) {
                 url = str;
             }
-        } else if (typeof a === 'number' && !linha) {
-            if (a >= 0 && typeof dadosExibidos !== 'undefined' && a < dadosExibidos.length) {
+        } else if (typeof a === 'number') {
+            index = a;
+            if (!linha && a >= 0 && typeof dadosExibidos !== 'undefined' && a < dadosExibidos.length) {
                 linha = dadosExibidos[a];
             }
         }
@@ -3304,8 +3316,17 @@ async function abrirPreview(arg1, arg2, arg3) {
         }
     }
 
+    if (index === -1 && linha) {
+        if (typeof dadosExibidos !== 'undefined' && Array.isArray(dadosExibidos)) {
+            index = dadosExibidos.indexOf(linha);
+        }
+        if (index === -1 && typeof dadosCoringa !== 'undefined' && Array.isArray(dadosCoringa)) {
+            index = dadosCoringa.indexOf(linha);
+        }
+    }
+
     let nupOriginal = (linha && linha['NUP']) ? linha['NUP'] : (nup || '-');
-    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.includes('/'))) {
+    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.startsWith('/') || nupOriginal.includes('://'))) {
         nupOriginal = '-';
     }
     const nupDisplay = typeof limparNupDisplay === 'function' ? limparNupDisplay(nupOriginal) : String(nupOriginal).replace(/\.pdf$/gi, '');
@@ -3420,10 +3441,11 @@ async function abrirPreview(arg1, arg2, arg3) {
 
     let htmlHistoricoPreview = '';
     if (typeof gerarHtmlDocExtra === 'function') {
-        htmlHistoricoPreview += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], index);
+        const safeIndex = (typeof index === 'number' && index >= 0) ? index : (linha && linha['NUP'] ? `'${linha['NUP']}'` : -1);
+        htmlHistoricoPreview += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], safeIndex);
         if (linha['REITERACOES'] && linha['REITERACOES'].length > 0) {
             linha['REITERACOES'].forEach((reit, i) => {
-                htmlHistoricoPreview += gerarHtmlDocExtra(`${i + 1}ª Reiteração`, reit.NUMERO, reit.NUP, reit.LINK, index);
+                htmlHistoricoPreview += gerarHtmlDocExtra(`${i + 1}ª Reiteração`, reit.NUMERO, reit.NUP, reit.LINK, safeIndex);
             });
         }
     }
