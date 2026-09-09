@@ -126,14 +126,22 @@ async function alternarVisualizacaoPreview(btn, url, downloadUrl) {
 
     const iframe = document.getElementById('previewFrame');
     if (iframe) {
+        iframe.style.display = 'block';
         iframe.src = resolvedUrl;
     }
+    const gisContainer = document.getElementById('gisMapContainerModal');
+    if (gisContainer) gisContainer.style.display = 'none';
+    const emptyStateEl = document.getElementById('previewEmptyStateCarta');
+    if (emptyStateEl) emptyStateEl.style.display = 'none';
+
     const downloadBtn = document.getElementById('btn-download-preview');
     if (downloadBtn) {
+        downloadBtn.style.display = resolvedDownloadUrl ? '' : 'none';
         downloadBtn.href = resolvedDownloadUrl;
     }
     const btnOpenPreview = document.getElementById('btn-open-preview');
     if (btnOpenPreview) {
+        btnOpenPreview.style.display = resolvedUrl ? '' : 'none';
         btnOpenPreview.href = resolvedUrl.replace('/preview', '/view');
     }
     

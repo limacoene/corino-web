@@ -7,6 +7,18 @@ let cartasCarregadas = false;
 let cartasExibidas = [];
 const cacheShapesCartas = {};
 
+/**
+ * Validador universal de links para Cartas Consulta (Drive, GCS, HTTP/HTTPS)
+ */
+function temLinkValido(link) {
+    if (!link || typeof link !== 'string') return false;
+    const s = link.trim();
+    if (!s || s === '-' || s.toLowerCase() === 'nan' || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') return false;
+    if (s.startsWith('http://') || s.startsWith('https://')) return true;
+    if (typeof isLinkGCS === 'function' && isLinkGCS(s)) return true;
+    return false;
+}
+
 // ============================================================================
 // CADASTRO DE CARTA CONSULTA
 // ============================================================================
@@ -427,19 +439,19 @@ function processarCSVTextCartas(csvText) {
         row['FÍSICO/E-MS'] = row['FISICO/E-MS'] || row['FÍSICO/E-MS'] || '-';
         row['TÉCNICO/ADM'] = row['TÉCNICO/ADMIN'] || row['TECNICO/ADMIN'] || row['TÉCNICO/ADM'] || row['TECNICO/ADM'] || row['TÉCNICO'] || 'Não atribuído';
         row['OBSERVAÇÃO'] = row['OBSERVAÇÃO'] || row['OBSERVAÇÕES'] || '-';
-        row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || '';
-        row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
-        row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK DA RESPOSTA'] || '';
-        row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || '';
+        row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || row['LINK NUP'] || row['LINK-NUP'] || row['LINK'] || row['LINK_PROCESSO'] || '';
+        row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || row['LINK RESPOSTA'] || '';
+        row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK MANIFESTAÇÃO'] || row['LINK DA RESPOSTA'] || '';
+        row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || row['LINK DECLARAÇÃO'] || '';
         row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || row['STATUS-RESPOSTA'] || '';
-        row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
+        row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || row['LINK SHAPE'] || '';
         row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA RECUSA'] || row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
         row['CARMS'] = row['Número do CARMS'] || row['NUMERO DO CARMS'] || row['NÚMERO DO CARMS'] || row['CARMS'] || '-';
 
         // Se tem resposta anexada e o status da resposta não é APROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
         // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
         const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
-        const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
+        const hasResposta = linkResposta && temLinkValido(linkResposta);
         const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
         const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
 
@@ -490,19 +502,19 @@ function limparEPadronizarCartas(linha) {
     }
     row['TÉCNICO/ADM'] = tecCarta;
     row['OBSERVAÇÃO'] = row['OBSERVAÇÃO'] || row['OBSERVAÇÕES'] || '-';
-    row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || '';
-    row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
-    row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK DA RESPOSTA'] || '';
-    row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || '';
+    row['LINK DO NUP'] = row['LINK DO NUP'] || row['LINK_NUP'] || row['LINK NUP'] || row['LINK-NUP'] || row['LINK'] || row['LINK_PROCESSO'] || '';
+    row['LINK DA RESPOSTA'] = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || row['LINK RESPOSTA'] || '';
+    row['LINK DA MANIFESTAÇÃO'] = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK MANIFESTAÇÃO'] || row['LINK DA RESPOSTA'] || '';
+    row['LINK DA DECLARAÇÃO'] = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || row['LINK DECLARAÇÃO'] || '';
     row['STATUS DA RESPOSTA'] = row['STATUS DA RESPOSTA'] || row['STATUS_RESPOSTA'] || row['STATUS-RESPOSTA'] || '';
-    row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || '';
+    row['LINK SHAPEFILE'] = row['LINK SHAPEFILE'] || row['LINK_SHAPEFILE'] || row['LINK SHAPE'] || '';
     row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA RECUSA'] || row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
     row['CARMS'] = row['Número do CARMS'] || row['NUMERO DO CARMS'] || row['NÚMERO DO CARMS'] || row['CARMS'] || '-';
 
     // Se tem resposta anexada e o status da resposta não é APROVADO nem REPROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
     // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
     const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
-    const hasResposta = linkResposta && String(linkResposta).trim().startsWith('http');
+    const hasResposta = linkResposta && temLinkValido(linkResposta);
     const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
     const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
 
@@ -882,8 +894,8 @@ function renderTabelaView(dados) {
     // Detalhes da carta selecionada no painel direito
     if (cartaSelecionada) {
         const linha = cartaSelecionada;
-        const absIndex = dadosCartasGlobais.indexOf(linha);
         const nupVal = linha['NUP'] || '-';
+        const nupEsc = typeof escaparParaAtributo === 'function' ? escaparParaAtributo(nupVal) : nupVal;
 
         const statusStr = String(linha['STATUS'] || '').toUpperCase();
         let statusColor = '#95a5a6';
@@ -898,15 +910,15 @@ function renderTabelaView(dados) {
         let htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-')
             ? `<div class="modal-obs" style="margin-top: 15px; margin-left: 0; margin-right: 0;"><strong>Observação:</strong><br>${obs}</div>` : '';
 
-        const linkOriginal  = linha['LINK DO NUP']      || '';
-        const linkResposta  = linha['LINK DA RESPOSTA']  || '';
-        const linkManifestacao = linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linkResposta || '';
-        const linkDeclaracao   = linha['LINK DA DECLARAÇÃO']   || linha['LINK_DECLARACAO']   || '';
-        const linkShapefile = linha['LINK SHAPEFILE']    || linha['LINK_SHAPEFILE'] || '';
+        const linkOriginal  = linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK NUP'] || linha['LINK-NUP'] || linha['LINK'] || linha['LINK_PROCESSO'] || '';
+        const linkResposta  = linha['LINK DA RESPOSTA'] || linha['LINK_RESPOSTA'] || linha['LINK RESPOSTA'] || '';
+        const linkManifestacao = linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linha['LINK MANIFESTAÇÃO'] || linkResposta || '';
+        const linkDeclaracao   = linha['LINK DA DECLARAÇÃO'] || linha['LINK_DECLARACAO'] || linha['LINK DECLARAÇÃO'] || '';
+        const linkShapefile = linha['LINK SHAPEFILE'] || linha['LINK_SHAPEFILE'] || linha['LINK SHAPE'] || '';
         const statusResp    = (linha['STATUS DA RESPOSTA'] || '').toUpperCase();
         const motivoResp    = (linha['MOTIVO DA AVALIAÇÃO'] || '').trim();
-        const temManifestacao = linkManifestacao && linkManifestacao.startsWith('http');
-        const temDeclaracao   = linkDeclaracao && linkDeclaracao.startsWith('http');
+        const temManifestacao = temLinkValido(linkManifestacao);
+        const temDeclaracao   = temLinkValido(linkDeclaracao);
         const temResposta   = temManifestacao && temDeclaracao;
 
         const isGestor = usuarioAtivo && (typeof window.isPerfilAdministrativo === 'function' && window.isPerfilAdministrativo() || typeof window.isPerfilRevisor === 'function' && window.isPerfilRevisor() || usuarioAtivo.username === 'diflor' || usuarioAtivo.setor === 'DIFLOR');
@@ -916,24 +928,25 @@ function renderTabelaView(dados) {
         let htmlPreviewIcon = '';
         let htmlBotoesAcao = '';
         
-        const hasOriginal = linkOriginal && linkOriginal.startsWith('http');
-        const hasResposta = linkResposta && linkResposta.startsWith('http');
-        const hasShapefile = linkShapefile && linkShapefile.startsWith('http');
+        const hasOriginal = temLinkValido(linkOriginal);
+        const hasResposta = temLinkValido(linkResposta);
+        const hasShapefile = temLinkValido(linkShapefile);
 
-        if (hasOriginal || hasResposta || hasShapefile) {
-            htmlPreviewIcon = `<button onclick="abrirModalPreviewCartas(${absIndex >= 0 ? absIndex : 0})" class="btn-inline-preview" title="Pré-visualizar Documentos"></button>`;
+        if (hasOriginal || hasResposta || hasShapefile || temManifestacao || temDeclaracao) {
+            htmlPreviewIcon = `<button onclick="abrirModalPreviewCartas(event, '${nupEsc}')" class="btn-inline-preview" title="Pré-visualizar Documentos"></button>`;
         }
 
         if (hasOriginal) {
+            htmlBotoesAcao += `<button onclick="abrirModalPreviewCartas(event, '${linkOriginal}', '${nupEsc}')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">👁️ Visualizar PDF</button>`;
             if (isLinkGCS(linkOriginal)) {
-                htmlBotoesAcao += `<button onclick="dispararDownloadSeguro('${linkOriginal}', 'Carta_Original_${nupVal}.pdf')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">⬇️ Baixar PDF (LGPD)</button>`;
+                htmlBotoesAcao += `<button onclick="dispararDownloadSeguro('${linkOriginal}', 'Carta_Original_${nupVal}.pdf')" class="btn-drive btn-soft-gray" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">⬇️ Baixar PDF (LGPD)</button>`;
             } else {
                 const origId = extrairIdDrive(linkOriginal);
                 if (origId) {
                     const linkDown = `https://drive.google.com/uc?export=download&id=${origId}`;
-                    htmlBotoesAcao += `<a href="${linkDown}" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar PDF Original</a>`;
+                    htmlBotoesAcao += `<a href="${linkDown}" class="btn-drive btn-soft-gray" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar PDF Original</a>`;
                 } else {
-                    htmlBotoesAcao += `<a href="${linkOriginal}" target="_blank" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Abrir PDF Original</a>`;
+                    htmlBotoesAcao += `<a href="${linkOriginal}" target="_blank" class="btn-drive btn-soft-gray" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Abrir PDF Original</a>`;
                 }
             }
         } else {
@@ -950,17 +963,17 @@ function renderTabelaView(dados) {
         }
 
         if (hasShapefile) {
-            htmlBotoesAcao += `<button onclick="abrirModalPreviewCartasShapefile(${absIndex >= 0 ? absIndex : 0}, '${linkShapefile}')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🗺️ Ver Mapa</button>`;
+            htmlBotoesAcao += `<button onclick="abrirModalPreviewCartasShapefile('${nupEsc}', '${linkShapefile}')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🗺️ Ver Mapa</button>`;
             
             if (isLinkGCS(linkShapefile)) {
-                htmlBotoesAcao += `<button onclick="dispararDownloadSeguro('${linkShapefile}', 'Shapefile_${nupVal}.zip')" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">⬇️ Baixar Shapefile (LGPD)</button>`;
+                htmlBotoesAcao += `<button onclick="dispararDownloadSeguro('${linkShapefile}', 'Shapefile_${nupVal}.zip')" class="btn-drive btn-soft-gray" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">⬇️ Baixar Shapefile (LGPD)</button>`;
             } else {
                 const shapeId = extrairIdDrive(linkShapefile);
                 if (shapeId) {
                     const shapeDown = `https://drive.google.com/uc?export=download&id=${shapeId}`;
-                    htmlBotoesAcao += `<a href="${shapeDown}" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar Shapefile</a>`;
+                    htmlBotoesAcao += `<a href="${shapeDown}" class="btn-drive btn-soft-gray" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="feedbackDownload(this)">⬇️ Baixar Shapefile</a>`;
                 } else {
-                    htmlBotoesAcao += `<a href="${linkShapefile}" target="_blank" class="btn-drive btn-orange-outline" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Baixar Shapefile</a>`;
+                    htmlBotoesAcao += `<a href="${linkShapefile}" target="_blank" class="btn-drive btn-soft-gray" style="flex:1;min-width:140px;display:flex;align-items:center;justify-content:center;gap:8px;">🔗 Baixar Shapefile</a>`;
                 }
             }
         } else {
@@ -982,8 +995,10 @@ function renderTabelaView(dados) {
         let htmlManifestacao = '';
         if (temManifestacao) {
             const btnExcluir = (statusStr !== 'TRAMITADO' && (isTecnico || isGestor) && !(statusResp === 'APROVADO' && !isGestor))
-                ? `<button onclick="removerDocumentoRespostaCarta(event,'${nupVal}','manifestacao')" class="btn-drive btn-red-outline" style="padding:0;width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;align-items:center;justify-content:center;">🗑️</button>` : '';
+                ? `<button onclick="removerDocumentoRespostaCarta(event,'${nupVal}','manifestacao')" class="btn-drive btn-red-outline" style="padding:0;width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;align-items:center;justify-content:center;" title="Excluir Manifestação">🗑️</button>` : '';
             
+            const btnVerManifest = `<button onclick="abrirModalPreviewCartas(event, '${linkManifestacao}', '${nupEsc}')" class="btn-drive" style="padding:0;width:28px;height:28px;background:rgba(56, 189, 248, 0.15);border:1px solid #38bdf8;color:#38bdf8;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;cursor:pointer;" title="Visualizar Manifestação"><i class="ci ci-eye"></i></button>`;
+
             let btnBaixarManifest = '';
             if (isLinkGCS(linkManifestacao)) {
                 btnBaixarManifest = `<button onclick="dispararDownloadSeguro('${linkManifestacao}', 'Manifestacao_${nupVal}.pdf')" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Manifestação (LGPD)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></button>`;
@@ -997,6 +1012,7 @@ function renderTabelaView(dados) {
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.02);padding:10px;border-radius:6px;border:1px solid #333;">
                     <span style="font-size:13px;color:#f39c12;font-weight:bold;display:flex;align-items:center;gap:6px;">📄 Manifestação Anexada</span>
                     <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
+                        ${btnVerManifest}
                         ${btnBaixarManifest}
                         ${btnExcluir}
                     </div>
@@ -1012,8 +1028,10 @@ function renderTabelaView(dados) {
         let htmlDeclaracao = '';
         if (temDeclaracao) {
             const btnExcluir = (statusStr !== 'TRAMITADO' && (isTecnico || isGestor) && !(statusResp === 'APROVADO' && !isGestor))
-                ? `<button onclick="removerDocumentoRespostaCarta(event,'${nupVal}','declaracao')" class="btn-drive btn-red-outline" style="padding:0;width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;align-items:center;justify-content:center;">🗑️</button>` : '';
+                ? `<button onclick="removerDocumentoRespostaCarta(event,'${nupVal}','declaracao')" class="btn-drive btn-red-outline" style="padding:0;width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;align-items:center;justify-content:center;" title="Excluir Declaração">🗑️</button>` : '';
             
+            const btnVerDeclar = `<button onclick="abrirModalPreviewCartas(event, '${linkDeclaracao}', '${nupEsc}')" class="btn-drive" style="padding:0;width:28px;height:28px;background:rgba(56, 189, 248, 0.15);border:1px solid #38bdf8;color:#38bdf8;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;cursor:pointer;" title="Visualizar Declaração"><i class="ci ci-eye"></i></button>`;
+
             let btnBaixarDeclar = '';
             if (isLinkGCS(linkDeclaracao)) {
                 btnBaixarDeclar = `<button onclick="dispararDownloadSeguro('${linkDeclaracao}', 'Declaracao_${nupVal}.pdf')" class="btn-drive btn-download-bounce" style="width:28px;height:28px;padding:0;background:#111111;border:1px solid #e67e22;color:#f39c12;display:inline-flex;align-items:center;justify-content:center;margin:0;border-radius:4px;" title="Baixar Declaração (LGPD)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><line x1="12" y1="3" x2="12" y2="15"></line><polyline points="7 10 12 15 17 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></button>`;
@@ -1027,6 +1045,7 @@ function renderTabelaView(dados) {
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.02);padding:10px;border-radius:6px;border:1px solid #333;">
                     <span style="font-size:13px;color:#f39c12;font-weight:bold;display:flex;align-items:center;gap:6px;">📜 Declaração Anexada</span>
                     <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
+                        ${btnVerDeclar}
                         ${btnBaixarDeclar}
                         ${btnExcluir}
                     </div>
@@ -1405,6 +1424,7 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
     let url = '';
     let linha = null;
     let nup = null;
+    let index = -1;
 
     const args = [arg1, arg2, arg3].filter(a => a !== null && a !== undefined && a !== '');
     for (const a of args) {
@@ -1416,16 +1436,18 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
             }
         } else if (typeof a === 'string') {
             const str = a.trim();
-            if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('gs://') || str.includes('drive.google.com') || str.includes('storage.googleapis.com')) {
+            const isWebUrl = str.startsWith('http://') || str.startsWith('https://') || str.startsWith('gs://') || str.includes('drive.google.com') || str.includes('storage.googleapis.com') || (typeof GCSStorage !== 'undefined' && GCSStorage.isGCS(str));
+            if (isWebUrl) {
                 if (!url) url = str;
-            } else if (!nup && !str.includes('/') && !str.includes('http')) {
+            } else if (!nup && !str.startsWith('http')) {
                 nup = str;
             } else if (!url) {
                 url = str;
             }
-        } else if (typeof a === 'number' && !linha) {
+        } else if (typeof a === 'number') {
+            index = a;
             const lista = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
-            if (a >= 0 && a < lista.length) linha = lista[a];
+            if (!linha && a >= 0 && a < lista.length) linha = lista[a];
         }
     }
 
@@ -1433,17 +1455,27 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
 
     const listaCartas = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
     
-    if (linha && linha['NUP']) {
-        nup = linha['NUP'];
+    if (linha && (linha['NUP'] || linha['PROCESSO'] || linha['PROCESSO/NUP'])) {
+        nup = linha['NUP'] || linha['PROCESSO'] || linha['PROCESSO/NUP'];
     }
 
     if (!linha && nup && typeof nup === 'string' && nup !== '-') {
         const nupBusca = nup.trim().toUpperCase();
         const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+        const nupDigitos = nupBusca.replace(/[^A-Z0-9]/g, '');
         linha = listaCartas.find(x => {
-            const n = String(x['NUP'] || '').trim().toUpperCase();
-            return n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf;
+            const n = String(x['NUP'] || x['PROCESSO'] || x['PROCESSO/NUP'] || '').trim().toUpperCase();
+            if (n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf) return true;
+            const xDigitos = n.replace(/[^A-Z0-9]/g, '');
+            if (nupDigitos && xDigitos && (xDigitos === nupDigitos || xDigitos.includes(nupDigitos) || nupDigitos.includes(xDigitos))) return true;
+            return false;
         });
+        if (!linha && typeof cartaSelecionada !== 'undefined' && cartaSelecionada) {
+            const nSel = String(cartaSelecionada['NUP'] || cartaSelecionada['PROCESSO'] || '').trim().toUpperCase();
+            if (nSel === nupBusca || nSel.replace(/\.PDF$/i, '') === nupSemPdf) {
+                linha = cartaSelecionada;
+            }
+        }
     }
 
     if (!linha && url) {
@@ -1451,9 +1483,9 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
         const driveId = typeof extrairIdDrive === 'function' ? extrairIdDrive(urlStr) : null;
         linha = listaCartas.find(x => {
             const campos = [
-                x['LINK DO NUP'], x['LINK_NUP'], x['LINK'], x['LINK_PROCESSO'],
-                x['LINK DA MANIFESTAÇÃO'], x['LINK DA RESPOSTA'], x['LINK RESPOSTA'],
-                x['LINK DA DECLARAÇÃO'], x['MANIFESTACAO_PRELIMINAR'], x['LINK_PARECER_EXTERNO']
+                x['LINK DO NUP'], x['LINK_NUP'], x['LINK NUP'], x['LINK-NUP'], x['LINK'], x['LINK_PROCESSO'],
+                x['LINK DA MANIFESTAÇÃO'], x['LINK DA RESPOSTA'], x['LINK RESPOSTA'], x['LINK_RESPOSTA'],
+                x['LINK DA DECLARAÇÃO'], x['LINK_DECLARACAO'], x['MANIFESTACAO_PRELIMINAR'], x['LINK_PARECER_EXTERNO']
             ];
             return campos.some(c => {
                 if (!c) return false;
@@ -1464,26 +1496,35 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
             });
         });
         if (linha && !nup) {
-            nup = linha['NUP'];
+            nup = linha['NUP'] || linha['PROCESSO'] || linha['PROCESSO/NUP'];
         }
+    }
+
+    if (!linha && typeof cartaSelecionada !== 'undefined' && cartaSelecionada) {
+        linha = cartaSelecionada;
+        if (!nup) nup = linha['NUP'] || linha['PROCESSO'] || linha['PROCESSO/NUP'];
+    }
+
+    if (index === -1 && linha) {
+        index = listaCartas.indexOf(linha);
     }
 
     const modal = document.getElementById('previewModal');
     if (!modal) return;
 
-    let nupOriginal = (linha && linha['NUP']) ? linha['NUP'] : (nup || '-');
-    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.includes('/'))) {
+    let nupOriginal = (linha && (linha['NUP'] || linha['PROCESSO'] || linha['PROCESSO/NUP'])) ? (linha['NUP'] || linha['PROCESSO'] || linha['PROCESSO/NUP']) : (nup || '-');
+    if (typeof nupOriginal === 'string' && (nupOriginal.startsWith('http') || nupOriginal.startsWith('/') || nupOriginal.includes('://'))) {
         nupOriginal = '-';
     }
     const nupDisplay = typeof limparNupDisplay === 'function' ? limparNupDisplay(nupOriginal) : String(nupOriginal).replace(/\.pdf$/gi, '');
     const nupFormatado = String(nupOriginal).replace(/[^a-zA-Z0-9]/g, '_');
     const nupEsc = typeof escaparParaAtributo === 'function' ? escaparParaAtributo(nupOriginal) : nupOriginal;
 
-    const linkOriginal = (linha ? (linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK'] || linha['LINK_PROCESSO']) : (url || '')) || '';
+    const linkOriginal = (linha ? (linha['LINK DO NUP'] || linha['LINK_NUP'] || linha['LINK NUP'] || linha['LINK-NUP'] || linha['LINK'] || linha['LINK_PROCESSO']) : (url || '')) || '';
     const linkResposta = linha ? (linha['LINK DA RESPOSTA'] || linha['LINK RESPOSTA'] || linha['LINK_RESPOSTA'] || '') : '';
-    const linkManifestacao = linha ? (linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linkResposta || '') : '';
-    const linkDeclaracao = linha ? (linha['LINK DA DECLARAÇÃO'] || linha['LINK_DECLARACAO'] || '') : '';
-    const linkShapefile = linha ? (linha['LINK SHAPEFILE'] || linha['LINK_SHAPEFILE'] || '') : '';
+    const linkManifestacao = linha ? (linha['LINK DA MANIFESTAÇÃO'] || linha['LINK_MANIFESTACAO'] || linha['LINK MANIFESTAÇÃO'] || linkResposta || '') : '';
+    const linkDeclaracao = linha ? (linha['LINK DA DECLARAÇÃO'] || linha['LINK_DECLARACAO'] || linha['LINK DECLARAÇÃO'] || '') : '';
+    const linkShapefile = linha ? (linha['LINK SHAPEFILE'] || linha['LINK_SHAPEFILE'] || linha['LINK SHAPE'] || '') : '';
     const linkPreliminar = linha ? (linha['MANIFESTACAO_PRELIMINAR'] && linha['MANIFESTACAO_PRELIMINAR'].trim() !== '' && linha['MANIFESTACAO_PRELIMINAR'].trim() !== '-' ? linha['MANIFESTACAO_PRELIMINAR'] : '') : '';
     const linkParecerExterno = linha ? (linha['LINK_PARECER_EXTERNO'] && linha['LINK_PARECER_EXTERNO'].trim() !== '' && linha['LINK_PARECER_EXTERNO'].trim() !== '-' ? linha['LINK_PARECER_EXTERNO'] : '') : '';
 
@@ -1493,7 +1534,7 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
     const previewPreliminarUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkPreliminar) : linkPreliminar;
     const previewParecerUrl = typeof obterPreviewLink === 'function' ? obterPreviewLink(linkParecerExterno) : linkParecerExterno;
 
-    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    const iconeOlhoGrande = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
 
     modal.className = 'preview-modal';
     modal.innerHTML = `
@@ -1516,6 +1557,17 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
                 <div id="gisMapContainerModal" style="display: none; flex: 1; position: relative; background-color: #1a1a1a;">
                     <div id="gisLoadingModal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; color: #f39c12; font-weight: bold; z-index: 999; display: none;">
                         ⏳ A carregar Shapefile com segurança...
+                    </div>
+                </div>
+                <div id="previewEmptyStateCarta" style="display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; background-color: #111827; padding: 40px; text-align: center; border-radius: 6px;">
+                    <div style="font-size: 52px; margin-bottom: 16px;">📭</div>
+                    <div style="font-size: 18px; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">Nenhum documento PDF ou Mapa anexado</div>
+                    <p style="font-size: 13.5px; color: #94a3b8; max-width: 440px; line-height: 1.6; margin-bottom: 24px;">
+                        Esta Carta Consulta (<strong>${nupDisplay}</strong>) ainda não possui arquivo de processo inicial, manifestação técnica ou shapefile vinculado.
+                    </p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                        <button onclick="anexarPdfOriginalCarta(event, '${nupEsc}')" class="btn-drive btn-orange" style="padding: 10px 18px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;"><i class="ci ci-paperclip"></i> Anexar PDF Inicial</button>
+                        <button onclick="anexarShapefileCarta(event, '${nupEsc}')" class="btn-drive btn-orange-outline" style="padding: 10px 18px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">🗺️ Anexar Shapefile (.zip)</button>
                     </div>
                 </div>
                 <div id="previewInfo" class="preview-info">
@@ -1553,11 +1605,44 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
     }
 
     const btnDownload = document.getElementById('btn-download-preview');
-    if (btnDownload) btnDownload.href = urlDownload;
     const btnOpenPreview = document.getElementById('btn-open-preview');
-    if (btnOpenPreview) btnOpenPreview.href = urlPreview || urlPreviewRaw;
     const previewFrame = document.getElementById('previewFrame');
-    if (previewFrame) previewFrame.src = urlPreview || urlPreviewRaw;
+    const emptyStateEl = document.getElementById('previewEmptyStateCarta');
+
+    // Toggles
+    let hasOrig = !!previewOriginalUrl;
+    let hasPreliminar = !!previewPreliminarUrl;
+    let hasParecer = !!previewParecerUrl;
+    let hasManifest = !!previewManifestacaoUrl;
+    let hasDeclar = !!previewDeclaracaoUrl;
+    let hasShape = !!(linkShapefile && linkShapefile.trim() !== '' && linkShapefile.trim() !== '-');
+
+    if (urlPreviewRaw) {
+        if (previewFrame) {
+            previewFrame.style.display = 'block';
+            previewFrame.src = urlPreview || urlPreviewRaw;
+        }
+        if (btnDownload) {
+            btnDownload.style.display = '';
+            btnDownload.href = urlDownload;
+        }
+        if (btnOpenPreview) {
+            btnOpenPreview.style.display = '';
+            btnOpenPreview.href = (urlPreview || urlPreviewRaw).replace('/preview', '/view');
+        }
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+    } else if (hasShape) {
+        // Sem PDF mas com Shapefile: ativa mapa diretamente
+        if (previewFrame) previewFrame.style.display = 'none';
+        if (emptyStateEl) emptyStateEl.style.display = 'none';
+        if (btnOpenPreview) btnOpenPreview.style.display = 'none';
+    } else {
+        // Sem documento PDF e sem Shapefile
+        if (previewFrame) previewFrame.style.display = 'none';
+        if (emptyStateEl) emptyStateEl.style.display = 'flex';
+        if (btnDownload) btnDownload.style.display = 'none';
+        if (btnOpenPreview) btnOpenPreview.style.display = 'none';
+    }
 
     if (!linha) {
         const previewInfoEl = document.getElementById('previewInfoContent');
@@ -1568,14 +1653,6 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
 
     const obs = (linha['OBSERVAÇÃO'] || linha['OBSERVAÇÕES'] || '').trim();
     const htmlObs = (obs && obs.toLowerCase() !== 'nan' && obs !== '-') ? `<div class="preview-info-obs"><strong>📋 Observação:</strong><br>${obs}</div>` : '';
-
-    // Toggles
-    let hasOrig = !!previewOriginalUrl;
-    let hasPreliminar = !!previewPreliminarUrl;
-    let hasParecer = !!previewParecerUrl;
-    let hasManifest = !!previewManifestacaoUrl;
-    let hasDeclar = !!previewDeclaracaoUrl;
-    let hasShape = !!(linkShapefile && linkShapefile.trim() !== '' && linkShapefile.trim() !== '-');
 
     let docsDisponiveis = [];
     if (hasOrig) docsDisponiveis.push({ label: '📜 Ver NUP', url: previewOriginalUrl });
@@ -1592,9 +1669,18 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
             toggleBtn += `<button onclick="alternarVisualizacaoPreview(this, '${doc.url}', '${doc.url}')" class="btn-drive btn-preview-toggle-tab ${isActive ? 'active' : ''}" style="flex: 1; padding: 8px 10px; font-size: 11.5px; min-width: 90px;">${doc.label}</button>`;
         });
         if (hasShape) {
-            toggleBtn += `<button onclick="alternarParaShapefileCartas(this, '${linkShapefile}', '${index}')" class="btn-drive btn-preview-toggle-tab" style="flex: 1; padding: 8px 10px; font-size: 11.5px; min-width: 90px;">🗺️ Ver Mapa</button>`;
+            const isActiveShape = (!urlPreviewRaw && hasShape);
+            toggleBtn += `<button onclick="alternarParaShapefileCartas(this, '${linkShapefile}', '${nupEsc}')" class="btn-drive btn-preview-toggle-tab ${isActiveShape ? 'active' : ''}" style="flex: 1; padding: 8px 10px; font-size: 11.5px; min-width: 90px;">🗺️ Ver Mapa</button>`;
         }
         toggleBtn += `</div>`;
+    }
+
+    // Se só tem Shapefile e não tem PDF, ativa o mapa
+    if (!urlPreviewRaw && hasShape) {
+        setTimeout(() => {
+            const shapeTabBtn = modal.querySelector('.btn-preview-toggle-tab.active');
+            alternarParaShapefileCartas(shapeTabBtn, linkShapefile, nupEsc);
+        }, 100);
     }
 
     // Ações Rápidas de Interação
@@ -1741,8 +1827,8 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
 /**
  * Abre o modal de pré-visualização e ativa diretamente a aba do Shapefile
  */
-function abrirModalPreviewCartasShapefile(index, linkShapefile) {
-    abrirModalPreviewCartas(index);
+function abrirModalPreviewCartasShapefile(indexOrNup, linkShapefile) {
+    abrirModalPreviewCartas(indexOrNup);
     setTimeout(() => {
         const toggleTabs = document.querySelectorAll('#previewModal .btn-preview-toggle-tab');
         let shapeBtn = null;
@@ -1752,9 +1838,7 @@ function abrirModalPreviewCartasShapefile(index, linkShapefile) {
                 break;
             }
         }
-        if (shapeBtn) {
-            alternarParaShapefileCartas(shapeBtn, linkShapefile, index);
-        }
+        alternarParaShapefileCartas(shapeBtn, linkShapefile, indexOrNup);
     }, 150);
 }
 
@@ -1762,12 +1846,23 @@ function abrirModalPreviewCartasShapefile(index, linkShapefile) {
  * Habilita a visualização Geoespacial integrando-a com a janela de pré-visualização principal.
  */
 async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
-    const container = btn.parentElement;
-    if (container) {
-        const botoes = container.querySelectorAll('.btn-preview-toggle-tab');
-        botoes.forEach(b => b.classList.remove('active'));
+    if (btn) {
+        const container = btn.parentElement;
+        if (container) {
+            const botoes = container.querySelectorAll('.btn-preview-toggle-tab');
+            botoes.forEach(b => b.classList.remove('active'));
+        }
+        btn.classList.add('active');
+    } else {
+        const toggleTabs = document.querySelectorAll('#previewModal .btn-preview-toggle-tab');
+        toggleTabs.forEach(b => {
+            if (b.textContent.includes('Mapa')) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
     }
-    btn.classList.add('active');
 
     const iframe = document.getElementById('previewFrame');
     if (iframe) iframe.style.display = 'none';
@@ -1775,10 +1870,35 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
     const gisContainer = document.getElementById('gisMapContainerModal');
     if (gisContainer) gisContainer.style.display = 'block';
 
+    const emptyStateEl = document.getElementById('previewEmptyStateCarta');
+    if (emptyStateEl) emptyStateEl.style.display = 'none';
+
+    let record = null;
+    if (typeof indexStr === 'number' || (typeof indexStr === 'string' && /^\d+$/.test(indexStr) && Number(indexStr) >= 0 && Number(indexStr) < dadosCartasGlobais.length)) {
+        record = dadosCartasGlobais[Number(indexStr)];
+    }
+    if (!record && indexStr) {
+        const listaCartas = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
+        const nupBusca = String(indexStr).trim().toUpperCase();
+        const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+        const nupDigitos = nupBusca.replace(/[^A-Z0-9]/g, '');
+        record = listaCartas.find(r => {
+            const n = String(r['NUP'] || r['PROCESSO'] || r['PROCESSO/NUP'] || '').trim().toUpperCase();
+            if (n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf) return true;
+            const rDigitos = n.replace(/[^A-Z0-9]/g, '');
+            if (nupDigitos && rDigitos && (rDigitos === nupDigitos || rDigitos.includes(nupDigitos) || nupDigitos.includes(rDigitos))) return true;
+            return false;
+        });
+    }
+    if (!record && typeof cartaSelecionada !== 'undefined' && cartaSelecionada) {
+        record = cartaSelecionada;
+    }
+    const recordNup = (record && (record['NUP'] || record['PROCESSO'])) ? (record['NUP'] || record['PROCESSO']) : (typeof indexStr === 'string' ? indexStr : 'carta');
+
     const btnDownload = document.getElementById('btn-download-preview');
     if (btnDownload) {
+        btnDownload.style.display = '';
         if (typeof isLinkGCS === 'function' && isLinkGCS(shapeUrl)) {
-            const recordNup = (dadosCartasGlobais[indexStr] && dadosCartasGlobais[indexStr]['NUP']) ? dadosCartasGlobais[indexStr]['NUP'] : 'carta';
             obterLinkDownloadSeguro(shapeUrl, `Shapefile_${recordNup}.zip`).then(dl => {
                 btnDownload.href = dl;
             }).catch(() => { btnDownload.href = shapeUrl; });
@@ -1786,6 +1906,11 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
             const fileId = extrairIdDrive(shapeUrl);
             btnDownload.href = fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : shapeUrl;
         }
+    }
+
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.style.display = 'none';
     }
 
     if (typeof carregarBibliotecasGIS === 'function') {
@@ -1811,8 +1936,7 @@ async function alternarParaShapefileCartas(btn, shapeUrl, indexStr) {
     if (loadingEl) loadingEl.style.display = 'block';
 
     try {
-        const record = dadosCartasGlobais[indexStr];
-        const nup = record ? record['NUP'] : '';
+        const nup = (record && record['NUP']) ? record['NUP'] : (recordNup !== 'carta' ? recordNup : '');
         let geojson = nup ? cacheShapesCartas[nup] : null;
 
         if (!geojson) {
@@ -2872,7 +2996,7 @@ async function atualizarStatusCarta(event, nup, novoStatus) {
             // Se o preview estiver aberto, recarrega com o novo status
             const prev = document.getElementById('previewModal');
             if (prev && prev.style.display === 'flex' && target) {
-                const linkCarta = target['LINK DO NUP'] || target['LINK_NUP'] || target['LINK'] || target['LINK_PROCESSO'] || target['LINK DA RESPOSTA'] || '';
+                const linkCarta = target['LINK DO NUP'] || target['LINK_NUP'] || target['LINK NUP'] || target['LINK-NUP'] || target['LINK'] || target['LINK_PROCESSO'] || target['MANIFESTACAO_PRELIMINAR'] || target['LINK_PARECER_EXTERNO'] || target['LINK DA RESPOSTA'] || target['LINK DA MANIFESTAÇÃO'] || target['LINK DA DECLARAÇÃO'] || target['LINK SHAPEFILE'] || '';
                 abrirModalPreviewCartas(target, linkCarta, nup);
             }
         } else {
