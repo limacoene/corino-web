@@ -2542,8 +2542,8 @@ window.executarRetornoSobrestamentoProcesso = async function() {
 function exibirLinhaTempo(dados, container) {
     if (dados.length === 0) {
         container.innerHTML = `
-            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;"><i class="ci ci-clock"></i> Histórico de Tramitação</div>
-            <div style="text-align: center; color: #666; font-size: 13px; padding: 15px; border: 1px dashed #333; border-radius: 6px;">Nenhum evento registrado para este processo.</div>
+            <div class="timeline-header-title"><i class="ci ci-clock"></i> Histórico de Tramitação</div>
+            <div class="timeline-empty-box">Nenhum evento registrado para este processo.</div>
         `;
         return;
     }
@@ -2589,7 +2589,7 @@ function exibirLinhaTempo(dados, container) {
     [...dados].reverse().forEach((ev, i) => {
         const estilo = obterEstiloEvento(ev.acao, ev.detalhe);
         let descricao = ev.extra ? `${ev.acao} (${ev.extra})` : ev.acao;
-        let detalheText = ev.detalhe && !ev.detalhe.startsWith('http') ? `<div style="font-size: 11px; color: #888; margin-top: 2px;">Detalhe: ${ev.detalhe}</div>` : '';
+        let detalheText = ev.detalhe && !ev.detalhe.startsWith('http') ? `<div class="timeline-event-detalhe">Detalhe: ${ev.detalhe}</div>` : '';
         
         if (ev.acao === 'ALTERACAO_MANUAL_STATUS') {
             descricao = ev.extra || 'Status alterado manualmente';
@@ -2597,19 +2597,19 @@ function exibirLinhaTempo(dados, container) {
         }
         
         htmlEvents += `
-            <div style="position: relative; margin-bottom: 20px; padding-left: 15px;">
-                <div style="position: absolute; left: -29px; top: 0; width: 16px; height: 16px; background-color: #1a1a1a; border: 2px solid ${estilo.cor}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px;" title="${ev.acao}">${estilo.icone}</div>
-                <div style="font-size: 11px; color: #777;">${ev.data}</div>
-                <div style="font-size: 13px; color: ${i === 0 ? '#fff' : '#ccc'}; margin-top: 2px; font-weight: ${i === 0 ? 'bold' : 'normal'};">${descricao}</div>
+            <div class="timeline-event-item">
+                <div class="timeline-event-badge" style="border-color: ${estilo.cor};" title="${ev.acao}">${estilo.icone}</div>
+                <div class="timeline-event-date">${ev.data}</div>
+                <div class="timeline-event-desc ${i === 0 ? 'timeline-event-latest' : ''}">${descricao}</div>
                 ${detalheText}
             </div>
         `;
     });
 
     container.innerHTML = `
-        <div style="margin-top: 25px; margin-bottom: 25px;">
-            <div style="font-size: 15px; font-weight: bold; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px;"><i class="ci ci-clock"></i> Histórico de Tramitação</div>
-            <div style="position: relative; padding-left: 20px; border-left: 2px solid #444; margin-left: 17px;">
+        <div class="timeline-container-inner">
+            <div class="timeline-header-title"><i class="ci ci-clock"></i> Histórico de Tramitação</div>
+            <div class="timeline-events-track">
                 ${htmlEvents}
             </div>
         </div>
@@ -4954,13 +4954,35 @@ function renderizarGraficoTecnicos(contagem) {
     const entries = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
     const labels = entries.map(e => e[0]);
     const data = entries.map(e => e[1]);
-    const bgColors = labels.map(l => l === '(Sem Técnico)' ? '#e67e22' : '#3b82f6');
+    const isModoClaro = document.documentElement.classList.contains('light-mode');
+    const bgColors = labels.map(l => l === '(Sem Técnico)' ? (isModoClaro ? '#d97706' : '#e67e22') : (isModoClaro ? '#2563eb' : '#3b82f6'));
+    const corTextoEixo = isModoClaro ? '#1e293b' : '#94a3b8';
+    const corGradeEixo = isModoClaro ? 'rgba(0, 0, 0, 0.07)' : 'rgba(255, 255, 255, 0.05)';
 
     // Se já existir instância ativa no mesmo canvas, atualiza in-place para manter hitboxes e interações sincronizadas
     if (chartTecnicosInstancia && chartTecnicosInstancia.ctx) {
         chartTecnicosInstancia.data.labels = labels;
         chartTecnicosInstancia.data.datasets[0].data = data;
         chartTecnicosInstancia.data.datasets[0].backgroundColor = bgColors;
+        if (chartTecnicosInstancia.options && chartTecnicosInstancia.options.scales) {
+            if (chartTecnicosInstancia.options.scales.x && chartTecnicosInstancia.options.scales.x.ticks) {
+                chartTecnicosInstancia.options.scales.x.ticks.color = corTextoEixo;
+            }
+            if (chartTecnicosInstancia.options.scales.y) {
+                if (chartTecnicosInstancia.options.scales.y.ticks) {
+                    chartTecnicosInstancia.options.scales.y.ticks.color = corTextoEixo;
+                }
+                if (chartTecnicosInstancia.options.scales.y.grid) {
+                    chartTecnicosInstancia.options.scales.y.grid.color = corGradeEixo;
+                }
+            }
+        }
+        if (chartTecnicosInstancia.options && chartTecnicosInstancia.options.plugins && chartTecnicosInstancia.options.plugins.tooltip) {
+            chartTecnicosInstancia.options.plugins.tooltip.backgroundColor = isModoClaro ? '#ffffff' : '#1e293b';
+            chartTecnicosInstancia.options.plugins.tooltip.titleColor = isModoClaro ? '#0f172a' : '#ffffff';
+            chartTecnicosInstancia.options.plugins.tooltip.bodyColor = isModoClaro ? '#334155' : '#cbd5e1';
+            chartTecnicosInstancia.options.plugins.tooltip.borderColor = isModoClaro ? '#cbd5e1' : 'rgba(255,255,255,0.15)';
+        }
         chartTecnicosInstancia.update();
         return;
     }
@@ -5019,10 +5041,10 @@ function renderizarGraficoTecnicos(contagem) {
                     axis: 'x',
                     intersect: false,
                     position: 'nearest',
-                    backgroundColor: '#1e293b',
-                    titleColor: '#ffffff',
-                    bodyColor: '#cbd5e1',
-                    borderColor: 'rgba(255,255,255,0.15)',
+                    backgroundColor: isModoClaro ? '#ffffff' : '#1e293b',
+                    titleColor: isModoClaro ? '#0f172a' : '#ffffff',
+                    bodyColor: isModoClaro ? '#334155' : '#cbd5e1',
+                    borderColor: isModoClaro ? '#cbd5e1' : 'rgba(255,255,255,0.15)',
                     borderWidth: 1,
                     padding: 10,
                     titleFont: {
@@ -5052,7 +5074,7 @@ function renderizarGraficoTecnicos(contagem) {
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#94a3b8',
+                        color: corTextoEixo,
                         font: {
                             size: 11,
                             family: 'Inter',
@@ -5065,14 +5087,15 @@ function renderizarGraficoTecnicos(contagem) {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
+                        color: corGradeEixo,
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#94a3b8',
+                        color: corTextoEixo,
                         font: {
                             size: 11,
-                            family: 'Inter'
+                            family: 'Inter',
+                            weight: '600'
                         },
                         stepSize: 1
                     }
@@ -5081,6 +5104,12 @@ function renderizarGraficoTecnicos(contagem) {
         }
     });
 }
+
+window.atualizarGraficoTecnicosTema = function() {
+    if (typeof filtrarDashboardInicio === 'function') {
+        filtrarDashboardInicio();
+    }
+};
 
 function popularSelectSetoresInicio() {
     const sel = document.getElementById('filtroInicioSetor');
@@ -5544,15 +5573,15 @@ function renderTabelaInicio(processos) {
         }
 
         const nupDisplay = limparNupDisplay(p.nup);
-        const setorBadge = p.setor ? '<span style="display: inline-block; margin-top: 3px; padding: 1px 6px; font-size: 10px; font-weight: 700; border-radius: 4px; background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.25); letter-spacing: 0.5px;">' + p.setor + '</span>' : '';
+        const setorBadge = p.setor ? '<span class="table-row-setor">' + p.setor + '</span>' : '';
 
         const acaoBtn = '<button class="btn-table-action-ver" data-modulo="' + escaparParaAtributo(p.moduloKey) + '" data-nup="' + escaparParaAtributo(p.nup) + '">' + svgEye + '<span>Ver</span></button>';
 
         html += '<tr>' +
             '<td style="text-align: center;"><span class="badge-modulo ' + badgeModClass + '"><span class="badge-icon">' + badgeModIcon + '</span> <span>' + p.modulo + '</span></span></td>' +
-            '<td><strong style="color: #f8fafc; font-family: monospace; font-size: 13px; letter-spacing: 0.3px;">' + nupDisplay + '</strong></td>' +
-            '<td><div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="' + escaparParaAtributo(p.interessado) + '">' + p.interessado + '</div></td>' +
-            '<td><div><span style="font-weight: 600; color: #e2e8f0;">' + (p.tecnico || 'S/T') + '</span></div>' + (setorBadge ? '<div>' + setorBadge + '</div>' : '') + '</td>' +
+            '<td><strong class="table-row-nup">' + nupDisplay + '</strong></td>' +
+            '<td><div class="table-row-interessado" title="' + escaparParaAtributo(p.interessado) + '">' + p.interessado + '</div></td>' +
+            '<td><div><span class="table-row-tecnico">' + (p.tecnico || 'S/T') + '</span></div>' + (setorBadge ? '<div>' + setorBadge + '</div>' : '') + '</td>' +
             '<td style="text-align: center;"><span class="badge-status-operacional ' + stOperacional.classe + '">' + stOperacional.icon + ' ' + stOperacional.texto + '</span></td>' +
             '<td style="text-align: center;">' + badgeDias + '</td>' +
             '<td style="text-align: center;">' + acaoBtn + '</td>' +

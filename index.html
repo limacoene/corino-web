@@ -37,6 +37,9 @@
         function alternarTema() {
             const isLight = document.documentElement.classList.toggle('light-mode');
             localStorage.setItem('corino_theme', isLight ? 'light' : 'dark');
+            if (typeof window.atualizarGraficoTecnicosTema === 'function') {
+                window.atualizarGraficoTecnicosTema();
+            }
             if (typeof mostrarToast === 'function') {
                 mostrarToast(isLight ? "Modo claro ativado!" : "Modo escuro ativado!", "success");
             }
@@ -45,7 +48,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>C.O.R.I.N.O. | Diretoria Florestal</title>
-    <link rel="stylesheet" href="style.css?v=25">
+    <link rel="stylesheet" href="style.css?v=27">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -2028,10 +2031,10 @@
     <script src="flatpickr.min.js"></script>
     <script src="flatpickr.pt.js"></script>
     <script src="utils.js?v=13"></script>
-    <script src="app.js?v=29"></script>
+    <script src="app.js?v=31"></script>
     <script src="autos.js?v=18"></script>
     <script src="externos.js?v=18"></script>
-    <script src="cartas.js?v=21"></script>
+    <script src="cartas.js?v=22"></script>
     <script src="shapefile_reader.js"></script>
     <script src="admin.js?v=3"></script>
 </body>
