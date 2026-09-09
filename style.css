@@ -2611,66 +2611,547 @@ html.light-mode .btn-soft-gray:hover {
     color: #1a202c !important;
 }
 
-/* Preview Modal */
-html.light-mode .preview-toolbar {
-    background-color: #ffffff;
-    border-bottom-color: #cbd5e0;
+/* ==========================================================================
+   LINHA DO TEMPO DA PRÉ-VISUALIZAÇÃO (BASE / DARK)
+   ========================================================================== */
+.timeline-container-inner {
+    margin-top: 25px;
+    margin-bottom: 25px;
+}
+.timeline-header-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #f1f5f9;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+}
+.timeline-empty-box {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    padding: 15px;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.02);
+}
+.timeline-events-track {
+    position: relative;
+    padding-left: 20px;
+    border-left: 2px solid #334155;
+    margin-left: 17px;
+}
+.timeline-event-item {
+    position: relative;
+    margin-bottom: 20px;
+    padding-left: 15px;
+}
+.timeline-event-badge {
+    position: absolute;
+    left: -29px;
+    top: 0;
+    width: 16px;
+    height: 16px;
+    background-color: #0f172a;
+    border-width: 2px;
+    border-style: solid;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+}
+.timeline-event-date {
+    font-size: 11px;
+    color: #94a3b8;
+}
+.timeline-event-desc {
+    font-size: 13px;
+    color: #cbd5e1;
+    margin-top: 2px;
+    font-weight: normal;
+}
+.timeline-event-desc.timeline-event-latest {
+    color: #f8fafc;
+    font-weight: bold;
+}
+.timeline-event-detalhe {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
 }
 
-html.light-mode .preview-toolbar-title {
-    color: #1a202c;
+/* ==========================================================================
+   PREVIEW MODAL (EXPANDIDO) - MODO CLARO
+   Garante contraste perfeito, remoção de gradientes escuros e alta legibilidade.
+   ========================================================================== */
+html.light-mode .preview-modal {
+    background-color: rgba(15, 23, 42, 0.65) !important;
+}
+
+html.light-mode .preview-wrapper {
+    background: #ffffff !important;
+    background-image: none !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25), 0 0 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light-mode .preview-toolbar {
+    background: #ffffff !important;
+    background-image: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html.light-mode .preview-toolbar-title,
+html.light-mode .preview-toolbar-title span {
+    color: #0f172a !important;
+}
+
+html.light-mode .preview-toolbar-title svg {
+    stroke: #0284c7 !important;
 }
 
 html.light-mode .btn-preview-action {
-    background-color: #ffffff;
-    color: #4a5568;
-    border-color: #cbd5e0;
+    background: #f8fafc !important;
+    background-image: none !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
 }
 
 html.light-mode .btn-preview-action:hover {
-    background-color: #edf2f7;
-    color: #1a202c;
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: #94a3b8 !important;
+}
+
+html.light-mode .btn-download-preview-action {
+    background: #ecfdf5 !important;
+    background-image: none !important;
+    border: 1px solid #86efac !important;
+    color: #166534 !important;
+}
+
+html.light-mode .btn-download-preview-action:hover {
+    background: #dcfce7 !important;
+    border-color: #4ade80 !important;
+    color: #14532d !important;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2) !important;
 }
 
 html.light-mode .btn-close-preview {
-    background-color: rgba(255, 75, 75, 0.1);
-    border-color: rgba(255, 75, 75, 0.2);
-    color: #ff4b4b;
+    background: #fef2f2 !important;
+    background-image: none !important;
+    border: 1px solid #fecaca !important;
+    color: #dc2626 !important;
 }
 
 html.light-mode .btn-close-preview:hover {
-    background-color: rgba(255, 75, 75, 0.2);
-    color: #ff4b4b;
+    background: #fee2e2 !important;
+    border-color: #f87171 !important;
+    color: #b91c1c !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2) !important;
 }
 
+/* Área do Documento (Iframe / Shapefile) */
+html.light-mode .preview-body {
+    background: #f1f5f9 !important;
+}
+
+html.light-mode .preview-iframe {
+    background-color: #f1f5f9 !important;
+}
+
+html.light-mode #gisMapContainerModal {
+    background-color: #f8fafc !important;
+}
+
+html.light-mode #previewEmptyStateCarta {
+    background-color: #f8fafc !important;
+    border: 1px dashed #cbd5e1 !important;
+}
+
+html.light-mode #previewEmptyStateCarta > div {
+    color: #0f172a !important;
+}
+
+html.light-mode #previewEmptyStateCarta p {
+    color: #475569 !important;
+}
+
+html.light-mode #previewEmptyStateCarta strong {
+    color: #0f172a !important;
+}
+
+/* Painel Lateral de Informações */
 html.light-mode .preview-info {
-    background-color: #ffffff;
-    border-left-color: #cbd5e0;
-    color: #4a5568;
+    background: #ffffff !important;
+    background-image: none !important;
+    border-left: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
 }
 
-html.light-mode .preview-info strong {
-    color: #1a202c;
+html.light-mode .preview-info::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.5) !important;
 }
 
-html.light-mode .preview-info-obs {
-    background-color: #f7fafc;
-    border-color: #e2e8f0;
+html.light-mode .preview-info::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.7) !important;
 }
 
-/* Preview Modal Toggle Tabs Active Indicators */
-.btn-preview-toggle-tab {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+html.light-mode .preview-info-header {
+    border-bottom: 1px solid #e2e8f0 !important;
 }
 
-.btn-preview-toggle-tab.active {
-    box-shadow: 0 0 0 2px var(--primary-green), 0 0 12px rgba(46, 160, 67, 0.45) !important;
-    font-weight: bold !important;
-    transform: translateY(-1px);
+html.light-mode .preview-info-nup-title {
+    color: #0f172a !important;
+}
+
+/* Tags e Status no Painel */
+html.light-mode .modal-detail-tag-oficio {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    border-color: #bae6fd !important;
+}
+
+html.light-mode .modal-detail-tag-carta {
+    background: #ede9fe !important;
+    color: #6d28d9 !important;
+    border-color: #ddd6fe !important;
+}
+
+html.light-mode .modal-detail-tag-auto {
+    background: #ffedd5 !important;
+    color: #c2410c !important;
+    border-color: #fed7aa !important;
+}
+
+html.light-mode .modal-detail-tag-externo {
+    background: #ccfbf1 !important;
+    color: #0f766e !important;
+    border-color: #99f6e4 !important;
+}
+
+html.light-mode .modal-detail-status-oficio {
+    color: #0284c7 !important;
+    background: #e0f2fe !important;
+}
+
+html.light-mode .modal-detail-status-carta {
+    color: #7c3aed !important;
+    background: #ede9fe !important;
+}
+
+html.light-mode .modal-detail-status-auto {
+    color: #c2410c !important;
+    background: #ffedd5 !important;
+}
+
+html.light-mode .modal-detail-status-externo {
+    color: #0f766e !important;
+    background: #ccfbf1 !important;
+}
+
+/* Abas de Alternância de Documentos */
+html.light-mode .btn-preview-toggle-tab {
+    background: #f8fafc !important;
+    background-image: none !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #475569 !important;
+}
+
+html.light-mode .btn-preview-toggle-tab:hover {
+    background: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
 }
 
 html.light-mode .btn-preview-toggle-tab.active {
-    box-shadow: 0 0 0 2px var(--primary-green), 0 0 12px rgba(39, 174, 96, 0.35) !important;
+    background: #e0f2fe !important;
+    background-image: none !important;
+    border: 1px solid #0284c7 !important;
+    color: #0369a1 !important;
+    box-shadow: 0 0 0 2px #0284c7, 0 0 12px rgba(2, 132, 199, 0.35) !important;
+    font-weight: bold !important;
+}
+
+html.light-mode .preview-info div[style*="background: rgba(255,255,255,0.02)"] {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
+
+/* Card de Informações */
+html.light-mode .preview-info-card {
+    background: #f8fafc !important;
+    background-image: none !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light-mode .preview-info-card:hover {
+    border-color: #cbd5e1 !important;
+}
+
+html.light-mode .preview-info-card strong {
+    color: #0f172a !important;
+}
+
+html.light-mode .preview-info-item {
+    color: #334155 !important;
+}
+
+html.light-mode .preview-info-item strong {
+    color: #0f172a !important;
+}
+
+html.light-mode .preview-info-item span.preview-icon {
+    color: #64748b !important;
+}
+
+/* Caixa de Observação */
+html.light-mode .preview-info-obs {
+    background: #f8fafc !important;
+    background-image: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-left: 4px solid #3b82f6 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .preview-info-obs strong,
+html.light-mode .preview-info-obs * {
+    color: #0f172a !important;
+}
+
+/* Histórico de Documentos Adicionais */
+html.light-mode .preview-info div[style*="border-top: 1px dashed"] {
+    border-top-color: #cbd5e1 !important;
+}
+
+html.light-mode .preview-info div[style*="border-top: 1px dashed"] > strong {
+    color: #0f172a !important;
+}
+
+html.light-mode div[style*="background-color: #1a252f"],
+html.light-mode div[style*="background-color:#1a252f"] {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+}
+
+html.light-mode div[style*="background-color: #1a252f"] span,
+html.light-mode div[style*="background-color:#1a252f"] span {
+    color: #334155 !important;
+}
+
+html.light-mode div[style*="background-color: #1a252f"] strong,
+html.light-mode div[style*="background-color:#1a252f"] strong {
+    color: #0f172a !important;
+}
+
+/* Linha do Tempo no Modo Claro */
+html.light-mode .timeline-header-title,
+html.light-mode #preview-timeline-container [style*="border-bottom: 1px solid #333"],
+html.light-mode #preview-cartas-timeline-container [style*="border-bottom: 1px solid #333"] {
+    color: #0f172a !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html.light-mode .timeline-empty-box,
+html.light-mode #preview-timeline-container [style*="border: 1px dashed #333"],
+html.light-mode #preview-cartas-timeline-container [style*="border: 1px dashed #333"] {
+    background-color: #f8fafc !important;
+    border: 1px dashed #cbd5e1 !important;
+    color: #64748b !important;
+}
+
+html.light-mode .timeline-events-track,
+html.light-mode #preview-timeline-container [style*="border-left: 2px solid #444"],
+html.light-mode #preview-cartas-timeline-container [style*="border-left: 2px solid #444"] {
+    border-left: 2px solid #cbd5e1 !important;
+}
+
+html.light-mode .timeline-event-badge,
+html.light-mode #preview-timeline-container [style*="background-color: #1a1a1a"],
+html.light-mode #preview-cartas-timeline-container [style*="background-color: #1a1a1a"] {
+    background-color: #ffffff !important;
+}
+
+html.light-mode .timeline-event-date,
+html.light-mode #preview-timeline-container [style*="color: #777"],
+html.light-mode #preview-cartas-timeline-container [style*="color: #777"] {
+    color: #64748b !important;
+}
+
+html.light-mode .timeline-event-desc {
+    color: #334155 !important;
+}
+
+html.light-mode .timeline-event-desc.timeline-event-latest,
+html.light-mode #preview-timeline-container [style*="color: #fff"],
+html.light-mode #preview-cartas-timeline-container [style*="color: #fff"] {
+    color: #0f172a !important;
+}
+
+html.light-mode .timeline-event-detalhe,
+html.light-mode #preview-timeline-container [style*="color: #888"],
+html.light-mode #preview-cartas-timeline-container [style*="color: #888"] {
+    color: #64748b !important;
+}
+
+/* Seção de Ações e Interações */
+html.light-mode .preview-actions-section {
+    border-top: 1px solid #e2e8f0 !important;
+}
+
+html.light-mode .preview-actions-title {
+    color: #475569 !important;
+}
+
+/* Botões de Ação na Barra Lateral */
+html.light-mode .modal-detail-btn {
+    color: #1e293b !important;
+}
+
+html.light-mode .modal-detail-btn-upload {
+    background: #eff6ff !important;
+    background-image: none !important;
+    border: 1px solid #3b82f6 !important;
+    color: #1d4ed8 !important;
+    font-weight: 700 !important;
+}
+
+html.light-mode .modal-detail-btn-upload:hover {
+    background: #dbeafe !important;
+    border-color: #2563eb !important;
+    color: #1e40af !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25) !important;
+}
+
+html.light-mode .modal-detail-btn-gestao {
+    background: #f0f9ff !important;
+    background-image: none !important;
+    border: 1px solid #0284c7 !important;
+    color: #0369a1 !important;
+    font-weight: 700 !important;
+}
+
+html.light-mode .modal-detail-btn-gestao:hover {
+    background: #e0f2fe !important;
+    border-color: #0369a1 !important;
+    color: #075985 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
+}
+
+html.light-mode .modal-detail-btn-danger {
+    background: #fef2f2 !important;
+    background-image: none !important;
+    border: 1px solid #ef4444 !important;
+    color: #dc2626 !important;
+    font-weight: 700 !important;
+}
+
+html.light-mode .modal-detail-btn-danger:hover {
+    background: #fee2e2 !important;
+    border-color: #dc2626 !important;
+    color: #991b1b !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25) !important;
+}
+
+html.light-mode .modal-detail-btn-download {
+    background: #f0fdf4 !important;
+    background-image: none !important;
+    border: 1px solid #22c55e !important;
+    color: #15803d !important;
+    font-weight: 700 !important;
+}
+
+html.light-mode .modal-detail-btn-download:hover {
+    background: #dcfce7 !important;
+    border-color: #16a34a !important;
+    color: #166534 !important;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25) !important;
+}
+
+html.light-mode .modal-detail-approved {
+    background: #ecfdf5 !important;
+    border: 1px solid #a7f3d0 !important;
+    color: #065f46 !important;
+}
+
+/* Gestão de Status e Caixas de Fluxo */
+html.light-mode .preview-info div[style*="border: 1px dashed rgba(255,255,255,0.1)"] {
+    background: #f8fafc !important;
+    border: 1px dashed #cbd5e1 !important;
+}
+
+html.light-mode select[id^="changeStatusSelect"],
+html.light-mode .preview-info select {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+html.light-mode select[id^="changeStatusSelect"] option,
+html.light-mode .preview-info select option {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(41, 128, 185"] {
+    background: #f0f9ff !important;
+    border-color: #bae6fd !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(41, 128, 185"] > div:first-child {
+    color: #0284c7 !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(168, 85, 247"] {
+    background: #faf5ff !important;
+    border-color: #e9d5ff !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(168, 85, 247"] > div:first-child {
+    color: #7c3aed !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(245, 158, 11"] {
+    background: #fffbeb !important;
+    border-color: #fde68a !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(245, 158, 11"] > div:first-child {
+    color: #b45309 !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(245, 158, 11"] [style*="color: #cbd5e1"] {
+    color: #475569 !important;
+}
+
+html.light-mode .preview-info div[style*="rgba(245, 158, 11"] strong {
+    color: #0f172a !important;
+}
+
+/* Card Shapefile GIS no Modal */
+html.light-mode #gisInfoCardModal {
+    background-color: #f0f9ff !important;
+    border-color: #38bdf8 !important;
+}
+
+html.light-mode #gisInfoCardModal > div:first-child {
+    color: #0284c7 !important;
+}
+
+html.light-mode #gisInfoCardModal > div:nth-child(2) {
+    color: #0f172a !important;
+}
+
+html.light-mode #gisInfoCardModal div[style*="background: rgba(255,255,255,0.02)"] {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+}
+
+html.light-mode #gisInfoCardModal span[style*="color:#ddd"],
+html.light-mode #gisInfoCardModal span[style*="color: #ddd"] {
+    color: #334155 !important;
 }
 
 /* Lists and Cards */
@@ -3729,6 +4210,40 @@ body.perfil-tecnico .kpi-row-grid,
     text-align: right;
 }
 
+/* Células semânticas da tabela */
+.table-row-nup {
+    color: #f8fafc;
+    font-family: monospace;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+}
+
+.table-row-interessado {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #cbd5e1;
+}
+
+.table-row-tecnico {
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.table-row-setor {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    background: rgba(148, 163, 184, 0.15);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    letter-spacing: 0.5px;
+}
+
 /* ==========================================================================
    PADRONIZAÇÃO UNIFORME DE CONTORNOS E BADGES NA TABELA
    Todas as caixas compartilham altura de 30px, borda de 1px e cantos arredondados de 7px.
@@ -3862,80 +4377,278 @@ body.perfil-tecnico .kpi-row-grid,
 
 /* Light Mode Overrides for Dashboard */
 html.light-mode .top-navbar {
-    background-color: #ffffff;
-    border-bottom-color: #e2e8f0;
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
 html.light-mode .top-logo-text {
-    color: #1a202c;
+    color: #0f172a !important;
+}
+
+html.light-mode .top-logo-sub {
+    color: #64748b !important;
 }
 
 html.light-mode .top-nav-btn {
-    color: #4a5568;
+    color: #475569 !important;
 }
 
 html.light-mode .top-nav-btn:hover,
 html.light-mode .top-nav-btn.active {
-    background: #edf2f7;
-    color: #1a202c;
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
 }
 
 html.light-mode .top-dropdown-content {
-    background: #ffffff;
-    border-color: #e2e8f0;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
 }
 
 html.light-mode .top-dropdown-content a {
-    color: #4a5568;
+    color: #475569 !important;
 }
 
 html.light-mode .top-dropdown-content a:hover {
-    background: #edf2f7;
-    color: #1a202c;
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .top-live-clock {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    font-weight: 600 !important;
+}
+
+html.light-mode .top-user-info {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .user-name-text {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+
+html.light-mode .user-avatar-circle {
+    background: #e2e8f0 !important;
+    color: #475569 !important;
+}
+
+html.light-mode .top-icon-btn {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+}
+
+html.light-mode .top-icon-btn:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+html.light-mode .dash-hero-header {
+    border-bottom-color: #e2e8f0 !important;
 }
 
 html.light-mode .dash-title {
-    color: #1a202c;
+    color: #0f172a !important;
+}
+
+html.light-mode .dash-subtitle {
+    color: #475569 !important;
+}
+
+html.light-mode .dash-clock-badge {
+    color: #475569 !important;
+    font-weight: 600 !important;
 }
 
 html.light-mode .kpi-metric-card {
-    background: #ffffff;
-    border-color: #e2e8f0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light-mode .kpi-metric-card:hover {
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light-mode .kpi-metric-card.active {
+    background: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.25) !important;
+}
+
+html.light-mode .kpi-top-label {
+    color: #475569 !important;
+    font-weight: 700 !important;
 }
 
 html.light-mode .kpi-main-number {
-    color: #1a202c;
+    color: #0f172a !important;
 }
+
+html.light-mode .kpi-icon-bubble {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light-mode #kpi-card-distribuicao .kpi-icon-bubble { background: rgba(230, 126, 34, 0.1) !important; border-color: rgba(230, 126, 34, 0.3) !important; color: #c2410c !important; }
+html.light-mode #kpi-card-manifestacao .kpi-icon-bubble { background: rgba(59, 130, 246, 0.1) !important; border-color: rgba(59, 130, 246, 0.3) !important; color: #1d4ed8 !important; }
+html.light-mode #kpi-card-revisao .kpi-icon-bubble      { background: rgba(168, 85, 247, 0.1) !important; border-color: rgba(168, 85, 247, 0.3) !important; color: #7e22ce !important; }
+html.light-mode #kpi-card-assinatura .kpi-icon-bubble   { background: rgba(13, 148, 136, 0.1) !important; border-color: rgba(13, 148, 136, 0.3) !important; color: #0f766e !important; }
+html.light-mode #kpi-card-atrasados .kpi-icon-bubble    { background: rgba(239, 68, 68, 0.1) !important; border-color: rgba(239, 68, 68, 0.3) !important; color: #b91c1c !important; }
+html.light-mode #kpi-card-sobrestados .kpi-icon-bubble  { background: rgba(234, 179, 8, 0.1) !important; border-color: rgba(234, 179, 8, 0.3) !important; color: #a16207 !important; }
+
+html.light-mode .kpi-badge-orange { background: rgba(230, 126, 34, 0.15) !important; color: #b45309 !important; font-weight: 700 !important; }
+html.light-mode .kpi-badge-blue   { background: rgba(59, 130, 246, 0.15) !important; color: #1d4ed8 !important; font-weight: 700 !important; }
+html.light-mode .kpi-badge-purple { background: rgba(168, 85, 247, 0.15) !important; color: #7e22ce !important; font-weight: 700 !important; }
+html.light-mode .kpi-badge-cyan   { background: rgba(13, 148, 136, 0.15) !important; color: #0f766e !important; font-weight: 700 !important; }
+html.light-mode .kpi-badge-red    { background: rgba(239, 68, 68, 0.15) !important; color: #b91c1c !important; font-weight: 700 !important; }
+html.light-mode .kpi-badge-yellow { background: rgba(234, 179, 8, 0.15) !important; color: #a16207 !important; font-weight: 700 !important; }
 
 html.light-mode .dash-chart-card,
 html.light-mode .unified-process-section {
-    background: #ffffff;
-    border-color: #e2e8f0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
 }
 
 html.light-mode .dash-chart-title {
-    color: #1a202c;
+    color: #0f172a !important;
 }
 
-html.light-mode .unified-search-box,
+html.light-mode .dash-chart-counter {
+    color: #0284c7 !important;
+    background: rgba(2, 132, 199, 0.08) !important;
+    border-color: rgba(2, 132, 199, 0.25) !important;
+    font-weight: 700 !important;
+}
+
+html.light-mode .unified-search-box {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light-mode .unified-search-box input {
+    color: #0f172a !important;
+    font-weight: 500 !important;
+}
+
+html.light-mode .unified-search-box input::placeholder {
+    color: #64748b !important;
+    opacity: 1 !important;
+}
+
+html.light-mode .unified-search-box .search-icon,
+html.light-mode .unified-search-box .ci {
+    color: #64748b !important;
+}
+
 html.light-mode .dash-select {
-    background: #f7fafc;
-    border-color: #e2e8f0;
-    color: #2d3748;
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light-mode .dash-select option {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
 }
 
 html.light-mode .unified-table th {
-    background: #f7fafc;
-    color: #4a5568;
-    border-bottom-color: #e2e8f0;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+    font-weight: 700 !important;
 }
 
 html.light-mode .unified-table td {
-    border-bottom-color: #edf2f7;
-    color: #2d3748;
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    color: #1e293b !important;
+}
+
+html.light-mode .unified-table tr:hover td {
+    background-color: #f8fafc !important;
+}
+
+/* Células semânticas da tabela no Modo Claro */
+html.light-mode .table-row-nup {
+    color: #0f172a !important;
+}
+
+html.light-mode .table-row-interessado {
+    color: #334155 !important;
+}
+
+html.light-mode .table-row-tecnico {
+    color: #0f172a !important;
+}
+
+html.light-mode .table-row-setor {
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Badges de Módulo em Modo Claro */
+html.light-mode .badge-mod-oficio  { background: rgba(2, 132, 199, 0.1) !important; color: #0284c7 !important; border-color: rgba(2, 132, 199, 0.35) !important; }
+html.light-mode .badge-mod-carta   { background: rgba(126, 34, 206, 0.1) !important; color: #7e22ce !important; border-color: rgba(126, 34, 206, 0.35) !important; }
+html.light-mode .badge-mod-auto    { background: rgba(194, 65, 12, 0.1) !important; color: #c2410c !important; border-color: rgba(194, 65, 12, 0.35) !important; }
+html.light-mode .badge-mod-externo { background: rgba(15, 118, 110, 0.1) !important; color: #0f766e !important; border-color: rgba(15, 118, 110, 0.35) !important; }
+
+/* Badges de Status Operacional em Modo Claro */
+html.light-mode .badge-status-distribuicao { background: rgba(194, 65, 12, 0.1) !important; color: #c2410c !important; border-color: rgba(194, 65, 12, 0.35) !important; }
+html.light-mode .badge-status-manifestacao { background: rgba(29, 78, 216, 0.1) !important; color: #1d4ed8 !important; border-color: rgba(29, 78, 216, 0.35) !important; }
+html.light-mode .badge-status-revisao      { background: rgba(126, 34, 206, 0.1) !important; color: #7e22ce !important; border-color: rgba(126, 34, 206, 0.35) !important; }
+html.light-mode .badge-status-assinatura   { background: rgba(15, 118, 110, 0.1) !important; color: #0f766e !important; border-color: rgba(15, 118, 110, 0.35) !important; }
+html.light-mode .badge-status-sobrestado   { background: rgba(180, 83, 9, 0.1) !important; color: #b45309 !important; border-color: rgba(180, 83, 9, 0.35) !important; }
+html.light-mode .badge-status-default      { background: #f1f5f9 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
+
+/* Badges de Prazo em Modo Claro */
+html.light-mode .badge-prazo-atrasado { background: rgba(220, 38, 38, 0.1) !important; color: #b91c1c !important; border-color: rgba(220, 38, 38, 0.35) !important; font-weight: 700 !important; }
+html.light-mode .badge-prazo-hoje     { background: rgba(217, 119, 6, 0.1) !important; color: #b45309 !important; border-color: rgba(217, 119, 6, 0.35) !important; font-weight: 700 !important; }
+html.light-mode .badge-prazo-emdia    { background: rgba(5, 150, 105, 0.1) !important; color: #047857 !important; border-color: rgba(5, 150, 105, 0.35) !important; font-weight: 700 !important; }
+html.light-mode .badge-prazo-semprazo { background: #f1f5f9 !important; color: #475569 !important; border-color: #cbd5e1 !important; font-weight: 600 !important; }
+
+/* Botão de Ação Ver em Modo Claro */
+html.light-mode .btn-table-action-ver {
+    background: rgba(37, 99, 235, 0.08) !important;
+    border-color: rgba(37, 99, 235, 0.35) !important;
+    color: #1d4ed8 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+html.light-mode .btn-table-action-ver:hover {
+    background: #1d4ed8 !important;
+    color: #ffffff !important;
+    border-color: #1d4ed8 !important;
+}
+
+/* Footer da Tabela no Modo Claro */
+html.light-mode .unified-footer-info {
+    color: #475569 !important;
+    font-weight: 600 !important;
+}
+
+
+/* Salvaguarda universal para textos com cores claras inline */
+html.light-mode [style*="color: #f8fafc"],
+html.light-mode [style*="color:#f8fafc"],
+html.light-mode [style*="color: #cbd5e1"],
+html.light-mode [style*="color:#cbd5e1"],
+html.light-mode [style*="color: #e2e8f0"],
+html.light-mode [style*="color:#e2e8f0"],
+html.light-mode [style*="color: #f1f5f9"],
+html.light-mode [style*="color:#f1f5f9"] {
+    color: var(--text-light) !important;
 }
 
 /* ==========================================================================
