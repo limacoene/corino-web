@@ -2347,7 +2347,10 @@ window.executarSobrestamentoProcesso = async function() {
             if (it) abrirPreviewAuto(it['LINK NUP'] || it['LINK-NUP'] || it['LINK DO NUP'] || '', it, nup);
         } else if (tipo === 'carta' && typeof abrirModalPreviewCartas === 'function') {
             const it = dadosCartasGlobais.find(matchNup);
-            if (it) abrirModalPreviewCartas(it, it['LINK DO NUP'] || it['LINK_NUP'] || '', nup);
+            if (it) {
+                const linkCarta = it['LINK DO NUP'] || it['LINK_NUP'] || it['LINK NUP'] || it['LINK-NUP'] || it['LINK'] || it['LINK_PROCESSO'] || it['MANIFESTACAO_PRELIMINAR'] || it['LINK_PARECER_EXTERNO'] || it['LINK DA RESPOSTA'] || it['LINK DA MANIFESTAÇÃO'] || it['LINK DA DECLARAÇÃO'] || it['LINK SHAPEFILE'] || '';
+                abrirModalPreviewCartas(it, linkCarta, nup);
+            }
         } else if (tipo === 'externo' && typeof abrirPreviewExterno === 'function') {
             const it = dadosExternosGlobais.find(matchNup);
             if (it) abrirPreviewExterno(it['LINK_OFICIO'] || it['LINK'] || '', it, nup);
@@ -2490,7 +2493,10 @@ window.executarRetornoSobrestamentoProcesso = async function() {
             if (it) abrirPreviewAuto(it['LINK NUP'] || it['LINK-NUP'] || it['LINK DO NUP'] || '', it, nup);
         } else if (tipo === 'carta' && typeof abrirModalPreviewCartas === 'function') {
             const it = dadosCartasGlobais.find(matchNup);
-            if (it) abrirModalPreviewCartas(it, it['LINK DO NUP'] || it['LINK_NUP'] || '', nup);
+            if (it) {
+                const linkCarta = it['LINK DO NUP'] || it['LINK_NUP'] || it['LINK NUP'] || it['LINK-NUP'] || it['LINK'] || it['LINK_PROCESSO'] || it['MANIFESTACAO_PRELIMINAR'] || it['LINK_PARECER_EXTERNO'] || it['LINK DA RESPOSTA'] || it['LINK DA MANIFESTAÇÃO'] || it['LINK DA DECLARAÇÃO'] || it['LINK SHAPEFILE'] || '';
+                abrirModalPreviewCartas(it, linkCarta, nup);
+            }
         } else if (tipo === 'externo' && typeof abrirPreviewExterno === 'function') {
             const it = dadosExternosGlobais.find(matchNup);
             if (it) abrirPreviewExterno(it['LINK_OFICIO'] || it['LINK'] || '', it, nup);
@@ -3637,16 +3643,23 @@ async function alternarVisualizacaoPreview(btn, urlPreview, urlDownload) {
         iframe.style.display = 'block';
         iframe.src = resolvedUrl;
     }
-    const btnOpenPreview = document.getElementById('btn-open-preview');
-    if (btnOpenPreview) {
-        btnOpenPreview.href = resolvedUrl.replace('/preview', '/view');
-    }
-
     const gisContainer = document.getElementById('gisMapContainerModal');
     if (gisContainer) gisContainer.style.display = 'none';
 
+    const emptyStateEl = document.getElementById('previewEmptyStateCarta');
+    if (emptyStateEl) emptyStateEl.style.display = 'none';
+
+    const btnOpenPreview = document.getElementById('btn-open-preview');
+    if (btnOpenPreview) {
+        btnOpenPreview.style.display = resolvedUrl ? '' : 'none';
+        btnOpenPreview.href = resolvedUrl.replace('/preview', '/view');
+    }
+
     const btnDownload = document.getElementById('btn-download-preview');
-    if (btnDownload) btnDownload.href = resolvedDownloadUrl;
+    if (btnDownload) {
+        btnDownload.style.display = resolvedDownloadUrl ? '' : 'none';
+        btnDownload.href = resolvedDownloadUrl;
+    }
 }
 
 function fecharPreview() {
@@ -5423,20 +5436,37 @@ function abrirModalVisualizacaoUnificado(moduloKey, nup) {
         } else if (moduloKey === 'cartas') {
             const listaCartas = (typeof dadosCartasGlobais !== 'undefined' ? dadosCartasGlobais : (typeof dadosCartas !== 'undefined' ? dadosCartas : []));
             const nupDigitos = nupLimpo.replace(/[^A-Z0-9]/g, '');
-            const item = listaCartas.find(d => {
+            let item = listaCartas.find(d => {
                 const n = String(d['NUP'] || d['PROCESSO'] || d['PROCESSO/NUP'] || '').trim().toUpperCase();
                 if (n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf) return true;
                 const dDigitos = n.replace(/[^A-Z0-9]/g, '');
                 if (nupDigitos && dDigitos && (dDigitos === nupDigitos || dDigitos.includes(nupDigitos) || nupDigitos.includes(dDigitos))) return true;
                 return false;
             });
+            if (!item && typeof cartasExibidas !== 'undefined' && Array.isArray(cartasExibidas)) {
+                item = cartasExibidas.find(d => {
+                    const n = String(d['NUP'] || d['PROCESSO'] || d['PROCESSO/NUP'] || '').trim().toUpperCase();
+                    if (n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf) return true;
+                    const dDigitos = n.replace(/[^A-Z0-9]/g, '');
+                    if (nupDigitos && dDigitos && (dDigitos === nupDigitos || dDigitos.includes(nupDigitos) || nupDigitos.includes(dDigitos))) return true;
+                    return false;
+                });
+            }
+            if (!item && typeof cartaSelecionada !== 'undefined' && cartaSelecionada) {
+                const n = String(cartaSelecionada['NUP'] || cartaSelecionada['PROCESSO'] || '').trim().toUpperCase();
+                if (n === nupLimpo || n.replace(/\.PDF$/i, '') === nupSemPdf) item = cartaSelecionada;
+            }
+
             if (item) {
                 const isSob = String(item['STATUS'] || '').toUpperCase().includes('SOBRESTADO');
-                const linkCarta = (isSob && item['MANIFESTACAO_PRELIMINAR']) ? item['MANIFESTACAO_PRELIMINAR'] : (item['LINK DO NUP'] || item['LINK_NUP'] || item['LINK'] || item['LINK_PROCESSO'] || item['MANIFESTACAO_PRELIMINAR'] || item['LINK_PARECER_EXTERNO'] || item['LINK DA RESPOSTA'] || '');
+                const linkCarta = (isSob && item['MANIFESTACAO_PRELIMINAR']) ? item['MANIFESTACAO_PRELIMINAR'] : (item['LINK DO NUP'] || item['LINK_NUP'] || item['LINK NUP'] || item['LINK-NUP'] || item['LINK'] || item['LINK_PROCESSO'] || item['MANIFESTACAO_PRELIMINAR'] || item['LINK_PARECER_EXTERNO'] || item['LINK DA RESPOSTA'] || item['LINK DA MANIFESTAÇÃO'] || item['LINK DA DECLARAÇÃO'] || item['LINK SHAPEFILE'] || '');
                 if (typeof abrirModalPreviewCartas === 'function') {
                     abrirModalPreviewCartas(item, linkCarta, nup);
                     return;
                 }
+            } else if (typeof abrirModalPreviewCartas === 'function') {
+                abrirModalPreviewCartas(null, '', nup);
+                return;
             }
         } else if (moduloKey === 'autos') {
             const listaAutos = (typeof dadosAutosGlobais !== 'undefined' ? dadosAutosGlobais : (typeof dadosAutos !== 'undefined' ? dadosAutos : []));
