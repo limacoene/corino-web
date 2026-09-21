@@ -11,7 +11,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
-const { Storage } = require('@google-cloud/storage');
+let Storage = null;
+try {
+    Storage = require('@google-cloud/storage').Storage;
+} catch (e) {
+    // Módulo opcional - opera normalmente em modo estático e proxy local
+}
 const db = require('./db.js');
 
 // Carrega configurações de gcs-config.json ou variáveis de ambiente
@@ -38,6 +43,10 @@ let storageClient = null;
 let bucketInstance = null;
 
 function inicializarGCS() {
+    if (!Storage) {
+        console.log('ℹ️ [GCS] Modo direto ativo (cliente @google-cloud/storage opcional).');
+        return;
+    }
     try {
         const storageOptions = {};
         if (config.projectId) {

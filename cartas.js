@@ -123,10 +123,11 @@ async function salvarNovaCarta() {
     const nup = document.getElementById('cadCartaNup').value.trim();
     const dataRepasse = document.getElementById('cadCartaDataRepasse').value.trim();
     const requerente = document.getElementById('cadCartaRequerente').value.trim();
-    const gerencia = document.getElementById('cadCartaGerencia').value.trim();
+    const elGerencia = document.getElementById('cadCartaGerencia');
+    const gerencia = (elGerencia ? elGerencia.value : '').trim() || (usuarioAtivo && usuarioAtivo.setor ? usuarioAtivo.setor : 'DIFLOR');
 
-    if (!nup || !dataRepasse || !requerente || !gerencia) {
-        mostrarToast('NUP, Data do Repasse, Requerente e Gerência são obrigatórios!', 'error');
+    if (!nup || !dataRepasse || !requerente) {
+        mostrarToast('NUP, Data do Repasse e Requerente são obrigatórios!', 'error');
         return;
     }
 
@@ -262,8 +263,8 @@ async function salvarNovaCarta() {
     // Calcular dias restantes inicial para a inserção otimista
     const diasRestantes = (payload.data_repasse && payload.prazo) ? calcularDiasRestantes(payload.data_repasse, payload.prazo) : '-';
 
-    // Optimistic update: insere localmente de imediato
-    const novoItem = {
+    // Optimistic update: insere localmente de imediato com campos devidamente padronizados
+    const novoItem = limparEPadronizarCartas({
         'NUP': payload.nup,
         'DATA DO REPASSE': payload.data_repasse,
         'PRAZO': payload.prazo,
@@ -278,7 +279,7 @@ async function salvarNovaCarta() {
         'OBSERVAÇÃO': payload.observacao,
         'LINK DO NUP': gcsUriPdf || '',
         'LINK SHAPEFILE': gcsUriShape || ''
-    };
+    });
 
     dadosCartasGlobais.unshift(novoItem);
     atualizarCacheCartas();
@@ -288,15 +289,11 @@ async function salvarNovaCarta() {
     btn.innerHTML = textoOriginal;
     btn.disabled = false;
 
-    // Sincronização em background com Google Apps Script
+    // Sincronização em background com Google Apps Script via executarAcaoGAS resiliente
     try {
-        const resposta = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        const resultado = await resposta.json();
-        if (resultado.status === 'success') {
-            mostrarToast('Carta Consulta sincronizada no Google Cloud Storage (LGPD)! ✅', 'success');
+        const resultado = await executarAcaoGAS(payload);
+        if (resultado && resultado.status === 'success') {
+            mostrarToast('Carta Consulta sincronizada com sucesso! ✅', 'success');
             if (resultado.url || gcsUriPdf) {
                 novoItem['LINK DO NUP'] = gcsUriPdf || resultado.url;
             }
@@ -306,17 +303,12 @@ async function salvarNovaCarta() {
             atualizarCacheCartas();
             aplicarFiltrosCartas();
         } else {
-            mostrarToast('Erro ao sincronizar: ' + resultado.message, 'error');
-            dadosCartasGlobais = dadosCartasGlobais.filter(item => item !== novoItem);
-            atualizarCacheCartas();
-            aplicarFiltrosCartas();
+            const msg = resultado?.message || 'Erro desconhecido na gravação.';
+            mostrarToast('Erro ao sincronizar na nuvem: ' + msg, 'error');
         }
     } catch (e) {
-        console.error(e);
-        mostrarToast('Falha na ligação. Carta revertida.', 'error');
-        dadosCartasGlobais = dadosCartasGlobais.filter(item => item !== novoItem);
-        atualizarCacheCartas();
-        aplicarFiltrosCartas();
+        console.error('Erro na sincronização da nova carta:', e);
+        mostrarToast('Falha na comunicação ao sincronizar carta.', 'error');
     }
 }
 
@@ -450,13 +442,21 @@ function processarCSVTextCartas(csvText) {
 
         // Se tem resposta anexada e o status da resposta não é APROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
         // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
-        const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
-        const hasResposta = linkResposta && temLinkValido(linkResposta);
+        // Cartas Consulta exigem AMBOS os documentos (Manifestação e Declaração) para avançar para REVISÃO
+        const linkManifestacao = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK MANIFESTAÇÃO'] || row['LINK DA RESPOSTA'] || '';
+        const linkDeclaracao = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || row['LINK DECLARAÇÃO'] || '';
+        const temM = linkManifestacao && temLinkValido(linkManifestacao);
+        const temD = linkDeclaracao && temLinkValido(linkDeclaracao);
         const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
         const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
 
-        if (hasResposta && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+        if (temM && temD && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
             row['STATUS'] = 'REVISÃO';
+        }
+
+        // Se falta um dos documentos e não foi aprovado, mantém em AGUARDANDO MANIFESTAÇÃO TÉCNICA para que o técnico possa anexar
+        if ((!temM || !temD) && statusResp !== 'APROVADO' && (statusGeral === 'REVISÃO' || statusGeral === 'REVISAO')) {
+            row['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
         }
 
         // Se a resposta está APROVADA mas o status geral ainda diz AGUARDANDO MANIFESTAÇÃO TÉCNICA ou REVISÃO,
@@ -511,15 +511,21 @@ function limparEPadronizarCartas(linha) {
     row['MOTIVO DA AVALIAÇÃO'] = row['MOTIVO DA RECUSA'] || row['MOTIVO DA AVALIAÇÃO'] || row['MOTIVO_AVALIACAO'] || '';
     row['CARMS'] = row['Número do CARMS'] || row['NUMERO DO CARMS'] || row['NÚMERO DO CARMS'] || row['CARMS'] || '-';
 
-    // Se tem resposta anexada e o status da resposta não é APROVADO nem REPROVADO, e o status geral ainda é AGUARDANDO MANIFESTAÇÃO TÉCNICA,
-    // movemos para REVISÃO para constar corretamente na aba de Aguardando Revisão e sair de Em Andamento.
-    const linkResposta = row['LINK DA RESPOSTA'] || row['LINK_RESPOSTA'] || '';
-    const hasResposta = linkResposta && temLinkValido(linkResposta);
+    // Cartas Consulta exigem AMBOS os documentos (Manifestação e Declaração) para avançar para REVISÃO
+    const linkManifestacao = row['LINK DA MANIFESTAÇÃO'] || row['LINK_MANIFESTACAO'] || row['LINK MANIFESTAÇÃO'] || row['LINK DA RESPOSTA'] || '';
+    const linkDeclaracao = row['LINK DA DECLARAÇÃO'] || row['LINK_DECLARACAO'] || row['LINK DECLARAÇÃO'] || '';
+    const temM = linkManifestacao && temLinkValido(linkManifestacao);
+    const temD = linkDeclaracao && temLinkValido(linkDeclaracao);
     const statusGeral = (row['STATUS'] || '').toUpperCase().trim();
     const statusResp = (row['STATUS DA RESPOSTA'] || '').toUpperCase().trim();
 
-    if (hasResposta && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
+    if (temM && temD && statusResp !== 'APROVADO' && statusResp !== 'REPROVADO' && (statusGeral === 'AGUARDANDO MANIFESTAÇÃO TÉCNICA' || statusGeral === 'AGUARDANDO MANIFESTACAO TECNICA')) {
         row['STATUS'] = 'REVISÃO';
+    }
+
+    // Se falta um dos documentos e não foi aprovado, mantém em AGUARDANDO MANIFESTAÇÃO TÉCNICA para que o técnico possa anexar
+    if ((!temM || !temD) && statusResp !== 'APROVADO' && (statusGeral === 'REVISÃO' || statusGeral === 'REVISAO')) {
+        row['STATUS'] = 'AGUARDANDO MANIFESTAÇÃO TÉCNICA';
     }
 
     // Se a resposta está APROVADA mas o status geral ainda diz AGUARDANDO MANIFESTAÇÃO TÉCNICA ou REVISÃO,
@@ -1018,7 +1024,7 @@ function renderTabelaView(dados) {
                     </div>
                 </div>`;
         } else if (statusStr !== 'TRAMITADO') {
-            if (isTecnico) {
+            if (isTecnico || isGestor) {
                 htmlManifestacao = `<button onclick="anexarDocumentoRespostaCarta(event,'${nupVal}','manifestacao')" class="btn-drive btn-orange-outline" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ci ci-paperclip"></i> Anexar Manifestação</button>`;
             } else {
                 htmlManifestacao = `<div style="text-align:center;color:#666;font-size:13px;padding:10px;border:1px dashed #333;border-radius:6px;">🚫 Sem Manifestação</div>`;
@@ -1051,7 +1057,7 @@ function renderTabelaView(dados) {
                     </div>
                 </div>`;
         } else if (statusStr !== 'TRAMITADO') {
-            if (isTecnico) {
+            if (isTecnico || isGestor) {
                 htmlDeclaracao = `<button onclick="anexarDocumentoRespostaCarta(event,'${nupVal}','declaracao')" class="btn-drive btn-orange-outline" style="width:100%;margin:0;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ci ci-paperclip"></i> Anexar Declaração</button>`;
             } else {
                 htmlDeclaracao = `<div style="text-align:center;color:#666;font-size:13px;padding:10px;border:1px dashed #333;border-radius:6px;">🚫 Sem Declaração</div>`;
@@ -1689,10 +1695,18 @@ async function abrirModalPreviewCartas(arg1, arg2, arg3) {
     const isTecnico = usuarioAtivo && usuarioAtivo.perfil === 'tecnico';
 
     if (usuarioAtivo) {
-        if (hasManifest || hasDeclar) {
-            botoesAcoesHtml += `<button onclick="removerRespostaCarta(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-danger" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-trash"></i> Retirar Resposta/Manifestação</button>`;
+        // Ações de Manifestação
+        if (hasManifest) {
+            botoesAcoesHtml += `<button onclick="removerDocumentoRespostaCarta(event, '${nupEsc}', 'manifestacao')" class="modal-detail-btn modal-detail-btn-danger" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-trash"></i> Retirar Manifestação</button>`;
         } else if (isTecnico || isGestor) {
-            botoesAcoesHtml += `<button onclick="anexarRespostaCarta(event, '${nupEsc}')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar Resposta</button>`;
+            botoesAcoesHtml += `<button onclick="anexarDocumentoRespostaCarta(event, '${nupEsc}', 'manifestacao')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar Manifestação</button>`;
+        }
+
+        // Ações de Declaração
+        if (hasDeclar) {
+            botoesAcoesHtml += `<button onclick="removerDocumentoRespostaCarta(event, '${nupEsc}', 'declaracao')" class="modal-detail-btn modal-detail-btn-danger" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-trash"></i> Retirar Declaração</button>`;
+        } else if (isTecnico || isGestor) {
+            botoesAcoesHtml += `<button onclick="anexarDocumentoRespostaCarta(event, '${nupEsc}', 'declaracao')" class="modal-detail-btn modal-detail-btn-upload" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-paperclip"></i> Anexar Declaração</button>`;
         }
 
         if (!hasOrig) {
@@ -2370,9 +2384,8 @@ function anexarRespostaCarta(event, nup) {
                 fileName: `Resposta_Carta_${nup.replace(/[^a-zA-Z0-9]/g, '')}.pdf`,
                 base64
             };
-            const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const resultado = await resposta.json();
-            if (resultado.status === 'success') {
+            const resultado = await executarAcaoGAS(payload);
+            if (resultado && resultado.status === 'success') {
                 mostrarToast('Resposta anexada com sucesso!', 'success');
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
                 if (target) {
@@ -2384,7 +2397,7 @@ function anexarRespostaCarta(event, nup) {
                 atualizarCacheCartas();
                 aplicarFiltrosCartas();
             } else {
-                mostrarToast('Erro: ' + resultado.message, 'error');
+                mostrarToast('Erro: ' + (resultado?.message || 'Falha ao anexar'), 'error');
                 btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
             }
         } catch (err) {
@@ -2406,9 +2419,8 @@ async function removerRespostaCarta(event, nup) {
     btn.innerHTML = '⏳ A remover...'; btn.disabled = true;
     try {
         const payload = { acao: 'remover_resposta_carta', nup, username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
-        const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        const resultado = await resposta.json();
-        if (resultado.status === 'success') {
+        const resultado = await executarAcaoGAS(payload);
+        if (resultado && resultado.status === 'success') {
             mostrarToast('Resposta desvinculada.', 'success');
             const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
             if (target) {
@@ -2420,7 +2432,7 @@ async function removerRespostaCarta(event, nup) {
             atualizarCacheCartas();
             aplicarFiltrosCartas();
         } else {
-            mostrarToast('Erro: ' + resultado.message, 'error');
+            mostrarToast('Erro: ' + (resultado?.message || 'Falha ao remover'), 'error');
             btn.innerHTML = textoOriginal; btn.disabled = false;
         }
     } catch (err) { mostrarToast('Erro de rede.', 'error'); btn.innerHTML = textoOriginal; btn.disabled = false; }
@@ -2440,9 +2452,8 @@ async function avaliarRespostaCarta(event, nup, decisao) {
     btn.innerHTML = '⏳ A processar...'; btn.disabled = true;
     try {
         const payload = { acao: 'avaliar_resposta_carta', nup, decisao, motivo: result.motivo || '' };
-        const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        const resultado = await resposta.json();
-        if (resultado.status === 'success') {
+        const resultado = await executarAcaoGAS(payload);
+        if (resultado && resultado.status === 'success') {
             mostrarToast(`Resposta ${decisao.toLowerCase()}!`, 'success');
             const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
             if (target) {
@@ -2657,10 +2668,9 @@ function anexarPdfOriginalCarta(event, nup) {
                 linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
-            const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const resultado = await resposta.json();
+            const resultado = await executarAcaoGAS(payload);
 
-            if (resultado.status === 'success') {
+            if (resultado && resultado.status === 'success') {
                 mostrarToast('PDF Original anexado com sucesso no Google Cloud Storage (LGPD)!', 'success');
                 const linkFinal = gcsUri || resultado.url;
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
@@ -2670,7 +2680,7 @@ function anexarPdfOriginalCarta(event, nup) {
                 atualizarCacheCartas();
                 aplicarFiltrosCartas();
             } else {
-                mostrarToast('Erro: ' + resultado.message, 'error');
+                mostrarToast('Erro: ' + (resultado?.message || 'Falha ao anexar PDF'), 'error');
                 btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
             }
         } catch (error) { 
@@ -2732,10 +2742,9 @@ function anexarShapefileCarta(event, nup) {
                 linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
-            const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const resultado = await resposta.json();
+            const resultado = await executarAcaoGAS(payload);
 
-            if (resultado.status === 'success') {
+            if (resultado && resultado.status === 'success') {
                 mostrarToast('Shapefile anexado com sucesso no Google Cloud Storage (LGPD)!', 'success');
                 const linkFinal = gcsUri || resultado.url;
                 const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
@@ -2745,7 +2754,7 @@ function anexarShapefileCarta(event, nup) {
                 atualizarCacheCartas();
                 aplicarFiltrosCartas();
             } else {
-                mostrarToast('Erro: ' + resultado.message, 'error');
+                mostrarToast('Erro: ' + (resultado?.message || 'Falha ao anexar Shapefile'), 'error');
                 btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
             }
         } catch (error) { 
@@ -2809,12 +2818,15 @@ function anexarDocumentoRespostaCarta(event, nup, tipo) {
                 linkGcs: gcsUri,
                 username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
             };
-            const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const resultado = await resposta.json();
+            const resultado = await executarAcaoGAS(payload);
 
-            if (resultado.status === 'success') {
+            if (resultado && resultado.status === 'success') {
                 const linkFinal = gcsUri || resultado.url;
-                const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
+                const target = dadosCartasGlobais.find(r => {
+                    const rNup = String(r['NUP'] || '').replace(/\D/g, '');
+                    const sNup = String(nup || '').replace(/\D/g, '');
+                    return r['NUP'] === nup || (rNup && sNup && rNup === sNup);
+                });
                 if (target) {
                     if (tipo === 'manifestacao') {
                         target['LINK DA MANIFESTAÇÃO'] = linkFinal;
@@ -2843,11 +2855,14 @@ function anexarDocumentoRespostaCarta(event, nup, tipo) {
                 }
                 atualizarCacheCartas();
                 aplicarFiltrosCartas();
-                
-                // Recarregar os detalhes no painel lateral
-                renderTabelaView(dadosCartasGlobais);
+
+                // Se o modal de preview estiver aberto, re-renderiza seus botões
+                const modalPreview = document.getElementById('modalPreviewCartas');
+                if (modalPreview && modalPreview.style.display === 'flex') {
+                    abrirModalPreviewCartas(null, null, nup);
+                }
             } else {
-                mostrarToast('Erro: ' + resultado.message, 'error');
+                mostrarToast('Erro: ' + (resultado?.message || 'Falha ao anexar documento'), 'error');
                 btn.innerHTML = textoOriginal; btn.disabled = false; btn.style.opacity = '1';
             }
         } catch (error) { 
@@ -2875,12 +2890,15 @@ async function removerDocumentoRespostaCarta(event, nup, tipo) {
             tipo: tipo,
             username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
         };
-        const resposta = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        const resultado = await resposta.json();
+        const resultado = await executarAcaoGAS(payload);
 
-        if (resultado.status === 'success') {
+        if (resultado && resultado.status === 'success') {
             mostrarToast('Documento removido com sucesso!', 'success');
-            const target = dadosCartasGlobais.find(r => r['NUP'] === nup);
+            const target = dadosCartasGlobais.find(r => {
+                const rNup = String(r['NUP'] || '').replace(/\D/g, '');
+                const sNup = String(nup || '').replace(/\D/g, '');
+                return r['NUP'] === nup || (rNup && sNup && rNup === sNup);
+            });
             if (target) {
                 if (tipo === 'manifestacao') {
                     target['LINK DA MANIFESTAÇÃO'] = '';
@@ -2901,10 +2919,13 @@ async function removerDocumentoRespostaCarta(event, nup, tipo) {
             atualizarCacheCartas();
             aplicarFiltrosCartas();
 
-            // Recarregar os detalhes no painel lateral
-            renderTabelaView(dadosCartasGlobais);
+            // Se o modal de preview estiver aberto, re-renderiza seus botões
+            const modalPreview = document.getElementById('modalPreviewCartas');
+            if (modalPreview && modalPreview.style.display === 'flex') {
+                abrirModalPreviewCartas(null, null, nup);
+            }
         } else {
-            mostrarToast('Erro ao remover: ' + resultado.message, 'error');
+            mostrarToast('Erro ao remover: ' + (resultado?.message || 'Falha na resposta do servidor'), 'error');
         }
     } catch (error) {
         mostrarToast('Erro de comunicação.', 'error');
