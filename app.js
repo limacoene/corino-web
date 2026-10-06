@@ -3199,6 +3199,13 @@ function abrirModal(index) {
         `;
     }
 
+    let reitBtnHtml = '';
+    const tecUpperModal = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
+    const setorItemModal = MAPA_TECNICOS_SETORES[tecUpperModal] || (linha['GERÊNCIA'] || '').trim().toUpperCase();
+    if (window.podeCadastrarReiteracao(setorItemModal)) {
+        reitBtnHtml = `<button onclick="abrirModalCadastroReiteracao('${linha['NUP']}')" class="btn-inline-reiteracao" title="Cadastrar Reiteração"></button>`;
+    }
+
     let htmlHistorico = '';
     htmlHistorico += gerarHtmlDocExtra('Ofício Inicial', linha['OFICIO_INICIAL'], linha['NUP_INICIAL'], linha['LINK_INICIAL'], index);
     if (linha['REITERACOES'] && linha['REITERACOES'].length > 0) {
@@ -3222,7 +3229,7 @@ function abrirModal(index) {
                 <div style="margin-bottom: 8px;">⏳ <strong>Prazo:</strong> ${linha['PRAZO'] || '-'}</div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px; background-color: #222; padding: 15px; border-radius: 8px;">
-                <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;"><span>📜 <strong>Ofício N.:</strong> &nbsp;${oficioRaw}</span> ${htmlPreviewIcon}</div>
+                <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;"><span>📜 <strong>Ofício N.:</strong> &nbsp;${oficioRaw}</span> <span style="display: inline-flex; align-items: center;">${reitBtnHtml}${htmlPreviewIcon}</span></div>
                 <div style="margin-bottom: 8px;">👤 <strong>Responsável:</strong> ${linha['TÉCNICO/ADMIN']}</div>
                 <div style="margin-bottom: 8px;">🏢 <strong>Gerência:</strong> ${linha['GERÊNCIA']}</div>
                 <div style="margin-bottom: 8px;">🔗 <strong>Status:</strong> ${linha['STATUS']}</div>
@@ -3492,6 +3499,10 @@ async function abrirPreview(arg1, arg2, arg3) {
     const tecRegistro = (linha['TÉCNICO/ADMIN'] || '').trim().toUpperCase();
     const setorInternoDoTecnico = (typeof MAPA_TECNICOS_SETORES !== 'undefined' ? MAPA_TECNICOS_SETORES[tecRegistro] : null) || (linha['GERÊNCIA'] || '').trim().toUpperCase();
     const podeAcaoFluxo = isGestor || (typeof window.podeConfeccionarDespachoOuCI === 'function' && window.podeConfeccionarDespachoOuCI(setorInternoDoTecnico));
+
+    if (typeof window.podeCadastrarReiteracao === 'function' && window.podeCadastrarReiteracao(setorInternoDoTecnico)) {
+        botoesAcoesHtml += `<button onclick="abrirModalCadastroReiteracao('${nupEsc}')" class="modal-detail-btn modal-detail-btn-gestao" style="width: 100%; margin-bottom: 8px;"><i class="ci ci-repeat"></i> Cadastrar Reiteração</button>`;
+    }
 
     if (statusLimpoCI === 'SOBRESTADO') {
         acoesFluxoHtml = `
@@ -4457,6 +4468,15 @@ function updateReitFileName(input) {
     }
 }
 
+function recarregarPreviewReiteracaoSeAberto(nup) {
+    const prev = document.getElementById('previewModal');
+    if (!prev || prev.style.display !== 'flex') return;
+    const alvo = dadosCoringa.find(r => r['NUP'] === nup);
+    if (!alvo) return;
+    const linkOficio = alvo['LINK_OFICIO'] || alvo['LINK - OFÍCIO'] || alvo['LINK'] || alvo['LINK_RESPOSTA'] || '';
+    abrirPreview(linkOficio, alvo);
+}
+
 async function salvarReiteracaoOficio() {
     const nupOriginal = document.getElementById('reitOriginalNup').value;
     const novoNup = document.getElementById('reitNovoNup').value.trim();
@@ -4561,6 +4581,7 @@ async function salvarReiteracaoOficio() {
     if (newIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
         abrirModal(newIndex);
     }
+    recarregarPreviewReiteracaoSeAberto(nupOriginal);
 
     try {
         const payload = {
@@ -4595,6 +4616,7 @@ async function salvarReiteracaoOficio() {
                 if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
                     abrirModal(currIndex);
                 }
+                recarregarPreviewReiteracaoSeAberto(nupOriginal);
             }
             if (typeof window.limparCacheHistoricoGlobal === 'function') window.limparCacheHistoricoGlobal();
         } else {
@@ -4621,6 +4643,7 @@ async function salvarReiteracaoOficio() {
         if (currIndex !== -1 && document.getElementById('detalhesModal').style.display === 'flex') {
             abrirModal(currIndex);
         }
+        recarregarPreviewReiteracaoSeAberto(nupOriginal);
     } finally {
         btn.innerHTML = txtOriginal; btn.disabled = false;
     }
