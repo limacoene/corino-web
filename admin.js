@@ -48,7 +48,7 @@ const DEFAULT_SEED_USERS = [
     { id: 37, username: "jribeiro", senha: "jferreira", nome_completo: "Joelthon Ribeiro", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 38, username: "jguimaraes", senha: "jrocha", nome_completo: "Joniel Guimarães", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 39, username: "lpires", senha: "lcarmo", nome_completo: "Larissa Pires", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
-    { id: 40, username: "lricardo", senha: "loliveira", nome_completo: "Luciano Ricardo", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
+    { id: 40, username: "lricardo", senha: "loliveira", nome_completo: "Luciano Ricardo", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 41, username: "mgarcia", senha: "mcorona", nome_completo: "Maria Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 42, username: "mshinzato", senha: "muemura", nome_completo: "Mariana Shinzato", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 43, username: "marianaopp", senha: "marianaopp", nome_completo: "Mariana Opp", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
@@ -57,7 +57,7 @@ const DEFAULT_SEED_USERS = [
     { id: 46, username: "mandressa", senha: "mbrito", nome_completo: "Milka Andressa", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 47, username: "rgarcia", senha: "rfreitas", nome_completo: "Rhoander Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
     { id: 48, username: "rcosta", senha: "mutumdev", nome_completo: "Rodrigo Costa", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" },
-    { id: 49, username: "snagel", senha: "ssilva", nome_completo: "Suzielly Nagel", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" }
+    { id: 49, username: "snagel", senha: "ssilva", nome_completo: "Suzielly Nagel", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico", status: "ativo" }
 ];
 
 function isModoEstatico() {
@@ -82,6 +82,18 @@ function obterUsuariosLocaisAdmin() {
     if (!users || !Array.isArray(users) || users.length === 0) {
         users = DEFAULT_SEED_USERS.map(u => ({ ...u, created_at: new Date().toISOString() }));
         localStorage.setItem('corino_users_admin_db', JSON.stringify(users));
+    } else {
+        let mudou = false;
+        DEFAULT_SEED_USERS.forEach(seed => {
+            const u = users.find(x => x.username === seed.username);
+            if (u && u.setor !== seed.setor) {
+                u.setor = seed.setor;
+                mudou = true;
+            }
+        });
+        if (mudou) {
+            localStorage.setItem('corino_users_admin_db', JSON.stringify(users));
+        }
     }
     return users;
 }
