@@ -114,7 +114,7 @@
             "jcampos":      {senha:"jazedias",     perfil:"revisor",        nomePlanilha:"JOSÉ RENATO",   setor:"GEAA"},
             "lpires":       {senha:"lcarmo",       perfil:"tecnico",        nomePlanilha:"LARISSA",       setor:"GCAR"},
             "ldias":        {senha:"lcosta",       perfil:"administrativo", nomePlanilha:"LIVYA",         setor:"DIFLOR"},
-            "lricardo":     {senha:"loliveira",    perfil:"tecnico",        nomePlanilha:"LUCIANO",       setor:"GEAA"},
+            "lricardo":     {senha:"loliveira",    perfil:"tecnico",        nomePlanilha:"LUCIANO",       setor:"GCAR"},
             "lteixeira":    {senha:"lcarlos",      perfil:"revisor",        nomePlanilha:"LUIZ",          setor:"GEAA"},
             "mgarcia":      {senha:"mcorona",      perfil:"tecnico",        nomePlanilha:"MARIA",         setor:"GEAA"},
             "mshinzato":    {senha:"muemura",      perfil:"tecnico",        nomePlanilha:"MARIANA SH",    setor:"GEAA"},
@@ -127,7 +127,7 @@
             "osantos":      {senha:"oantonio",     perfil:"administrativo", nomePlanilha:"OSVALDO",       setor:"DIFLOR"},
             "rgarcia":      {senha:"rfreitas",     perfil:"tecnico",        nomePlanilha:"RHOANDER",      setor:"GEAA"},
             "rcosta":       {senha:"mutumdev",     perfil:"tecnico",        nomePlanilha:"RODRIGO",       setor:"GEAA"},
-            "snagel":       {senha:"ssilva",       perfil:"tecnico",        nomePlanilha:"SUZIELLY",      setor:"GEAA"}
+            "snagel":       {senha:"ssilva",       perfil:"tecnico",        nomePlanilha:"SUZIELLY",      setor:"GCAR"}
         };
 
         async function fazerLogin() {
@@ -192,8 +192,13 @@
                 const uInfo = localUser || USUARIOS_CORINO[user];
                 const perfil = uInfo.perfil || (uInfo.role === 'admin' ? 'administrativo' : (uInfo.role || 'user'));
                 const nomeP = USUARIOS_CORINO[user]?.nomePlanilha || uInfo.nome_completo || uInfo.nomePlanilha || user.toUpperCase();
-                const setor = uInfo.setor || 'DIFLOR';
+                const setor = USUARIOS_CORINO[user]?.setor || uInfo.setor || 'DIFLOR';
                 const role = uInfo.role || ((perfil === 'administrativo' || user === 'diflor') ? 'admin' : perfil);
+
+                if (localUser && localUser.setor !== setor) {
+                    localUser.setor = setor;
+                    try { localStorage.setItem('corino_users_admin_db', JSON.stringify(usersDbLocal)); } catch (e) {}
+                }
 
                 const dadosUsuario = {
                     username: user,

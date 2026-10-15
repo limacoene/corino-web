@@ -30,7 +30,6 @@ window.MAPA_TECNICOS_SETORES = {
     "JOELTHON": "GEAA",
     "JONIEL": "GEAA",
     "JOSÉ RENATO": "GEAA",
-    "LUCIANO": "GEAA",
     "LUIZ": "GEAA",
     "MARIA": "GEAA",
     "MARIANA SH": "GEAA",
@@ -39,7 +38,6 @@ window.MAPA_TECNICOS_SETORES = {
     "MAX SANDER": "GEAA",
     "RHOANDER": "GEAA",
     "RODRIGO": "GEAA",
-    "SUZIELLY": "GEAA",
 
     // GCAR
     "CARLOS JULIANO": "GCAR",
@@ -53,9 +51,11 @@ window.MAPA_TECNICOS_SETORES = {
     "HELEN CAROLINE": "GCAR",
     "HILBATY": "GCAR",
     "LARISSA": "GCAR",
+    "LUCIANO": "GCAR",
     "MICHAEL": "GCAR",
     "MILKA": "GCAR",
     "NATTANA": "GCAR",
+    "SUZIELLY": "GCAR",
 
     // DIFLOR
     "JHONATAN": "DIFLOR",
@@ -4468,10 +4468,20 @@ function updateReitFileName(input) {
     }
 }
 
+function encontrarOficioPorNup(nup) {
+    if (!nup || typeof nup !== 'string') return null;
+    const nupBusca = nup.trim().toUpperCase();
+    const nupSemPdf = nupBusca.replace(/\.PDF$/i, '');
+    return (dadosCoringa || []).find(r => {
+        const n = String(r['NUP'] || '').trim().toUpperCase();
+        return n === nupBusca || n.replace(/\.PDF$/i, '') === nupSemPdf;
+    });
+}
+
 function recarregarPreviewReiteracaoSeAberto(nup) {
     const prev = document.getElementById('previewModal');
     if (!prev || prev.style.display !== 'flex') return;
-    const alvo = dadosCoringa.find(r => r['NUP'] === nup);
+    const alvo = encontrarOficioPorNup(nup);
     if (!alvo) return;
     const linkOficio = alvo['LINK_OFICIO'] || alvo['LINK - OFÍCIO'] || alvo['LINK'] || alvo['LINK_RESPOSTA'] || '';
     abrirPreview(linkOficio, alvo);
@@ -4527,8 +4537,8 @@ async function salvarReiteracaoOficio() {
         }
     }
 
-    // Optimistic Update
-    const procRef = dadosCoringa.find(a => a['NUP'] === nupOriginal);
+    // Optimistic Update resiliente a NUP com ou sem .pdf
+    const procRef = encontrarOficioPorNup(nupOriginal);
     let origData = '', origPrazo = '', origStatus = '', origStatusResp = '', origMot = '', origLinkResp = '';
     
     if (procRef) {
@@ -4586,7 +4596,7 @@ async function salvarReiteracaoOficio() {
     try {
         const payload = {
             acao: "cadastrar_reiteracao_oficio",
-            nupOriginal: nupOriginal,
+            nupOriginal: (procRef && procRef['NUP']) ? procRef['NUP'] : nupOriginal,
             novoNup: novoNup,
             novoOficio: novoOficio,
             novoData: novoData,
