@@ -78,7 +78,7 @@ function doPost(e) {
       "fgortega":     {senha:"fgama",        perfil:"tecnico",          nomePlanilha:"FRANCIELLY",   setor:"GCAR"},
       "jpierre":      {senha:"jcosta",       perfil:"tecnico",          nomePlanilha:"JEAN PIERRE",  setor:"GEAA"},
       "ccaroline":    {senha:"carlant",      perfil:"tecnico",          nomePlanilha:"CARLA",        setor:"GEAA"},
-      "snagel":       {senha:"ssilva",       perfil:"tecnico",          nomePlanilha:"SUZIELLY",     setor:"GEAA"},
+      "snagel":       {senha:"ssilva",       perfil:"tecnico",          nomePlanilha:"SUZIELLY",     setor:"GCAR"},
       "msander":      {senha:"mmacedo",      perfil:"tecnico",          nomePlanilha:"MAX SANDER",   setor:"GEAA"},
       "emesquita":    {senha:"mesquita13",   perfil:"tecnico",          nomePlanilha:"ETEVALDO",     setor:"GEAA"},
       "acanjos":      {senha:"101215",       perfil:"tecnico",          nomePlanilha:"ALLAN",        setor:"GEAA"}

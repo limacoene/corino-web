@@ -184,6 +184,13 @@ function executarMigracoes() {
                     WHERE nome_planilha IS NULL OR nome_planilha = '';
                 `);
             }
+        },
+        {
+            version: 4,
+            name: 'move_lricardo_snagel_to_gcar',
+            run: () => {
+                db.prepare(`UPDATE users SET setor = 'GCAR', updated_at = CURRENT_TIMESTAMP WHERE username IN ('lricardo', 'snagel')`).run();
+            }
         }
     ];
 
@@ -251,7 +258,7 @@ const SEED_USERS = [
     { username: "jribeiro", senha: "jferreira", nome_completo: "Joelthon Ribeiro", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "jguimaraes", senha: "jrocha", nome_completo: "Joniel Guimarães", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "lpires", senha: "lcarmo", nome_completo: "Larissa Pires", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "lricardo", senha: "loliveira", nome_completo: "Luciano Ricardo", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "lricardo", senha: "loliveira", nome_completo: "Luciano Ricardo", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "mgarcia", senha: "mcorona", nome_completo: "Maria Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "mshinzato", senha: "muemura", nome_completo: "Mariana Shinzato", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "marianaopp", senha: "marianaopp", nome_completo: "Mariana Opp", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
@@ -260,7 +267,7 @@ const SEED_USERS = [
     { username: "mandressa", senha: "mbrito", nome_completo: "Milka Andressa", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "rgarcia", senha: "rfreitas", nome_completo: "Rhoander Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
     { username: "rcosta", senha: "mutumdev", nome_completo: "Rodrigo Costa", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "snagel", senha: "ssilva", nome_completo: "Suzielly Nagel", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" }
+    { username: "snagel", senha: "ssilva", nome_completo: "Suzielly Nagel", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" }
 ];
 
 function executarSeedUsuarios() {
