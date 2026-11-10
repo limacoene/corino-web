@@ -73,6 +73,12 @@ function limparEPadronizarLinha(linha) {
         'E-MS': linha['E-MS'] || linha['EMS'] || '-',
         CBRS: linha['CBRS'] || '-',
         
+        // Sobrestamento (colunas criadas pelo Apps Script em sobrestar_processo / retorno_sobrestamento)
+        MANIFESTACAO_PRELIMINAR: linha['MANIFESTACAO_PRELIMINAR'] || '',
+        SOBRESTADO_SETOR: linha['SOBRESTADO_SETOR'] || '',
+        SOBRESTADO_MOTIVO: linha['SOBRESTADO_MOTIVO'] || '',
+        LINK_PARECER_EXTERNO: linha['LINK_PARECER_EXTERNO'] || '',
+        
         // Colunas W, X, Y / Z, AA, AB / AC, AD, AE... : REITERAÇÕES
         REITERACOES: []
     };

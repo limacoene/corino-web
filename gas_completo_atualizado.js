@@ -40,6 +40,82 @@ function getColunasCartas(cab) {
 }
 
 // ===========================================================
+// HELPERS — Histórico, colunas e localização de linhas
+// ===========================================================
+function respostaJson(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Índice (base 0) da primeira coluna cujo cabeçalho está em "nomes", ou -1.
+function acharColuna(cab, nomes) {
+  for (var i = 0; i < cab.length; i++) {
+    if (nomes.indexOf(String(cab[i]).trim().toUpperCase()) > -1) return i;
+  }
+  return -1;
+}
+
+// Índice (base 0) da coluna "nome"; cria o cabeçalho no fim da aba se não existir.
+function garantirColuna(aba, nome, alternativos) {
+  var ultima = Math.max(aba.getLastColumn(), 1);
+  var cab = aba.getRange(1, 1, 1, ultima).getValues()[0];
+  var idx = acharColuna(cab, [nome].concat(alternativos || []));
+  if (idx > -1) return idx;
+  aba.getRange(1, ultima + 1).setValue(nome);
+  return ultima;
+}
+
+function normalizarNup(n) {
+  return String(n || "").trim().toUpperCase().replace(/\.PDF$/i, "");
+}
+
+// Procura o NUP nas abas informadas. Retorna {aba, linha (base 1), cab, valores} ou null.
+function acharLinhaPorNup(abas, nup) {
+  var alvo = normalizarNup(nup);
+  if (!alvo) return null;
+  for (var s = 0; s < abas.length; s++) {
+    var aba = abas[s]; if (!aba) continue;
+    var vals = aba.getDataRange().getValues(); if (vals.length < 2) continue;
+    var colNup = acharColuna(vals[0], ["NUP", "PROCESSO", "PROCESSO/NUP"]);
+    if (colNup === -1) continue;
+    for (var i = 1; i < vals.length; i++) {
+      if (normalizarNup(vals[i][colNup]) === alvo) {
+        return { aba: aba, linha: i + 1, cab: vals[0], valores: vals[i] };
+      }
+    }
+  }
+  return null;
+}
+
+function ehLinkValido(v) {
+  var s = String(v || "").trim();
+  return s.length > 5 && s !== "-";
+}
+
+// Aceita só http(s) ou caminhos do GCS vindos do site.
+function linkSeguro(v) {
+  var s = String(v || "").trim();
+  return /^(https?:\/\/|gs:\/\/|gcs:)/i.test(s) ? s : "";
+}
+
+// Grava no Drive o PDF enviado em base64 e devolve o link (ou "" se não houver arquivo).
+function salvarPdfDrive(pastaId, base64, nomeArquivo) {
+  if (!base64 || typeof base64 !== "string" || !base64.trim()) return "";
+  if (base64.indexOf(",") > -1) base64 = base64.split(",")[1];
+  var file = DriveApp.getFolderById(pastaId).createFile(
+    Utilities.newBlob(Utilities.base64Decode(base64), "application/pdf", nomeArquivo || "Documento.pdf"));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file.getUrl();
+}
+
+// Linha padrão do HISTORICO_TRAMITACAO (8 colunas):
+// DATA | NUP | AÇÃO | DETALHE/STATUS | SETOR | TÉCNICO | OPERADOR | OBSERVAÇÃO
+function registrarTramitacao(nup, acao, detalhe, setor, tecnico, operador, obs) {
+  var aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("HISTORICO_TRAMITACAO");
+  if (!aba) return;
+  aba.appendRow([new Date(), nup, acao, detalhe || "", setor || "", tecnico || "", operador || "", obs || ""]);
+}
+
+// ===========================================================
 // MAIN doPost
 // ===========================================================
 function doPost(e) {
@@ -606,8 +682,8 @@ function doPost(e) {
         var vals=aba.getDataRange().getValues();if(vals.length===0)continue;
         var cab=vals[0],colNup=-1,colStatus=-1;
         for(var c=0;c<cab.length;c++){var hl=String(cab[c]).trim().toUpperCase();
-          if(hl==="NUP")colNup=c;if(hl==="STATUS"||hl==="SITUAÇÃO")colStatus=c;}
-        if(colNup!==-1){if(colStatus===-1)colStatus=6;
+          if(hl==="NUP")colNup=c;if(hl==="STATUS"||hl==="SITUAÇÃO"||hl==="STATUS ATUAL")colStatus=c;}
+        if(colNup!==-1&&colStatus!==-1){
           for(var i=1;i<vals.length;i++){
             if(String(vals[i][colNup]).trim()===String(nupB).trim()){
               aba.getRange(i+1,colStatus+1).setValue(novoStatus);atualizado=true;break;}}}
@@ -844,6 +920,171 @@ function doPost(e) {
         return ContentService.createTextOutput(JSON.stringify({status:"success",url:fileUrl})).setMimeType(ContentService.MimeType.JSON);}
       return ContentService.createTextOutput(JSON.stringify({status:"error",message:"NUP "+data.nup+" não encontrado."})).setMimeType(ContentService.MimeType.JSON);
     }
+
+    // ── REGISTRAR HISTÓRICO (evento livre enviado pelo site) ──────────────
+    if (data.acao === "registrar_historico") {
+      if (!data.nup || !data.eventoAcao) return respostaJson({status:"error",message:"NUP e ação são obrigatórios."});
+      registrarTramitacao(data.nup, data.eventoAcao, data.detalhe || "", "", "", data.username || "", data.extra || "");
+      SpreadsheetApp.flush();
+      return respostaJson({status:"success"});
+    }
+
+    // ── BUSCAR HISTÓRICO (de um NUP ou de todos) ──────────────────────────
+    if (data.acao === "buscar_historico_processo") {
+      if (!abaTramitacao) return respostaJson({status:"success", dados:[]});
+      var valsH = abaTramitacao.getDataRange().getValues();
+      var filtroNup = data.nup ? normalizarNup(data.nup) : "";
+      var fuso = Session.getScriptTimeZone();
+      var eventos = [];
+      for (var h = 0; h < valsH.length; h++) {
+        var r = valsH[h];
+        var nupH = String(r[1] || "").trim();
+        if (!nupH) continue;
+        if (h === 0 && nupH.toUpperCase() === "NUP") continue; // cabeçalho
+        if (filtroNup && normalizarNup(nupH) !== filtroNup) continue;
+        var acaoH = String(r[2] || "").trim();
+        var dataH = (r[0] instanceof Date) ? Utilities.formatDate(r[0], fuso, "dd/MM/yyyy HH:mm:ss") : String(r[0] || "");
+        var detalheH = String(r[3] || "").trim();
+        var extraH;
+        if (acaoH === "ALTERACAO_MANUAL_STATUS") {
+          extraH = "Status alterado para " + detalheH + (r[6] ? " por " + r[6] : "");
+        } else {
+          extraH = String(r[7] || r[6] || "").trim();
+        }
+        eventos.push({nup: nupH, data: dataH, acao: acaoH, detalhe: detalheH, extra: extraH});
+      }
+      return respostaJson({status:"success", dados:eventos});
+    }
+
+    // ── SOBRESTAR PROCESSO ───────────────────────────────────────────────
+    if (data.acao === "sobrestar_processo") {
+      var tipoS = data.tipo || "oficio";
+      var abasS = tipoS === "auto" ? [abaAutos] : tipoS === "carta" ? [abaCartas] : tipoS === "externo" ? [abaExternos] : [sheets[0], sheets[1]];
+      var achado = acharLinhaPorNup(abasS, data.nup);
+      if (!achado) return respostaJson({status:"error",message:"NUP " + data.nup + " não encontrado."});
+      var abaS = achado.aba, linS = achado.linha;
+      var nomesStatus = tipoS === "auto" ? ["STATUS ATUAL","STATUS","SITUAÇÃO"] : ["STATUS","SITUAÇÃO","STATUS ATUAL"];
+      var colStatusS = acharColuna(achado.cab, nomesStatus);
+      if (colStatusS === -1) return respostaJson({status:"error",message:"Coluna de status não encontrada na aba " + abaS.getName() + "."});
+
+      // Move a manifestação já anexada para MANIFESTACAO_PRELIMINAR
+      var nomesResp = tipoS === "carta"
+        ? ["LINK DA MANIFESTAÇÃO","LINK DA MANIFESTACAO","LINK_MANIFESTACAO","LINK DA RESPOSTA"]
+        : ["LINK DA RESPOSTA","LINK RESPOSTA","LINK_RESPOSTA"];
+      var colsResp = [];
+      for (var q = 0; q < achado.cab.length; q++) {
+        if (nomesResp.indexOf(String(achado.cab[q]).trim().toUpperCase()) > -1) colsResp.push(q);
+      }
+      var respAtual = "";
+      for (var q2 = 0; q2 < colsResp.length; q2++) {
+        if (ehLinkValido(achado.valores[colsResp[q2]])) { respAtual = String(achado.valores[colsResp[q2]]).trim(); break; }
+      }
+      if (respAtual) {
+        abaS.getRange(linS, garantirColuna(abaS, "MANIFESTACAO_PRELIMINAR") + 1).setValue(respAtual);
+        for (var q3 = 0; q3 < colsResp.length; q3++) abaS.getRange(linS, colsResp[q3] + 1).setValue("");
+      }
+      abaS.getRange(linS, colStatusS + 1).setValue("SOBRESTADO");
+      abaS.getRange(linS, garantirColuna(abaS, "SOBRESTADO_SETOR") + 1).setValue(data.setor || "");
+      abaS.getRange(linS, garantirColuna(abaS, "SOBRESTADO_MOTIVO") + 1).setValue(data.motivo || "");
+      var colDataStatusS = acharColuna(achado.cab, ["DATA STATUS ATUAL","DATA_STATUS_ATUAL"]);
+      if (colDataStatusS > -1) abaS.getRange(linS, colDataStatusS + 1).setValue(dataAtual);
+      SpreadsheetApp.flush();
+      return respostaJson({status:"success"});
+    }
+
+    // ── RETORNO DO SOBRESTAMENTO ─────────────────────────────────────────
+    if (data.acao === "retorno_sobrestamento") {
+      var tipoR = data.tipo || "oficio";
+      var abasR = tipoR === "auto" ? [abaAutos] : tipoR === "carta" ? [abaCartas] : tipoR === "externo" ? [abaExternos] : [sheets[0], sheets[1]];
+      var achadoR = acharLinhaPorNup(abasR, data.nup);
+      if (!achadoR) return respostaJson({status:"error",message:"NUP " + data.nup + " não encontrado."});
+      var pastaR = tipoR === "carta" ? "1-b6Z6E3gdLHWJsVuUfdPoIFslWxREJnq"
+                 : (tipoR === "auto" || tipoR === "externo") ? "1aj7ZO5Va91f8725h_S5vKo7OUqazET7d"
+                 : "1c-K2Rlm55yWngXvAGBnhLLpbMSPPKqMU";
+      var linkParecer = linkSeguro(data.url || data.linkGcs) ||
+        salvarPdfDrive(pastaR, data.base64, data.fileName || ("Parecer_Externo_" + String(data.nup).replace(/[^a-zA-Z0-9]/g, "") + ".pdf"));
+      var abaR = achadoR.aba, linR = achadoR.linha;
+      var nomesStatusR = tipoR === "auto" ? ["STATUS ATUAL","STATUS","SITUAÇÃO"] : ["STATUS","SITUAÇÃO","STATUS ATUAL"];
+      var colStatusR = acharColuna(achadoR.cab, nomesStatusR);
+      if (colStatusR === -1) return respostaJson({status:"error",message:"Coluna de status não encontrada na aba " + abaR.getName() + "."});
+      if (linkParecer) abaR.getRange(linR, garantirColuna(abaR, "LINK_PARECER_EXTERNO") + 1).setValue(linkParecer);
+      abaR.getRange(linR, colStatusR + 1).setValue(tipoR === "auto" ? "AGUARDANDO MANIFESTAÇÃO" : "AGUARDANDO MANIFESTAÇÃO TÉCNICA");
+      var colDataStatusR = acharColuna(achadoR.cab, ["DATA STATUS ATUAL","DATA_STATUS_ATUAL"]);
+      if (colDataStatusR > -1) abaR.getRange(linR, colDataStatusR + 1).setValue(dataAtual);
+      SpreadsheetApp.flush();
+      return respostaJson({status:"success", url:linkParecer});
+    }
+
+    // ── ANEXAR PDF ORIGINAL DO OFÍCIO ────────────────────────────────────
+    if (data.acao === "anexar_pdf_original_oficio") {
+      var achadoO = acharLinhaPorNup([sheets[0], sheets[1]], data.nup);
+      if (!achadoO) return respostaJson({status:"error",message:"NUP " + data.nup + " não encontrado."});
+      var linkO = linkSeguro(data.url || data.linkGcs) ||
+        salvarPdfDrive("1c-K2Rlm55yWngXvAGBnhLLpbMSPPKqMU", data.base64, data.fileName);
+      if (!linkO) return respostaJson({status:"error",message:"Nenhum arquivo recebido."});
+      var colLinkO = garantirColuna(achadoO.aba, "LINK - OFÍCIO",
+        ["LINK - OFÍCIO / LINK DO NUP","LINK DO OFÍCIO","LINK OFÍCIO","LINK_OFICIO","LINK DO NUP","LINK NUP"]);
+      achadoO.aba.getRange(achadoO.linha, colLinkO + 1).setValue(linkO);
+      registrarTramitacao(data.nup, "PDF ORIGINAL VINCULADO", "", "", "", data.username || "", "");
+      SpreadsheetApp.flush();
+      return respostaJson({status:"success", url:linkO});
+    }
+
+    // ── CADASTRAR REITERAÇÃO DE OFÍCIO ───────────────────────────────────
+    // As reiterações ficam em trios de colunas: OFÍCIO RT n | NUP RT n | LINK RT n
+    if (data.acao === "cadastrar_reiteracao_oficio") {
+      var achadoT = acharLinhaPorNup([sheets[0], sheets[1]], data.nupOriginal);
+      if (!achadoT) return respostaJson({status:"error",message:"NUP " + data.nupOriginal + " não encontrado."});
+      var abaT = achadoT.aba, linT = achadoT.linha, cabT = achadoT.cab, valsT = achadoT.valores;
+      var linkT = salvarPdfDrive("1c-K2Rlm55yWngXvAGBnhLLpbMSPPKqMU", data.base64,
+        data.fileName || ("Reiteracao_" + String(data.novoNup || data.nupOriginal).replace(/[^a-zA-Z0-9]/g, "") + ".pdf"));
+
+      // Procura o primeiro trio de reiteração vazio
+      var colTrio = -1, totalTrios = 0;
+      for (var t = 0; t < cabT.length; t++) {
+        var k = String(cabT[t]).trim().toUpperCase();
+        var ehTrio = k.indexOf("OFÍCIO REITERAÇÃO") > -1 || k.indexOf("OFICIO REITERACAO") > -1 ||
+                     k.indexOf("OFÍCIO RT") > -1 || k.indexOf("OFICIO RT") > -1 ||
+                     (t >= 22 && (t - 22) % 3 === 0 && k.indexOf("OFÍCIO") > -1);
+        if (!ehTrio) continue;
+        totalTrios++;
+        var v = String(valsT[t] || "").trim();
+        if (colTrio === -1 && (v === "" || v === "-")) colTrio = t;
+      }
+      if (colTrio === -1) {
+        var n = totalTrios + 1, ini = Math.max(abaT.getLastColumn(), 1) + 1;
+        abaT.getRange(1, ini, 1, 3).setValues([["OFÍCIO RT " + n, "NUP RT " + n, "LINK RT " + n]]);
+        colTrio = ini - 1;
+      }
+      abaT.getRange(linT, colTrio + 1, 1, 3).setValues([[data.novoOficio || "", data.novoNup || "", linkT]]);
+
+      // A data e o prazo passam a contar a partir da reiteração
+      var colDataT = acharColuna(cabT, ["DATA","DATA DE ENTRADA"]);
+      if (colDataT > -1 && data.novoData) abaT.getRange(linT, colDataT + 1).setValue(data.novoData);
+      var colPrazoT = acharColuna(cabT, ["PRAZO"]);
+      if (colPrazoT > -1 && data.novoPrazo) abaT.getRange(linT, colPrazoT + 1).setValue(data.novoPrazo);
+
+      // Mesma regra do site: sem manifestação e fora dos fluxos finais, volta a aguardar
+      var colStatusT = acharColuna(cabT, ["STATUS","SITUAÇÃO"]);
+      var colRespT = acharColuna(cabT, ["LINK DA RESPOSTA","LINK RESPOSTA","LINK_RESPOSTA"]);
+      var colSRT = acharColuna(cabT, ["STATUS-RESPOSTA","STATUS DA RESPOSTA","STATUS_RESPOSTA","STATUS DA RESPOSTA (APROVADA/REPROVADA)"]);
+      var colTecT = acharColuna(cabT, ["TÉCNICO/ADMIN","TECNICO/ADMIN","TÉCNICO","TECNICO"]);
+      var statusT = colStatusT > -1 ? String(valsT[colStatusT]).trim().toUpperCase().replace(/\./g, "") : "";
+      var fluxosFinais = ["REVISÃO","REVISAO","FAZER CI","FAZER DESPACHO","AGUARDANDO ASSINATURA","FINALIZADO","TRAMITADO","ARQUIVADO"];
+      var temResp = colRespT > -1 && ehLinkValido(valsT[colRespT]);
+      var temSR = colSRT > -1 && String(valsT[colSRT]).trim() !== "";
+      if (colStatusT > -1 && !temResp && !temSR && fluxosFinais.indexOf(statusT) === -1) {
+        var tecT = colTecT > -1 ? String(valsT[colTecT]).trim().toUpperCase() : "";
+        var temTec = tecT !== "" && tecT !== "-" && tecT !== "S/T";
+        abaT.getRange(linT, colStatusT + 1).setValue(temTec ? "AGUARDANDO MANIFESTAÇÃO TÉCNICA" : "AGUARDANDO DISTRIBUIÇÃO");
+      }
+      registrarTramitacao(achadoT.valores[acharColuna(cabT, ["NUP","PROCESSO","PROCESSO/NUP"])], "REITERAÇÃO CADASTRADA",
+        "Ofício " + (data.novoOficio || "") + " / NUP " + (data.novoNup || ""), "", "", data.username || "", "");
+      SpreadsheetApp.flush();
+      return respostaJson({status:"success", url:linkT});
+    }
+
+    return respostaJson({status:"error",message:"Ação desconhecida: " + data.acao});
 
   } catch(error) {
     return ContentService.createTextOutput(JSON.stringify({status:"error",message:error.toString()})).setMimeType(ContentService.MimeType.JSON);
