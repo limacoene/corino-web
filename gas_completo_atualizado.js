@@ -54,12 +54,36 @@ function acharColuna(cab, nomes) {
   return -1;
 }
 
-// Índice (base 0) da coluna "nome"; cria o cabeçalho no fim da aba se não existir.
+// Posições conhecidas (base 0) das colunas de sobrestamento em cada aba:
+// E-MS: AF, AG, AH, AI | MPMS: AI, AJ, AK, AL
+var POSICOES_FIXAS = {
+  "E-MS": {MANIFESTACAO_PRELIMINAR: 31, SOBRESTADO_SETOR: 32, SOBRESTADO_MOTIVO: 33, LINK_PARECER_EXTERNO: 34},
+  "MPMS": {MANIFESTACAO_PRELIMINAR: 34, SOBRESTADO_SETOR: 35, SOBRESTADO_MOTIVO: 36, LINK_PARECER_EXTERNO: 37}
+};
+
+// Cabeçalho sem acentos, com "_" no lugar de espaços: "MANIFESTAÇÃO PRELIMINAR" -> "MANIFESTACAO_PRELIMINAR"
+function chaveCabecalho(v) {
+  return String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .trim().toUpperCase().replace(/[\s\-\/]+/g, "_");
+}
+
+// Índice (base 0) da coluna "nome". Procura pelo cabeçalho; se não achar, usa a
+// posição conhecida da aba (POSICOES_FIXAS); só em último caso cria a coluna no fim.
 function garantirColuna(aba, nome, alternativos) {
   var ultima = Math.max(aba.getLastColumn(), 1);
   var cab = aba.getRange(1, 1, 1, ultima).getValues()[0];
   var idx = acharColuna(cab, [nome].concat(alternativos || []));
   if (idx > -1) return idx;
+  var chave = chaveCabecalho(nome);
+  for (var i = 0; i < cab.length; i++) {
+    if (chaveCabecalho(cab[i]) === chave) return i;
+  }
+  var fixas = POSICOES_FIXAS[String(aba.getName()).trim().toUpperCase()];
+  if (fixas && fixas[chave] !== undefined) {
+    var pos = fixas[chave];
+    if (String(cab[pos] || "").trim() === "") aba.getRange(1, pos + 1).setValue(nome);
+    return pos;
+  }
   aba.getRange(1, ultima + 1).setValue(nome);
   return ultima;
 }
