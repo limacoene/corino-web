@@ -24,3 +24,10 @@ desktop.ini
 logs/
 *.log
 npm-debug.log*
+
+# Banco de dados SQLite (contém dados pessoais - LGPD)
+corino.db
+corino.db-*
+*.db
+*.db-shm
+*.db-wal
