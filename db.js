@@ -213,61 +213,61 @@ function executarMigracoes() {
 
 const SEED_USERS = [
     // Contas de Administração
-    { username: "diflor", senha: "gonçaloalves", nome_completo: "DIRETORIA FLORESTAL", setor: "DIFLOR", funcao: "Diretoria Florestal", role: "admin" },
-    { username: "jcoene", senha: "jlima", nome_completo: "Jhonatan Coene", setor: "DIFLOR", funcao: "Administrador de Sistemas", role: "admin" },
-    { username: "jhonatan", senha: "dev1", nome_completo: "Jhonatan Lima (Dev)", setor: "DIFLOR", funcao: "Desenvolvedor Full Stack", role: "admin" },
+    { username: "diflor", nome_completo: "DIRETORIA FLORESTAL", setor: "DIFLOR", funcao: "Diretoria Florestal", role: "admin" },
+    { username: "jcoene", nome_completo: "Jhonatan Coene", setor: "DIFLOR", funcao: "Administrador de Sistemas", role: "admin" },
+    { username: "jhonatan", nome_completo: "Jhonatan Lima (Dev)", setor: "DIFLOR", funcao: "Desenvolvedor Full Stack", role: "admin" },
     
     // Gerências / Revisores
-    { username: "geamb", senha: "usop1", nome_completo: "Gerência de Assuntos Ambientais", setor: "GEAMB", funcao: "Gerente Revisor", role: "revisor" },
-    { username: "gcar", senha: "gcar1281", nome_completo: "Gerência de Cadastro Ambiental Rural", setor: "GCAR", funcao: "Gerente Revisor", role: "revisor" },
-    { username: "geaa", senha: "geaa2026", nome_completo: "Gerência de Autorizações Ambientais", setor: "GEAA", funcao: "Gerente Revisor", role: "revisor" },
-    { username: "erocha", senha: "esouza", nome_completo: "Erlisson Rocha", setor: "GCAR", funcao: "Revisor Técnico", role: "revisor" },
-    { username: "jcampos", senha: "jazedias", nome_completo: "José Renato Campos", setor: "GEAA", funcao: "Revisor Técnico", role: "revisor" },
-    { username: "lteixeira", senha: "lcarlos", nome_completo: "Luiz Teixeira", setor: "GEAA", funcao: "Revisor Técnico", role: "revisor" },
+    { username: "geamb", nome_completo: "Gerência de Assuntos Ambientais", setor: "GEAMB", funcao: "Gerente Revisor", role: "revisor" },
+    { username: "gcar", nome_completo: "Gerência de Cadastro Ambiental Rural", setor: "GCAR", funcao: "Gerente Revisor", role: "revisor" },
+    { username: "geaa", nome_completo: "Gerência de Autorizações Ambientais", setor: "GEAA", funcao: "Gerente Revisor", role: "revisor" },
+    { username: "erocha", nome_completo: "Erlisson Rocha", setor: "GCAR", funcao: "Revisor Técnico", role: "revisor" },
+    { username: "jcampos", nome_completo: "José Renato Campos", setor: "GEAA", funcao: "Revisor Técnico", role: "revisor" },
+    { username: "lteixeira", nome_completo: "Luiz Teixeira", setor: "GEAA", funcao: "Revisor Técnico", role: "revisor" },
 
     // Equipe Administrativa
-    { username: "anogueira", senha: "acunha", nome_completo: "Alcebíades Nogueira", setor: "GEAA", funcao: "Assistente Administrativo", role: "user" },
-    { username: "ccarvalho", senha: "corinad", nome_completo: "Corina Carvalho", setor: "GEAA", funcao: "Assistente Administrativa", role: "user" },
-    { username: "ggimenes", senha: "rcouto", nome_completo: "Gabriela Gimenes", setor: "GCAR", funcao: "Assistente Administrativa", role: "user" },
-    { username: "ldias", senha: "lcosta", nome_completo: "Lívya Dias", setor: "DIFLOR", funcao: "Assistente Administrativa", role: "user" },
-    { username: "nmendonca", senha: "nnunes", nome_completo: "Nattana Mendonça", setor: "GCAR", funcao: "Assistente Administrativa", role: "user" },
-    { username: "osantos", senha: "oantonio", nome_completo: "Osvaldo Santos", setor: "DIFLOR", funcao: "Assistente Administrativo", role: "user" },
+    { username: "anogueira", nome_completo: "Alcebíades Nogueira", setor: "GEAA", funcao: "Assistente Administrativo", role: "user" },
+    { username: "ccarvalho", nome_completo: "Corina Carvalho", setor: "GEAA", funcao: "Assistente Administrativa", role: "user" },
+    { username: "ggimenes", nome_completo: "Gabriela Gimenes", setor: "GCAR", funcao: "Assistente Administrativa", role: "user" },
+    { username: "ldias", nome_completo: "Lívya Dias", setor: "DIFLOR", funcao: "Assistente Administrativa", role: "user" },
+    { username: "nmendonca", nome_completo: "Nattana Mendonça", setor: "GCAR", funcao: "Assistente Administrativa", role: "user" },
+    { username: "osantos", nome_completo: "Osvaldo Santos", setor: "DIFLOR", funcao: "Assistente Administrativo", role: "user" },
 
     // Equipe Técnica / Analistas
-    { username: "asantos", senha: "abilar", nome_completo: "Adriana Santos", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "adpaula", senha: "adivino", nome_completo: "Alexandre de Paula", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "acanjos", senha: "101215", nome_completo: "Allan dos Anjos", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "aoliveira", senha: "atavares", nome_completo: "Anderson Oliveira", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "bbrito", senha: "balmeida", nome_completo: "Bárbara Brito", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "bcarneiro", senha: "boliveira", nome_completo: "Beatriz Carneiro", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "ccaroline", senha: "carlant", nome_completo: "Carla Caroline", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "cfonseca", senha: "csilva", nome_completo: "Carlos Juliano Fonseca", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "cbarauna", senha: "coliveira", nome_completo: "Cristiane Baraúna", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "dmartins", senha: "dtiago", nome_completo: "Dianessa Martins", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "dmara", senha: "dfigueiredo", nome_completo: "Dina Mara", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "erafael", senha: "epaulino", nome_completo: "Eleri Rafael", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "emesquita", senha: "mesquita13", nome_completo: "Etevaldo Mesquita", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "fvasconcellos", senha: "fananias", nome_completo: "Fabiana Vasconcellos", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "fgortega", senha: "fgama", nome_completo: "Francielly Ortega", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "hcrodrigues", senha: "hcorrea", nome_completo: "Helen Caroline Rodrigues", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "hgomes", senha: "hpelissaro", nome_completo: "Hellen Gomes", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "hconcone", senha: "villasboas", nome_completo: "Henrique Concone", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "hbrufao", senha: "hravaza", nome_completo: "Herus Brufão", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "hsilva", senha: "hrodrigues", nome_completo: "Hilbaty Silva", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "jpierre", senha: "jcosta", nome_completo: "Jean Pierre", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "jribeiro", senha: "jferreira", nome_completo: "Joelthon Ribeiro", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "jguimaraes", senha: "jrocha", nome_completo: "Joniel Guimarães", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "lpires", senha: "lcarmo", nome_completo: "Larissa Pires", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "lricardo", senha: "loliveira", nome_completo: "Luciano Ricardo", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "mgarcia", senha: "mcorona", nome_completo: "Maria Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "mshinzato", senha: "muemura", nome_completo: "Mariana Shinzato", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "marianaopp", senha: "marianaopp", nome_completo: "Mariana Opp", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "msander", senha: "mmacedo", nome_completo: "Max Sander", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "maguirre", senha: "mpereira", nome_completo: "Michael Aguirre", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "mandressa", senha: "mbrito", nome_completo: "Milka Andressa", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "rgarcia", senha: "rfreitas", nome_completo: "Rhoander Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "rcosta", senha: "mutumdev", nome_completo: "Rodrigo Costa", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
-    { username: "snagel", senha: "ssilva", nome_completo: "Suzielly Nagel", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" }
+    { username: "asantos", nome_completo: "Adriana Santos", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "adpaula", nome_completo: "Alexandre de Paula", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "acanjos", nome_completo: "Allan dos Anjos", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "aoliveira", nome_completo: "Anderson Oliveira", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "bbrito", nome_completo: "Bárbara Brito", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "bcarneiro", nome_completo: "Beatriz Carneiro", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "ccaroline", nome_completo: "Carla Caroline", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "cfonseca", nome_completo: "Carlos Juliano Fonseca", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "cbarauna", nome_completo: "Cristiane Baraúna", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "dmartins", nome_completo: "Dianessa Martins", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "dmara", nome_completo: "Dina Mara", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "erafael", nome_completo: "Eleri Rafael", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "emesquita", nome_completo: "Etevaldo Mesquita", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "fvasconcellos", nome_completo: "Fabiana Vasconcellos", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "fgortega", nome_completo: "Francielly Ortega", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "hcrodrigues", nome_completo: "Helen Caroline Rodrigues", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "hgomes", nome_completo: "Hellen Gomes", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "hconcone", nome_completo: "Henrique Concone", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "hbrufao", nome_completo: "Herus Brufão", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "hsilva", nome_completo: "Hilbaty Silva", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "jpierre", nome_completo: "Jean Pierre", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "jribeiro", nome_completo: "Joelthon Ribeiro", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "jguimaraes", nome_completo: "Joniel Guimarães", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "lpires", nome_completo: "Larissa Pires", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "lricardo", nome_completo: "Luciano Ricardo", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "mgarcia", nome_completo: "Maria Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "mshinzato", nome_completo: "Mariana Shinzato", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "marianaopp", nome_completo: "Mariana Opp", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "msander", nome_completo: "Max Sander", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "maguirre", nome_completo: "Michael Aguirre", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "mandressa", nome_completo: "Milka Andressa", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "rgarcia", nome_completo: "Rhoander Garcia", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "rcosta", nome_completo: "Rodrigo Costa", setor: "GEAA", funcao: "Analista Ambiental / Técnico", role: "tecnico" },
+    { username: "snagel", nome_completo: "Suzielly Nagel", setor: "GCAR", funcao: "Analista Ambiental / Técnico", role: "tecnico" }
 ];
 
 function executarSeedUsuarios() {
@@ -279,12 +279,18 @@ function executarSeedUsuarios() {
             VALUES (?, ?, ?, ?, ?, ?, ?, 'ativo')
         `);
 
+        // As senhas não ficam no código: cada usuário recebe uma senha aleatória,
+        // exibida uma única vez no console para o administrador repassar.
+        const credenciais = [];
         for (const u of SEED_USERS) {
+            const senha = generateRandomPassword(10);
             const salt = generateSalt();
-            const hash = hashPassword(u.senha, salt);
+            const hash = hashPassword(senha, salt);
             stmtInsert.run(u.username, hash, salt, u.nome_completo, u.setor, u.funcao, u.role);
+            credenciais.push(`${u.username}\t${senha}`);
         }
         console.log(`✅ [DB Seed] ${SEED_USERS.length} usuários cadastrados com sucesso!`);
+        console.log('🔑 [DB Seed] Senhas iniciais (anote agora, não serão exibidas de novo):\n' + credenciais.join('\n'));
     }
 }
 

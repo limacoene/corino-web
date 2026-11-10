@@ -74,60 +74,61 @@
             } catch (e) {}
         }
 
+        // Metadados de exibição (sem senhas). A autenticação é feita pelo servidor ou pelo Apps Script.
         const USUARIOS_CORINO = {
             // CONTAS SETORIAIS / GENÉRICAS
-            "diflor":       {senha:"gonçaloalves", perfil:"administrativo", nomePlanilha:"DIRETORIA FLORESTAL",           setor:"DIFLOR"},
-            "geamb":        {senha:"usop1",        perfil:"revisor",        nomePlanilha:"GERÊNCIA DE ASSUNTOS AMBIENTAIS",setor:"GEAMB"},
-            "gcar":         {senha:"gcar1281",     perfil:"revisor",        nomePlanilha:"GCAR",                          setor:"GCAR"},
-            "geaa":         {senha:"geaa2026",     perfil:"revisor",        nomePlanilha:"GEAA",                          setor:"GEAA"},
+            "diflor":       {perfil:"administrativo", nomePlanilha:"DIRETORIA FLORESTAL",           setor:"DIFLOR"},
+            "geamb":        {perfil:"revisor",        nomePlanilha:"GERÊNCIA DE ASSUNTOS AMBIENTAIS",setor:"GEAMB"},
+            "gcar":         {perfil:"revisor",        nomePlanilha:"GCAR",                          setor:"GCAR"},
+            "geaa":         {perfil:"revisor",        nomePlanilha:"GEAA",                          setor:"GEAA"},
 
             // FUNCIONÁRIOS E TÉCNICOS CADASTRADOS
-            "asantos":      {senha:"abilar",       perfil:"tecnico",        nomePlanilha:"ADRIANA",       setor:"GEAA"},
-            "anogueira":    {senha:"acunha",       perfil:"administrativo", nomePlanilha:"ALCEBIADES",    setor:"GEAA"},
-            "adpaula":      {senha:"adivino",      perfil:"tecnico",        nomePlanilha:"ALEXANDRE",     setor:"GEAA"},
-            "acanjos":      {senha:"101215",       perfil:"tecnico",        nomePlanilha:"ALLAN",         setor:"GEAA"},
-            "aoliveira":    {senha:"atavares",     perfil:"tecnico",        nomePlanilha:"ANDERSON",      setor:"GEAA"},
-            "bbrito":       {senha:"balmeida",     perfil:"tecnico",        nomePlanilha:"BARBARA",       setor:"GEAA"},
-            "bcarneiro":    {senha:"boliveira",    perfil:"tecnico",        nomePlanilha:"BEATRIZ",       setor:"GEAA"},
-            "ccaroline":    {senha:"carlant",      perfil:"tecnico",        nomePlanilha:"CARLA",         setor:"GEAA"},
-            "cfonseca":     {senha:"csilva",       perfil:"tecnico",        nomePlanilha:"CARLOS JULIANO",setor:"GCAR"},
-            "ccarvalho":    {senha:"corinad",      perfil:"administrativo", nomePlanilha:"CORINA",        setor:"GEAA"},
-            "cbarauna":     {senha:"coliveira",    perfil:"tecnico",        nomePlanilha:"CRISTIANE",     setor:"GCAR"},
-            "dmartins":     {senha:"dtiago",       perfil:"tecnico",        nomePlanilha:"DIANESSA",      setor:"GCAR"},
-            "dmara":        {senha:"dfigueiredo",  perfil:"tecnico",        nomePlanilha:"DINA",          setor:"GEAA"},
-            "erafael":      {senha:"epaulino",     perfil:"tecnico",        nomePlanilha:"ELERI",         setor:"GCAR"},
-            "erocha":       {senha:"esouza",       perfil:"revisor",        nomePlanilha:"ERLISSON",      setor:"GCAR"},
-            "emesquita":    {senha:"mesquita13",   perfil:"tecnico",        nomePlanilha:"ETEVALDO",      setor:"GEAA"},
-            "fvasconcellos":{senha:"fananias",     perfil:"tecnico",        nomePlanilha:"FABIANA",       setor:"GCAR"},
-            "fgortega":     {senha:"fgama",        perfil:"tecnico",        nomePlanilha:"FRANCIELLY",    setor:"GCAR"},
-            "ggimenes":     {senha:"rcouto",       perfil:"administrativo", nomePlanilha:"GABRIELA",      setor:"GCAR"},
-            "hcrodrigues":  {senha:"hcorrea",      perfil:"tecnico",        nomePlanilha:"HELEN CAROLINE",setor:"GCAR"},
-            "hgomes":       {senha:"hpelissaro",   perfil:"tecnico",        nomePlanilha:"HELLEN",        setor:"GEAA"},
-            "hconcone":     {senha:"villasboas",   perfil:"tecnico",        nomePlanilha:"HENRIQUE",      setor:"GEAA"},
-            "hbrufao":      {senha:"hravaza",      perfil:"tecnico",        nomePlanilha:"HERUS",         setor:"GEAA"},
-            "hsilva":       {senha:"hrodrigues",   perfil:"tecnico",        nomePlanilha:"HILBATY",       setor:"GCAR"},
-            "jpierre":      {senha:"jcosta",       perfil:"tecnico",        nomePlanilha:"JEAN PIERRE",   setor:"GEAA"},
-            "jcoene":       {senha:"jlima",        perfil:"administrativo", nomePlanilha:"JHONATAN",      setor:"DIFLOR"},
-            "jhonatan":     {senha:"dev1",         perfil:"administrativo", nomePlanilha:"JHONATAN",      setor:"DIFLOR"},
-            "jribeiro":     {senha:"jferreira",    perfil:"tecnico",        nomePlanilha:"JOELTHON",      setor:"GEAA"},
-            "jguimaraes":   {senha:"jrocha",       perfil:"tecnico",        nomePlanilha:"JONIEL",        setor:"GEAA"},
-            "jcampos":      {senha:"jazedias",     perfil:"revisor",        nomePlanilha:"JOSÉ RENATO",   setor:"GEAA"},
-            "lpires":       {senha:"lcarmo",       perfil:"tecnico",        nomePlanilha:"LARISSA",       setor:"GCAR"},
-            "ldias":        {senha:"lcosta",       perfil:"administrativo", nomePlanilha:"LIVYA",         setor:"DIFLOR"},
-            "lricardo":     {senha:"loliveira",    perfil:"tecnico",        nomePlanilha:"LUCIANO",       setor:"GCAR"},
-            "lteixeira":    {senha:"lcarlos",      perfil:"revisor",        nomePlanilha:"LUIZ",          setor:"GEAA"},
-            "mgarcia":      {senha:"mcorona",      perfil:"tecnico",        nomePlanilha:"MARIA",         setor:"GEAA"},
-            "mshinzato":    {senha:"muemura",      perfil:"tecnico",        nomePlanilha:"MARIANA SH",    setor:"GEAA"},
-            "marianaopp":   {senha:"marianaopp",   perfil:"tecnico",        nomePlanilha:"MARIANA OPP",   setor:"GEAA"},
-            "msander":      {senha:"mmacedo",      perfil:"tecnico",        nomePlanilha:"MAX SANDER",    setor:"GEAA"},
-            "maguirre":     {senha:"mpereira",     perfil:"tecnico",        nomePlanilha:"MICHAEL",       setor:"GCAR"},
-            "mandressa":    {senha:"mbrito",       perfil:"tecnico",        nomePlanilha:"MILKA",         setor:"GCAR"},
-            "nmendonça":    {senha:"nnunes",       perfil:"administrativo", nomePlanilha:"NATTANA",       setor:"GCAR"},
-            "nmendonca":    {senha:"nnunes",       perfil:"administrativo", nomePlanilha:"NATTANA",       setor:"GCAR"},
-            "osantos":      {senha:"oantonio",     perfil:"administrativo", nomePlanilha:"OSVALDO",       setor:"DIFLOR"},
-            "rgarcia":      {senha:"rfreitas",     perfil:"tecnico",        nomePlanilha:"RHOANDER",      setor:"GEAA"},
-            "rcosta":       {senha:"mutumdev",     perfil:"tecnico",        nomePlanilha:"RODRIGO",       setor:"GEAA"},
-            "snagel":       {senha:"ssilva",       perfil:"tecnico",        nomePlanilha:"SUZIELLY",      setor:"GCAR"}
+            "asantos":      {perfil:"tecnico",        nomePlanilha:"ADRIANA",       setor:"GEAA"},
+            "anogueira":    {perfil:"administrativo", nomePlanilha:"ALCEBIADES",    setor:"GEAA"},
+            "adpaula":      {perfil:"tecnico",        nomePlanilha:"ALEXANDRE",     setor:"GEAA"},
+            "acanjos":      {perfil:"tecnico",        nomePlanilha:"ALLAN",         setor:"GEAA"},
+            "aoliveira":    {perfil:"tecnico",        nomePlanilha:"ANDERSON",      setor:"GEAA"},
+            "bbrito":       {perfil:"tecnico",        nomePlanilha:"BARBARA",       setor:"GEAA"},
+            "bcarneiro":    {perfil:"tecnico",        nomePlanilha:"BEATRIZ",       setor:"GEAA"},
+            "ccaroline":    {perfil:"tecnico",        nomePlanilha:"CARLA",         setor:"GEAA"},
+            "cfonseca":     {perfil:"tecnico",        nomePlanilha:"CARLOS JULIANO",setor:"GCAR"},
+            "ccarvalho":    {perfil:"administrativo", nomePlanilha:"CORINA",        setor:"GEAA"},
+            "cbarauna":     {perfil:"tecnico",        nomePlanilha:"CRISTIANE",     setor:"GCAR"},
+            "dmartins":     {perfil:"tecnico",        nomePlanilha:"DIANESSA",      setor:"GCAR"},
+            "dmara":        {perfil:"tecnico",        nomePlanilha:"DINA",          setor:"GEAA"},
+            "erafael":      {perfil:"tecnico",        nomePlanilha:"ELERI",         setor:"GCAR"},
+            "erocha":       {perfil:"revisor",        nomePlanilha:"ERLISSON",      setor:"GCAR"},
+            "emesquita":    {perfil:"tecnico",        nomePlanilha:"ETEVALDO",      setor:"GEAA"},
+            "fvasconcellos":{perfil:"tecnico",        nomePlanilha:"FABIANA",       setor:"GCAR"},
+            "fgortega":     {perfil:"tecnico",        nomePlanilha:"FRANCIELLY",    setor:"GCAR"},
+            "ggimenes":     {perfil:"administrativo", nomePlanilha:"GABRIELA",      setor:"GCAR"},
+            "hcrodrigues":  {perfil:"tecnico",        nomePlanilha:"HELEN CAROLINE",setor:"GCAR"},
+            "hgomes":       {perfil:"tecnico",        nomePlanilha:"HELLEN",        setor:"GEAA"},
+            "hconcone":     {perfil:"tecnico",        nomePlanilha:"HENRIQUE",      setor:"GEAA"},
+            "hbrufao":      {perfil:"tecnico",        nomePlanilha:"HERUS",         setor:"GEAA"},
+            "hsilva":       {perfil:"tecnico",        nomePlanilha:"HILBATY",       setor:"GCAR"},
+            "jpierre":      {perfil:"tecnico",        nomePlanilha:"JEAN PIERRE",   setor:"GEAA"},
+            "jcoene":       {perfil:"administrativo", nomePlanilha:"JHONATAN",      setor:"DIFLOR"},
+            "jhonatan":     {perfil:"administrativo", nomePlanilha:"JHONATAN",      setor:"DIFLOR"},
+            "jribeiro":     {perfil:"tecnico",        nomePlanilha:"JOELTHON",      setor:"GEAA"},
+            "jguimaraes":   {perfil:"tecnico",        nomePlanilha:"JONIEL",        setor:"GEAA"},
+            "jcampos":      {perfil:"revisor",        nomePlanilha:"JOSÉ RENATO",   setor:"GEAA"},
+            "lpires":       {perfil:"tecnico",        nomePlanilha:"LARISSA",       setor:"GCAR"},
+            "ldias":        {perfil:"administrativo", nomePlanilha:"LIVYA",         setor:"DIFLOR"},
+            "lricardo":     {perfil:"tecnico",        nomePlanilha:"LUCIANO",       setor:"GCAR"},
+            "lteixeira":    {perfil:"revisor",        nomePlanilha:"LUIZ",          setor:"GEAA"},
+            "mgarcia":      {perfil:"tecnico",        nomePlanilha:"MARIA",         setor:"GEAA"},
+            "mshinzato":    {perfil:"tecnico",        nomePlanilha:"MARIANA SH",    setor:"GEAA"},
+            "marianaopp":   {perfil:"tecnico",        nomePlanilha:"MARIANA OPP",   setor:"GEAA"},
+            "msander":      {perfil:"tecnico",        nomePlanilha:"MAX SANDER",    setor:"GEAA"},
+            "maguirre":     {perfil:"tecnico",        nomePlanilha:"MICHAEL",       setor:"GCAR"},
+            "mandressa":    {perfil:"tecnico",        nomePlanilha:"MILKA",         setor:"GCAR"},
+            "nmendonça":    {perfil:"administrativo", nomePlanilha:"NATTANA",       setor:"GCAR"},
+            "nmendonca":    {perfil:"administrativo", nomePlanilha:"NATTANA",       setor:"GCAR"},
+            "osantos":      {perfil:"administrativo", nomePlanilha:"OSVALDO",       setor:"DIFLOR"},
+            "rgarcia":      {perfil:"tecnico",        nomePlanilha:"RHOANDER",      setor:"GEAA"},
+            "rcosta":       {perfil:"tecnico",        nomePlanilha:"RODRIGO",       setor:"GEAA"},
+            "snagel":       {perfil:"tecnico",        nomePlanilha:"SUZIELLY",      setor:"GCAR"}
         };
 
         async function fazerLogin() {
@@ -183,52 +184,7 @@
                 }
             }
 
-            // 2. Fallback local para compatibilidade (suporta alterações feitas no painel Admin local)
-            const usersDbLocal = JSON.parse(localStorage.getItem('corino_users_admin_db') || '[]');
-            const localUser = usersDbLocal.find(u => u.username === user);
-            const senhaEsperada = localUser ? (localUser.senha || localUser.password) : (USUARIOS_CORINO[user]?.senha);
-
-            if (senhaEsperada && senhaEsperada === pass) {
-                const uInfo = localUser || USUARIOS_CORINO[user];
-                const perfil = uInfo.perfil || (uInfo.role === 'admin' ? 'administrativo' : (uInfo.role || 'user'));
-                const nomeP = USUARIOS_CORINO[user]?.nomePlanilha || uInfo.nome_completo || uInfo.nomePlanilha || user.toUpperCase();
-                const setor = USUARIOS_CORINO[user]?.setor || uInfo.setor || 'DIFLOR';
-                const role = uInfo.role || ((perfil === 'administrativo' || user === 'diflor') ? 'admin' : perfil);
-
-                if (localUser && localUser.setor !== setor) {
-                    localUser.setor = setor;
-                    try { localStorage.setItem('corino_users_admin_db', JSON.stringify(usersDbLocal)); } catch (e) {}
-                }
-
-                const dadosUsuario = {
-                    username: user,
-                    perfil: perfil,
-                    nomePlanilha: nomeP,
-                    nomeCompleto: uInfo.nome_completo || nomeP,
-                    setor: setor,
-                    role: role
-                };
-
-                // Registra log de auditoria no armazenamento local
-                registrarLogLoginLocal(user, 'SUCCESS', '', dadosUsuario.nomeCompleto, setor);
-
-                sessionStorage.setItem('corino_auth_token', 'local_token_' + Date.now());
-                sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
-                localStorage.setItem('corino_auth_token', 'local_token_' + Date.now());
-                window.location.href = 'index.html';
-                return;
-            }
-
-            // Se o usuário existe mas a senha errou no modo local
-            if (USUARIOS_CORINO[user] || localUser) {
-                registrarLogLoginLocal(user, 'FAILED', 'Senha incorreta');
-                errorMsg.innerText = "Palavra-passe incorreta.";
-                errorMsg.style.display = 'block';
-                restaurarBotaoLogin(btnLogin);
-                return;
-            }
-
-            // 3. Fallback remoto com a API do Google Apps Script
+            // 2. Fallback remoto com a API do Google Apps Script (senhas na propriedade USUARIOS_JSON)
             try {
                 const resposta = await fetchComTimeout(APPS_SCRIPT_URL, {
                     method: 'POST',
@@ -246,9 +202,14 @@
                         username: user,
                         perfil: resultado.perfil,
                         nomePlanilha: resultado.nomePlanilha,
+                        nomeCompleto: resultado.nomePlanilha,
                         setor: resultado.setor,
                         role: (resultado.perfil === 'administrativo' || user === 'diflor') ? 'admin' : resultado.perfil
                     };
+                    registrarLogLoginLocal(user, 'SUCCESS', '', dadosUsuario.nomeCompleto, dadosUsuario.setor);
+                    const tokenLocal = 'local_token_' + Date.now();
+                    sessionStorage.setItem('corino_auth_token', tokenLocal);
+                    localStorage.setItem('corino_auth_token', tokenLocal);
                     sessionStorage.setItem('corino_user', JSON.stringify(dadosUsuario));
                     window.location.href = 'index.html'; 
                 } else {
@@ -290,4 +251,4 @@
         });
     </script>
 </body>
-</html>
+</html>
