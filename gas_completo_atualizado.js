@@ -29,7 +29,7 @@ function getColunasCartas(cab) {
     if(h==="LINK DO NUP") c.linkNup=i;
     if(h==="LINK DA RESPOSTA") c.linkResp=i;
     if(h==="STATUS DA RESPOSTA") c.statusResp=i;
-    if(h==="MOTIVO DA AVALIAÇÃO"||h==="MOTIVO DA AVALIACAO") c.motivo=i;
+    if(h==="MOTIVO DA AVALIAÇÃO"||h==="MOTIVO DA AVALIACAO"||h==="MOTIVO DA RECUSA"||h==="MOTIVO DE RECUSA"||h==="MOTIVO_AVALIACAO") c.motivo=i;
     if(h==="LINK DA MANIFESTAÇÃO"||h==="LINK DA MANIFESTACAO"||h==="LINK_MANIFESTACAO") c.linkManifestacao=i;
     if(h==="LINK DA DECLARAÇÃO"||h==="LINK DA DECLARACAO"||h==="LINK_DECLARACAO") c.linkDeclaracao=i;
     if(h==="ATIVIDADE") c.atividade=i;
@@ -48,41 +48,16 @@ function doPost(e) {
     lock.waitLock(10000);
     var data = JSON.parse(e.postData.contents);
 
-    var USUARIOS = {
-      "diflor":       {senha:"gonçaloalves",perfil:"gerencia",         nomePlanilha:"DIRETORIA FLORESTAL",           setor:"DIFLOR"},
-      "geamb":        {senha:"usop1",        perfil:"gerencia_consulta",nomePlanilha:"GERÊNCIA DE ASSUNTOS AMBIENTAIS",setor:"GEAMB"},
-      "gcar":         {senha:"gcar1281",     perfil:"gerencia_gcar",    nomePlanilha:"GCAR",                          setor:"GCAR"},
-      "geaa":         {senha:"geaa2026",     perfil:"gerencia_geaa",    nomePlanilha:"GEAA",                          setor:"GEAA"},
-      
-      // Técnicos vinculados internamente aos seus setores
-      "jhonatan":     {senha:"dev1",         perfil:"tecnico",          nomePlanilha:"JHONATAN",     setor:"DIFLOR"},
-      "rcosta":       {senha:"mutumdev",     perfil:"tecnico",          nomePlanilha:"RODRIGO",      setor:"GEAA"},
-      "marianaopp":   {senha:"marianaopp",   perfil:"tecnico",          nomePlanilha:"MARIANA OPP",  setor:"GEAA"},
-      "erafael":      {senha:"epaulino",     perfil:"tecnico",          nomePlanilha:"ELERI",        setor:"GCAR"},
-      "mandressa":    {senha:"mbrito",       perfil:"tecnico",          nomePlanilha:"MILKA",        setor:"GCAR"},
-      "jribeiro":     {senha:"jferreira",    perfil:"tecnico",          nomePlanilha:"JOELTHON",     setor:"GEAA"},
-      "bcarneiro":    {senha:"boliveira",    perfil:"tecnico",          nomePlanilha:"BEATRIZ",      setor:"GEAA"},
-      "aoliveira":    {senha:"atavares",     perfil:"tecnico",          nomePlanilha:"ANDERSON",     setor:"GEAA"},
-      "hcrodrigues":  {senha:"hcorrea",      perfil:"tecnico",          nomePlanilha:"HELEN CAROLINE",setor:"GCAR"},
-      "mshinzato":    {senha:"muemura",      perfil:"tecnico",          nomePlanilha:"MARIANA SH",   setor:"GEAA"},
-      "lpires":       {senha:"lcarmo",       perfil:"tecnico",          nomePlanilha:"LARISSA",      setor:"GCAR"},
-      "adpaula":      {senha:"adivino",      perfil:"tecnico",          nomePlanilha:"ALEXANDRE",    setor:"GEAA"},
-      "mruginski":    {senha:"mmarochi",     perfil:"tecnico",          nomePlanilha:"MATEUS",       setor:"GEAA"},
-      "mgarcia":      {senha:"mcorona",      perfil:"tecnico",          nomePlanilha:"MARIA",        setor:"GEAA"},
-      "maguirre":     {senha:"mpereira",     perfil:"tecnico",          nomePlanilha:"MICHAEL",      setor:"GCAR"},
-      "fvasconcellos":{senha:"fananias",     perfil:"tecnico",          nomePlanilha:"FABIANA",      setor:"GCAR"},
-      "cfonseca":     {senha:"csilva",       perfil:"tecnico",          nomePlanilha:"CARLOS JULIANO",setor:"GCAR"},
-      "jcampos":      {senha:"jazedias",     perfil:"tecnico",          nomePlanilha:"JOSÉ RENATO",  setor:"GEAA"},
-      "cbarauna":     {senha:"coliveira",    perfil:"tecnico",          nomePlanilha:"CRISTIANE",    setor:"GCAR"},
-      "hsilva":       {senha:"hrodrigues",   perfil:"tecnico",          nomePlanilha:"HILBATY",      setor:"GCAR"},
-      "fgortega":     {senha:"fgama",        perfil:"tecnico",          nomePlanilha:"FRANCIELLY",   setor:"GCAR"},
-      "jpierre":      {senha:"jcosta",       perfil:"tecnico",          nomePlanilha:"JEAN PIERRE",  setor:"GEAA"},
-      "ccaroline":    {senha:"carlant",      perfil:"tecnico",          nomePlanilha:"CARLA",        setor:"GEAA"},
-      "snagel":       {senha:"ssilva",       perfil:"tecnico",          nomePlanilha:"SUZIELLY",     setor:"GCAR"},
-      "msander":      {senha:"mmacedo",      perfil:"tecnico",          nomePlanilha:"MAX SANDER",   setor:"GEAA"},
-      "emesquita":    {senha:"mesquita13",   perfil:"tecnico",          nomePlanilha:"ETEVALDO",     setor:"GEAA"},
-      "acanjos":      {senha:"101215",       perfil:"tecnico",          nomePlanilha:"ALLAN",        setor:"GEAA"}
-    };
+    // Os usuários do login ficam nas Propriedades do script, nunca neste arquivo
+    // (o repositório é público). No editor do Apps Script: Configurações do projeto >
+    // Propriedades do script > chave USUARIOS_JSON, com um valor no formato:
+    // {"usuario":{"senha":"...","perfil":"tecnico","nomePlanilha":"NOME","setor":"GCAR"}, ...}
+    var USUARIOS = {};
+    try {
+      USUARIOS = JSON.parse(PropertiesService.getScriptProperties().getProperty("USUARIOS_JSON") || "{}");
+    } catch (errUsuarios) {
+      USUARIOS = {};
+    }
 
     var sheetDb = SpreadsheetApp.getActiveSpreadsheet();
     var sheets  = sheetDb.getSheets();
@@ -361,14 +336,14 @@ function doPost(e) {
     if (data.acao === "cadastrar_carta") {
       var abaC=getAbaCartas(sheetDb,sheets);
       if(!abaC) return ContentService.createTextOutput(JSON.stringify({status:"error",message:"Aba de Cartas não encontrada."})).setMimeType(ContentService.MimeType.JSON);
-      var fc=data.base64,fn=data.fileName,linkDrive="";
-      if(fc){if(fc.indexOf(',')>-1)fc=fc.split(',')[1];
+      var fc=data.base64,fn=data.fileName,linkDrive=data.url_arquivo||data.linkGcs||"";
+      if(fc && typeof fc === 'string' && fc.trim().length > 0){if(fc.indexOf(',')>-1)fc=fc.split(',')[1];
         var folder=DriveApp.getFolderById("14DqSHchmIZfBJ5_Ew_Y0lbM2m7VEieZS"); // Pasta: Cartas Consulta (PDFs originais)
         var file=folder.createFile(Utilities.newBlob(Utilities.base64Decode(fc),"application/pdf",fn||data.nup+"_Carta.pdf"));
         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);linkDrive=file.getUrl();}
-      var linkShapefileUrl = "";
+      var linkShapefileUrl = data.url_shapefile||"";
       var fcs=data.base64Shape,fns=data.fileNameShape;
-      if(fcs){if(fcs.indexOf(',')>-1)fcs=fcs.split(',')[1];
+      if(fcs && typeof fcs === 'string' && fcs.trim().length > 0){if(fcs.indexOf(',')>-1)fcs=fcs.split(',')[1];
         var folderShape=DriveApp.getFolderById("14DqSHchmIZfBJ5_Ew_Y0lbM2m7VEieZS"); // Pasta: Cartas Consulta (Shapefiles/ZIPs)
         var fileShape=folderShape.createFile(Utilities.newBlob(Utilities.base64Decode(fcs),"application/zip",fns||data.nup+"_Shape.zip"));
         fileShape.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);linkShapefileUrl=fileShape.getUrl();}
@@ -451,11 +426,15 @@ function doPost(e) {
       var abaC=getAbaCartas(sheetDb,sheets);
       if(!abaC) return ContentService.createTextOutput(JSON.stringify({status:"error",message:"Aba de Cartas não encontrada."})).setMimeType(ContentService.MimeType.JSON);
       
-      var fc=data.base64; if(fc.indexOf(',')>-1) fc=fc.split(',')[1];
-      var folder=DriveApp.getFolderById("1-b6Z6E3gdLHWJsVuUfdPoIFslWxREJnq"); // Pasta: Respostas das Cartas
-      var file=folder.createFile(Utilities.newBlob(Utilities.base64Decode(fc),"application/pdf",data.fileName||"Resposta_Carta.pdf"));
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
-      var fileUrl=file.getUrl();
+      var fileUrl = data.url || data.linkGcs || "";
+      var fc = data.base64;
+      if (fc && typeof fc === 'string' && fc.trim().length > 0) {
+        if (fc.indexOf(',') > -1) fc = fc.split(',')[1];
+        var folder = DriveApp.getFolderById("1-b6Z6E3gdLHWJsVuUfdPoIFslWxREJnq"); // Pasta: Respostas das Cartas
+        var file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(fc), "application/pdf", data.fileName || "Resposta_Carta.pdf"));
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        fileUrl = file.getUrl();
+      }
       
       var vals=abaC.getDataRange().getValues(); var cols=getColunasCartas(vals[0]);
       if(cols.nup<0) return ContentService.createTextOutput(JSON.stringify({status:"error",message:"Coluna NUP não encontrada."})).setMimeType(ContentService.MimeType.JSON);
@@ -486,7 +465,17 @@ function doPost(e) {
             abaC.getRange(i+1, cols.linkResp+1).setValue(fileUrl);
           }
           
-          if(cols.status>=0) abaC.getRange(i+1,cols.status+1).setValue("REVISÃO");
+          // Verifica se ambos os documentos estão anexados para avançar para REVISÃO
+          var valM = (tipo === "manifestacao") ? fileUrl : (colManifestacao >= 0 ? String(vals[i][colManifestacao]).trim() : "");
+          var valD = (tipo === "declaracao") ? fileUrl : (colDeclaracao >= 0 ? String(vals[i][colDeclaracao]).trim() : "");
+          var temM = valM && valM.length > 5 && valM !== "-";
+          var temD = valD && valD.length > 5 && valD !== "-";
+
+          if (temM && temD) {
+            if(cols.status>=0) abaC.getRange(i+1,cols.status+1).setValue("REVISÃO");
+          } else {
+            if(cols.status>=0) abaC.getRange(i+1,cols.status+1).setValue("AGUARDANDO MANIFESTAÇÃO TÉCNICA");
+          }
           if(cols.statusResp>=0) abaC.getRange(i+1,cols.statusResp+1).setValue("");
           if(cols.motivo>=0) abaC.getRange(i+1,cols.motivo+1).setValue("");
           encontrado = true;
@@ -526,14 +515,14 @@ function doPost(e) {
             abaC.getRange(i+1, cols.linkResp+1).setValue("");
           }
           
-          // Verifica se ambos os documentos estão agora em branco
+          // Verifica se falta algum dos documentos (Manifestação ou Declaração)
           var valM = (tipo === "manifestacao") ? "" : String(vals[i][colManifestacao]).trim();
           var valD = (tipo === "declaracao") ? "" : String(vals[i][colDeclaracao]).trim();
           
-          var temM = valM && valM.startsWith("http");
-          var temD = valD && valD.startsWith("http");
+          var temM = valM && valM.length > 5 && valM !== "-";
+          var temD = valD && valD.length > 5 && valD !== "-";
           
-          if (!temM && !temD) {
+          if (!temM || !temD) {
             if(cols.status>=0) abaC.getRange(i+1,cols.status+1).setValue("AGUARDANDO MANIFESTAÇÃO TÉCNICA");
             if(cols.statusResp>=0) abaC.getRange(i+1,cols.statusResp+1).setValue("");
             if(cols.motivo>=0) abaC.getRange(i+1,cols.motivo+1).setValue("");
