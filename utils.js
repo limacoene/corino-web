@@ -302,7 +302,7 @@ async function executarAcaoGAS(payload) {
     // 2. Fallback direto para Google Apps Script com retentativas para bloqueios temporários
     const appsScriptUrl = (typeof APPS_SCRIPT_URL !== 'undefined') 
         ? APPS_SCRIPT_URL 
-        : 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
+        : 'https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec';
 
     const maxTentativas = 3;
     let ultimoErro = null;

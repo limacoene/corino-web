@@ -744,7 +744,7 @@ async function salvarNovoExterno() {
     btn.innerHTML = textoOriginal; btn.disabled = false;
 
     try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
             method: 'POST', body: JSON.stringify(payload)
         });
         const resultado = await resposta.json();
@@ -1131,7 +1131,7 @@ function anexarDocumentoExt(event, nup) {
                 tipo_oficio: "externo", 
                 username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' 
             };
-            const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
+            const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
@@ -1202,7 +1202,7 @@ function anexarPdfOriginalExt(event, nup) {
                 linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
-            const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
+            const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
@@ -1237,7 +1237,7 @@ async function removerDocumentoExt(event, nup) {
 
     try {
         const payload = { acao: "remover_resposta", nup: nup, username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || '' };
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', { method: 'POST', body: JSON.stringify(payload) });
         const resultado = await resposta.json();
 
         if (resultado.status === 'success') {
@@ -1268,7 +1268,7 @@ async function avaliarRespostaExt(event, nup, decisao) {
 
     try {
         const payload = { acao: "avaliar_resposta", nup: nup, decisao: decisao, motivo: result.motivo };
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', { method: 'POST', body: JSON.stringify(payload) });
         const resultado = await resposta.json();
 
         if (resultado.status === 'success') {

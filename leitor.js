@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec';
 
 function limparEPadronizarLinha(linha) {
     const chaves = Object.keys(linha);

@@ -2038,7 +2038,7 @@ function anexarDocumento(event, nup) {
                 username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
             };
 
-            const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+            const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
@@ -2127,7 +2127,7 @@ function anexarPdfOriginalOficio(event, nup) {
                 linkGcs: gcsUri,
                 username: usuarioAtivo.username || ''
             };
-            const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', { method: 'POST', body: JSON.stringify(payload) });
+            const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', { method: 'POST', body: JSON.stringify(payload) });
             const resultado = await resposta.json();
 
             if (resultado.status === 'success') {
@@ -2181,7 +2181,7 @@ window.registrarMovimentacaoHistorico = async function(nup, acao, detalhe = '', 
             extra: extra || autor,
             username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
         };
-        fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
             method: 'POST',
             body: JSON.stringify(payload)
         }).catch(err => console.warn('Erro assíncrono ao registrar histórico:', err));
@@ -2732,7 +2732,7 @@ async function removerDocumento(event, nup) {
             username: usuarioAtivo.nomePlanilha || usuarioAtivo.username || ''
         };
 
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
             method: 'POST',
             body: JSON.stringify(payload)
         });
@@ -2810,7 +2810,7 @@ async function avaliarResposta(event, nup, decisao) {
     try {
         const payload = { acao: "avaliar_resposta", nup: nup, decisao: decisao, motivo: result.motivo };
 
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
             method: 'POST',
             body: JSON.stringify(payload)
         });
@@ -4344,7 +4344,7 @@ async function salvarNovoOficio() {
     btn.style.opacity = '1';
 
     try {
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
             method: 'POST',
             body: JSON.stringify(payload)
         });
@@ -4606,7 +4606,7 @@ async function salvarReiteracaoOficio() {
             username: usuarioAtivo ? usuarioAtivo.username : 'sistema'
         };
 
-        const resposta = await fetch('https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec', {
+        const resposta = await fetch('https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec', {
             method: 'POST',
             body: JSON.stringify(payload)
         });

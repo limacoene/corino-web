@@ -109,7 +109,7 @@ function normalizarCaminhoGCS(caminho) {
 }
 
 const https = require('https');
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz5hhx7nkslps7RiAtIiuxO76xvKefMhIFe8iy1zZXgS229Nbxbct9P1shpLs0Xekgt/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzXnU0kx2NhvcWcyfQLTK8GzCBZuTERGulfsNUrvPHmR-q6DfMSzXZ1MulLhOHSZE7Amw/exec';
 global.gasCache = {};
 let gasQueue = Promise.resolve();
 
