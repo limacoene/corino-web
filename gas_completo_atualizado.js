@@ -145,8 +145,16 @@ function registrarTramitacao(nup, acao, detalhe, setor, tecnico, operador, obs) 
 function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
     var data = JSON.parse(e.postData.contents);
+
+    // Só as ações que GRAVAM na planilha precisam do bloqueio. Login e buscas
+    // apenas leem: se esperassem na fila, o login ficava preso atrás das buscas
+    // pesadas que o site dispara ao abrir (dados, autos, externos, cartas, histórico).
+    var acaoSomenteLeitura = data.acao === "login" || data.acao === "download_drive_file" ||
+                             String(data.acao || "").indexOf("buscar_") === 0;
+    if (!acaoSomenteLeitura) {
+      lock.waitLock(30000);
+    }
 
     // Os usuários do login ficam nas Propriedades do script, nunca neste arquivo
     // (o repositório é público). No editor do Apps Script: Configurações do projeto >
@@ -1109,6 +1117,6 @@ function doPost(e) {
   } catch(error) {
     return ContentService.createTextOutput(JSON.stringify({status:"error",message:error.toString()})).setMimeType(ContentService.MimeType.JSON);
   } finally {
-    lock.releaseLock();
+    if (lock.hasLock()) lock.releaseLock();
   }
 }
