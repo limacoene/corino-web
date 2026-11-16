@@ -1366,6 +1366,8 @@ function aplicarFiltros() {
                 && (tecs.length === 0 || tecs.includes('todos') || tecs.includes(r['TÉCNICO/ADMIN']));
         });
 
+        filtrados = window.ordenarPorDataManifestacao(filtrados);
+
         const alertaRespondidosEl = document.getElementById('alerta-respondidos');
         if (alertaRespondidosEl) {
             alertaRespondidosEl.innerText = `📁 Há ${filtrados.length} processos nesta aba.`;
@@ -2198,11 +2200,78 @@ async function carregarHistoricoGlobalBackground() {
         if (resultado.status === 'success') {
             window.cacheHistoricoGlobal = resultado.dados || [];
             console.log(`Cache de Histórico Global carregado em background: ${window.cacheHistoricoGlobal.length} registros.`);
+            atualizarIndiceDataManifestacao(window.cacheHistoricoGlobal);
         }
     } catch (e) {
         console.error("Erro ao pré-carregar histórico em background:", e);
     } finally {
         window.historicoCarregando = false;
+    }
+}
+
+// ============================================================================
+// ORDEM DOS PROCESSOS EM REVISÃO: pela data de inserção da manifestação técnica
+// ============================================================================
+// A data vem do HISTORICO_TRAMITACAO (eventos "UPLOAD DE RESPOSTA..." e
+// "ANEXAR MANIFESTACAO (CARTA)"). Vale o envio mais recente de cada NUP, que é a
+// manifestação atual. O índice só é trocado quando um histórico novo chega, para
+// a lista não "pular" enquanto o histórico recarrega.
+window.indiceDataManifestacao = new Map();
+
+function normalizarNupOrdenacao(nup) {
+    return String(nup || '').trim().toUpperCase().replace(/\.PDF$/i, '');
+}
+
+// Aceita "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy, HH:mm:ss" e "yyyy-MM-dd HH:mm:ss".
+function converterDataHoraHistorico(txt) {
+    const s = String(txt || '').trim();
+    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\D+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+    m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)).getTime();
+    return NaN;
+}
+
+function atualizarIndiceDataManifestacao(eventos) {
+    const indice = new Map();
+    (eventos || []).forEach(ev => {
+        const acao = String(ev.acao || '').toUpperCase();
+        if (!/^UPLOAD DE RESPOSTA/.test(acao) && !/^ANEXAR MANIFESTA/.test(acao)) return;
+        const t = converterDataHoraHistorico(ev.data);
+        if (isNaN(t)) return;
+        const chave = normalizarNupOrdenacao(ev.nup);
+        if (!indice.has(chave) || indice.get(chave) < t) indice.set(chave, t);
+    });
+    window.indiceDataManifestacao = indice;
+    reaplicarOrdenacaoRevisao();
+}
+
+// Ordena do envio mais antigo (topo) para o mais recente (fim). Processos sem
+// registro no histórico (manifestações anteriores ao histórico) ficam no topo,
+// na ordem da planilha. Não altera a lista original.
+window.ordenarPorDataManifestacao = function(lista, obterNup) {
+    const pegarNup = obterNup || (r => r['NUP']);
+    return lista
+        .map((item, pos) => {
+            const t = window.indiceDataManifestacao.get(normalizarNupOrdenacao(pegarNup(item)));
+            return { item, pos, t: (t === undefined ? -Infinity : t) };
+        })
+        .sort((a, b) => (a.t - b.t) || (a.pos - b.pos))
+        .map(x => x.item);
+};
+
+// Redesenha as listas de revisão abertas quando o histórico (e as datas) chegam.
+function reaplicarOrdenacaoRevisao() {
+    const tentar = fn => { try { fn(); } catch (e) { console.warn('Falha ao reordenar revisão:', e); } };
+    if (typeof filtrarDashboardInicio === 'function' && document.getElementById('tabela-inicio-body')) tentar(filtrarDashboardInicio);
+    if (typeof filtroAtivo !== 'undefined') {
+        if (filtroAtivo === 'respondidos' && typeof aplicarFiltros === 'function') tentar(aplicarFiltros);
+        if (filtroAtivo === 'cartas-revisao' && typeof aplicarFiltrosCartas === 'function') tentar(aplicarFiltrosCartas);
+    }
+    if (typeof subAbaAtiva !== 'undefined' && subAbaAtiva === 'Aguardando Revisão' && typeof filtrarExternos === 'function') tentar(filtrarExternos);
+    if (typeof filtrarAutos === 'function' && typeof lerValoresMultiplosNativos === 'function') {
+        const st = lerValoresMultiplosNativos('autoStatus');
+        if (st.length === 1 && String(st[0]).toUpperCase() === 'REVISÃO') tentar(filtrarAutos);
     }
 }
 
@@ -5411,8 +5480,12 @@ function filtrarDashboardInicio() {
         return true;
     });
 
+    // Só processos em revisão (card AGUARD. REVISÃO sozinho ou status REVISÃO): ordena pela data da manifestação
+    const soRevisao = (filtrosKpiInicioAtivos.size === 1 && filtrosKpiInicioAtivos.has('revisao')) || statusVal === 'REVISÃO';
+    const listaExibida = soRevisao ? window.ordenarPorDataManifestacao(filtrados, p => p.nup) : filtrados;
+
     // Renderiza a Tabela Unificada
-    renderTabelaInicio(filtrados);
+    renderTabelaInicio(listaExibida);
 
     // Recalcula e Atualiza o Gráfico de Técnicos com o subconjunto filtrado
     const contagemPorTecnico = {};

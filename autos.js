@@ -917,7 +917,8 @@ function filtrarAutos() {
             && (tecnicoMulti.length === 0 || tecnicoMulti.includes('todos') || tecnicoMulti.includes(r['TÉCNICO']))
             && (statusMulti.length === 0 || statusMulti.includes('todos') || statusMulti.includes(r['STATUS ATUAL']));
     });
-    renderTabelaAutos(filtrados);
+    const soRevisao = statusMulti.length === 1 && String(statusMulti[0]).toUpperCase() === 'REVISÃO';
+    renderTabelaAutos(soRevisao ? window.ordenarPorDataManifestacao(filtrados) : filtrados);
 }
 
 async function carregarAutos() {

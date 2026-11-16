@@ -198,16 +198,14 @@ function doPost(e) {
 
     // ── UPLOAD DE RESPOSTA (Ofícios/Externos) ─────────────
     if (data.acao === "upload") {
-      var fc=data.base64,fn=data.fileName,nupB=data.nup;
-      if(fc.indexOf(',')>-1) fc=fc.split(',')[1];
+      var fn=data.fileName,nupB=data.nup;
       var pastaId="1c-K2Rlm55yWngXvAGBnhLLpbMSPPKqMU";
       if (data.tipo_oficio === "externo" || data.tipo_oficio === "auto") {
         pastaId = "1aj7ZO5Va91f8725h_S5vKo7OUqazET7d";
       }
-      var folder=DriveApp.getFolderById(pastaId);
-      var file=folder.createFile(Utilities.newBlob(Utilities.base64Decode(fc),"application/pdf",fn));
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
-      var fileUrl=file.getUrl();
+      // Arquivo já enviado ao GCS pelo site (url/linkGcs) ou PDF em base64 para o Drive
+      var fileUrl = linkSeguro(data.url || data.linkGcs) || salvarPdfDrive(pastaId, data.base64, fn);
+      if (!fileUrl) return respostaJson({status:"error",message:"Nenhum arquivo recebido."});
       
       var abasFiltradas = [];
       if (data.tipo_oficio === "externo") {
@@ -487,11 +485,9 @@ function doPost(e) {
     if (data.acao === "upload_resposta_carta") {
       var abaC=getAbaCartas(sheetDb,sheets);
       if(!abaC) return ContentService.createTextOutput(JSON.stringify({status:"error",message:"Aba de Cartas não encontrada."})).setMimeType(ContentService.MimeType.JSON);
-      var fc=data.base64;if(fc.indexOf(',')>-1)fc=fc.split(',')[1];
-      var folder=DriveApp.getFolderById("1-b6Z6E3gdLHWJsVuUfdPoIFslWxREJnq"); // Pasta: Respostas das Cartas
-      var file=folder.createFile(Utilities.newBlob(Utilities.base64Decode(fc),"application/pdf",data.fileName||"Resposta_Carta.pdf"));
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
-      var fileUrl=file.getUrl();
+      var fileUrl = linkSeguro(data.url || data.linkGcs) ||
+        salvarPdfDrive("1-b6Z6E3gdLHWJsVuUfdPoIFslWxREJnq", data.base64, data.fileName || "Resposta_Carta.pdf"); // Pasta: Respostas das Cartas
+      if (!fileUrl) return respostaJson({status:"error",message:"Nenhum arquivo recebido."});
       var vals=abaC.getDataRange().getValues();var cols=getColunasCartas(vals[0]);
       if(cols.nup<0||cols.linkResp<0) return ContentService.createTextOutput(JSON.stringify({status:"error",message:"Colunas não encontradas."})).setMimeType(ContentService.MimeType.JSON);
       for(var i=1;i<vals.length;i++){

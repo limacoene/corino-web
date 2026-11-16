@@ -1328,6 +1328,11 @@ function aplicarFiltrosCartas() {
         });
     }
 
+    if (filtroAtivo === 'cartas-revisao') {
+        renderTabelaCartas(window.ordenarPorDataManifestacao(filtrados));
+        return;
+    }
+
     renderTabelaCartas(filtrados);
 }
 

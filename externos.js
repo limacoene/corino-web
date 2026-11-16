@@ -590,7 +590,7 @@ function filtrarExternos() {
 
         return false;
     });
-    renderTabelaExternos(filtrados);
+    renderTabelaExternos(subAbaAtiva === 'Aguardando Revisão' ? window.ordenarPorDataManifestacao(filtrados) : filtrados);
     if (typeof atualizarBadgesNotificacao === 'function') {
         atualizarBadgesNotificacao(dadosCoringa);
     }
